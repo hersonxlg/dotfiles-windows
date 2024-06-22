@@ -1,0 +1,3 @@
+
+pwd | set-clipboard
+
