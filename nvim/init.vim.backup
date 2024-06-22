@@ -1,0 +1,7 @@
+set number
+set clipboard+=unnamedplus
+
+imap kj <Esc>
+nmap zv <c-v>
+
+tmap kj <c-\><c-n>

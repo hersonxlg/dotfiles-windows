@@ -1,0 +1,11 @@
+
+### For C:
+
+gcc -xc -E -v -
+
+
+
+
+### For C++:
+
+gcc -xc++ -E -v -
