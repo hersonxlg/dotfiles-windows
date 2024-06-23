@@ -215,4 +215,3 @@ $versions=@(cmd /c dir /O-N /b %USERPROFILE%\Documents\PowerShell\Modules\$modul
 return $versions[0];
 }
 
-import-module ~\Documents\PowerShell\Modules\google_search\$(getLatestVerison -module_name "google_search")\google_search.psm1

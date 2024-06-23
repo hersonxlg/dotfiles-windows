@@ -82,10 +82,7 @@ Set-PSReadLineKeyHandler -Key 'Ctrl+j' -ViMode Insert -Function HistorySearchFor
 ##}
 
 
-Set-PSReadLineKeyHandler -key "Ctrl+;" -ViMode command `
-                         -BriefDescription AtajaDePruebas`
-                         -LongDescription "Agrega un punto despues del cursor." `
-                         -ScriptBlock {
+Set-PSReadLineKeyHandler -key "Ctrl+;"  -ViMode command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock { 
     param($key, $arg)
 
     [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition(0)
@@ -101,10 +98,7 @@ Set-PSReadLineKeyHandler -key "Ctrl+;" -ViMode command `
 # ----------------------------------------------------------------------------
 # 
 
-Set-PSReadLineKeyHandler -key "Ctrl+l" -ViMode command `
-                         -BriefDescription LimpiarLaLineaDeComandos `
-                         -LongDescription "Limapia todo texto que contengo la linea de comandos" `
-                         -ScriptBlock {
+Set-PSReadLineKeyHandler -key "Ctrl+l" -ViMode command -BriefDescription LimpiarLaLineaDeComandos -LongDescription "Limapia todo texto que contengo la linea de comandos" -ScriptBlock {
     param($key, $arg)
 
     [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition(0)
@@ -236,9 +230,9 @@ Set-PSReadLineOption -AddToHistoryHandler $ScriptBlock
 # ***************************************************************************************
 #
 Set-PSReadLineKeyHandler -Chord '"',"'" `
-                         -BriefDescription SmartInsertQuote `
-                         -LongDescription "Insert paired quotes if not already on a quote" `
-                         -ScriptBlock {
+-BriefDescription SmartInsertQuote `
+-LongDescription "Insert paired quotes if not already on a quote" `
+-ScriptBlock {
     param($key, $arg)
 
     $line = $null
@@ -268,9 +262,9 @@ Set-PSReadLineKeyHandler -Chord '"',"'" `
 #
 
 Set-PSReadLineKeyHandler -Chord "/" `
-                         -BriefDescription SmartInsertQuote `
-                         -LongDescription "Insert paired quotes if not already on a quote" `
-                         -ScriptBlock {
+-BriefDescription SmartInsertQuote `
+-LongDescription "Insert paired quotes if not already on a quote" `
+-ScriptBlock {
     param($key, $arg)
 
     $line = $null
@@ -514,9 +508,10 @@ Set-PSReadLineOption -PredictionSource History
 # but you need parens to do that.  This binding will help by putting parens around the current selection,
 # or if nothing is selected, the whole line.
 Set-PSReadLineKeyHandler -Key 'Alt+(' `
-                         -BriefDescription ParenthesizeSelection `
-                         -LongDescription "Put parenthesis around the selection or entire line and move the cursor to after the closing parenthesis" `
-                         -ScriptBlock {
+-BriefDescription ParenthesizeSelection `
+-LongDescription "Put parenthesis around the selection or entire line and move the cursor to after the closing parenthesis" `
+-ScriptBlock {
+
     param($key, $arg)
 
     $selectionStart = $null
@@ -673,10 +668,8 @@ Set-PSReadLineKeyHandler -Key ' ,P' -ViMode Command -ScriptBlock {
 # ****************************************************************************
 #
 
-Set-PSReadLineKeyHandler -key "/"  -ViMode Command `
-                         -BriefDescription AtajaDePruebas`
-                         -LongDescription "Agrega un punto despues del cursor." `
-                         -ScriptBlock {
+Set-PSReadLineKeyHandler -key "/"  -ViMode Command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
+
     param($key, $arg)
 
     $line = $null
@@ -700,10 +693,7 @@ Set-PSReadLineKeyHandler -key "/"  -ViMode Command `
 # ****************************************************************************
 #
 
-Set-PSReadLineKeyHandler -key "Shift+Tab" -ViMode Insert `
-                         -BriefDescription AtajaDePruebas`
-                         -LongDescription "Agrega un punto despues del cursor." `
-                         -ScriptBlock {
+Set-PSReadLineKeyHandler -key "Shift+Tab" -ViMode Insert -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
     param($key, $arg)
 
     $line = $null
@@ -728,10 +718,8 @@ Set-PSReadLineKeyHandler -key "Shift+Tab" -ViMode Insert `
 
 $global:VisualMode= $false
 
-Set-PSReadLineKeyHandler -key "v" -ViMode Command `
-                         -BriefDescription AtajaDePruebas`
-                         -LongDescription "Agrega un punto despues del cursor." `
-                         -ScriptBlock {
+Set-PSReadLineKeyHandler -key "v" -ViMode Command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
+
     param($key, $arg)
 
     $line = $null
@@ -776,10 +764,8 @@ Set-PSReadLineKeyHandler -key "v" -ViMode Command `
 }
 
 
-Set-PSReadLineKeyHandler -key "l" -ViMode Command `
-                         -BriefDescription AtajaDePruebas`
-                         -LongDescription "Agrega un punto despues del cursor." `
-                         -ScriptBlock {
+Set-PSReadLineKeyHandler -key "l" -ViMode Command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
+
     param($key, $arg)
 
     $line = $null
@@ -801,10 +787,7 @@ Set-PSReadLineKeyHandler -key "l" -ViMode Command `
 }
 
 
-Set-PSReadLineKeyHandler -key "h" -ViMode Command `
-                         -BriefDescription AtajaDePruebas`
-                         -LongDescription "Agrega un punto despues del cursor." `
-                         -ScriptBlock {
+Set-PSReadLineKeyHandler -key "h" -ViMode Command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
     param($key, $arg)
 
     $line = $null
@@ -822,10 +805,7 @@ Set-PSReadLineKeyHandler -key "h" -ViMode Command `
 
 
 
-Set-PSReadLineKeyHandler -key "X" -ViMode Command `
-                         -BriefDescription AtajaDePruebas`
-                         -LongDescription "Agrega un punto despues del cursor." `
-                         -ScriptBlock {
+Set-PSReadLineKeyHandler -key "X" -ViMode Command  -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
     param($key, $arg)
 
     $line = $null
@@ -845,10 +825,8 @@ Set-PSReadLineKeyHandler -key "X" -ViMode Command `
 }
 
 
-Set-PSReadLineKeyHandler -key "Ctrl+o" -ViMode Command `
-                         -BriefDescription AtajaDePruebas`
-                         -LongDescription "Agrega un punto despues del cursor." `
-                         -ScriptBlock {
+Set-PSReadLineKeyHandler -key "Ctrl+o" -ViMode Command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
+
     param($key, $arg)
 
     $line = $null
