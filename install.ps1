@@ -6,7 +6,7 @@
 
 
 if ($Host.Version.Major -eq 7){
-    start powershell -ArgumentList ({sleep 2 ; .\a.ps1 })
+    start powershell -ArgumentList ({sleep 2 ; .\install.ps1 })
     [System.Environment]::Exit(0)
 }else{
 
