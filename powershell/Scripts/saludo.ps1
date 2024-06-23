@@ -1,0 +1,3 @@
+
+write-output "hola mundo"
+
