@@ -6,7 +6,9 @@
 
 
 if ($Host.Version.Major -eq 7){
-    start -verb runas powershell -ArgumentList ({sleep 2 ; .\install.ps1 })
+    #start powershell -ArgumentList ({sleep 2 ; .\install.ps1 })
+    $comandos = "cd ${pwd}; sleep 2 ; .\install.ps1; [System.Environment]::Exit(0)"
+    start -verb runas -FilePath powershell -ArgumentList '-noprofile','-noexit','-nologo',"-command ${comandos} "
     [System.Environment]::Exit(0)
 }else{
 
@@ -15,7 +17,10 @@ if ($Host.Version.Major -eq 7){
     if ($exis_command -eq $null){
         Write-Warning "El programa `"Powershell7`" no esta instalado todavía."
     }else{
-        Write-Output "El programa `"Powershell7`" esta instalado."
+        Write-Output "*****************************************************"
+        Write-Output "*   El programa `"Powershell7`" esta instalado.     *"
+        Write-Output "*****************************************************"
+        Write-Output "`n`n"
         sleep 2
         # "pwsh.exe" (POWERSHELL 7) está instalado en este sistema.
         $documents_dir = ($PROFILE -replace '\\[^\\]+\\[^\\]+$','')
@@ -26,11 +31,12 @@ if ($Host.Version.Major -eq 7){
                 # El directorio $powershell_dir NO es un enlace simbolico.
                 Write-Output "Se creara el enlace simbolico."
                 sleep 2
-                if( -not (Test-Path "${powershell_dir}.backout") ){
-                    Rename-Item $powershell_dir "${powershell_dir}.backout"
+                if( -not (Test-Path "${powershell_dir}.backup") ){
+                    Rename-Item $powershell_dir "${powershell_dir}.backup"
                 }
                 #New-Item -ItemType SymbolicLink -Path "${documents_dir}" -name "powershell" -Target ".\\powershell"
-                $comando = "cd $(pwd) ;New-Item -ItemType SymbolicLink -Path '${documents_dir}' -name 'powershell' -Target '.\\powershell'"
+                $comando = "cd $(pwd) ;New-Item -ItemType SymbolicLink -Path '${documents_dir}' -name 'powershell' -Target 'powershell'"
+                $comando = "${comando}; [System.Environment]::Exit(0)"
                 Write-Output "${comando}"
                 Write-Output "`n`n"
                 Write-Output "*****************************************************"
@@ -53,7 +59,8 @@ if ($Host.Version.Major -eq 7){
             }
         }else{
             # El directorio $powershell_dir NO EXISTE.
-                $comando = "cd $(pwd) ;New-Item -ItemType SymbolicLink -Path '${documents_dir}' -name 'powershell' -Target '.\\powershell'"
+                $comando = "cd $(pwd) ;New-Item -ItemType SymbolicLink -Path '${documents_dir}' -name 'powershell' -Target 'powershell'"
+                $comando = "${comando}; [System.Environment]::Exit(0)"
             start -verb runas -FilePath powershell -ArgumentList '-noprofile','-noexit','-nologo',"-command ${comando}"
         }
     }
