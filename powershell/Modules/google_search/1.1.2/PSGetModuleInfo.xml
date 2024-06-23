@@ -1,0 +1,152 @@
+<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04">
+  <Obj RefId="0">
+    <TN RefId="0">
+      <T>Microsoft.PowerShell.Commands.PSRepositoryItemInfo</T>
+      <T>System.Management.Automation.PSCustomObject</T>
+      <T>System.Object</T>
+    </TN>
+    <MS>
+      <S N="Name">google_search</S>
+      <Version N="Version">1.1.2</Version>
+      <S N="Type">Module</S>
+      <S N="Description">Script module to use search engine and Open urls from powershell. Supports msedge, chrome, firefox and brave browsers.</S>
+      <S N="Author">Eric Mutua</S>
+      <S N="CompanyName">eric_tush</S>
+      <S N="Copyright">(c) ERIC. All rights reserved.</S>
+      <DT N="PublishedDate">2020-11-24T16:46:57-06:00</DT>
+      <Obj N="InstalledDate" RefId="1">
+        <DT>2024-06-18T12:39:36.1868077-06:00</DT>
+        <MS>
+          <Obj N="DisplayHint" RefId="2">
+            <TN RefId="1">
+              <T>Microsoft.PowerShell.Commands.DisplayHintType</T>
+              <T>System.Enum</T>
+              <T>System.ValueType</T>
+              <T>System.Object</T>
+            </TN>
+            <ToString>DateTime</ToString>
+            <I32>2</I32>
+          </Obj>
+        </MS>
+      </Obj>
+      <Nil N="UpdatedDate" />
+      <Nil N="LicenseUri" />
+      <URI N="ProjectUri">https://github.com/ertush/google_search.git</URI>
+      <Nil N="IconUri" />
+      <Obj N="Tags" RefId="3">
+        <TN RefId="2">
+          <T>System.Object[]</T>
+          <T>System.Array</T>
+          <T>System.Object</T>
+        </TN>
+        <LST>
+          <S>powershell</S>
+          <S>searchquery</S>
+          <S>msedge</S>
+          <S>chrome</S>
+          <S>firefox</S>
+          <S>dudckduckgo</S>
+          <S>google</S>
+          <S>brave</S>
+          <S>browser</S>
+          <S>PSModule</S>
+        </LST>
+      </Obj>
+      <Obj N="Includes" RefId="4">
+        <TN RefId="3">
+          <T>System.Collections.Hashtable</T>
+          <T>System.Object</T>
+        </TN>
+        <DCT>
+          <En>
+            <S N="Key">Cmdlet</S>
+            <Obj N="Value" RefId="5">
+              <TNRef RefId="2" />
+              <LST />
+            </Obj>
+          </En>
+          <En>
+            <S N="Key">DscResource</S>
+            <Ref N="Value" RefId="5" />
+          </En>
+          <En>
+            <S N="Key">Workflow</S>
+            <Ref N="Value" RefId="5" />
+          </En>
+          <En>
+            <S N="Key">Command</S>
+            <Obj N="Value" RefId="6">
+              <TNRef RefId="2" />
+              <LST>
+                <S>Search-Google</S>
+                <S>Open-Site</S>
+                <S>Search-Youtube</S>
+                <S>Search-DuckDuckGo</S>
+                <S>Search-Bing</S>
+              </LST>
+            </Obj>
+          </En>
+          <En>
+            <S N="Key">Function</S>
+            <Obj N="Value" RefId="7">
+              <TNRef RefId="2" />
+              <LST>
+                <S>Search-Google</S>
+                <S>Open-Site</S>
+                <S>Search-Youtube</S>
+                <S>Search-DuckDuckGo</S>
+                <S>Search-Bing</S>
+              </LST>
+            </Obj>
+          </En>
+          <En>
+            <S N="Key">RoleCapability</S>
+            <Ref N="Value" RefId="5" />
+          </En>
+        </DCT>
+      </Obj>
+      <Nil N="PowerShellGetFormatVersion" />
+      <Nil N="ReleaseNotes" />
+      <Obj N="Dependencies" RefId="8">
+        <TNRef RefId="2" />
+        <LST />
+      </Obj>
+      <S N="RepositorySourceLocation">https://www.powershellgallery.com/api/v2</S>
+      <S N="Repository">PSGallery</S>
+      <S N="PackageManagementProvider">NuGet</S>
+      <Obj N="AdditionalMetadata" RefId="9">
+        <TN RefId="4">
+          <T>System.Management.Automation.PSCustomObject</T>
+          <T>System.Object</T>
+        </TN>
+        <MS>
+          <S N="copyright">(c) ERIC. All rights reserved.</S>
+          <S N="description">Script module to use search engine and Open urls from powershell. Supports msedge, chrome, firefox and brave browsers.</S>
+          <S N="requireLicenseAcceptance">False</S>
+          <S N="isLatestVersion">True</S>
+          <S N="isAbsoluteLatestVersion">True</S>
+          <S N="versionDownloadCount">615</S>
+          <S N="downloadCount">2477</S>
+          <S N="packageSize">10156</S>
+          <S N="published">24/11/2020 16:46:57 -06:00</S>
+          <S N="created">24/11/2020 16:46:57 -06:00</S>
+          <S N="lastUpdated">15/6/2024 21:05:57 -06:00</S>
+          <S N="tags">powershell searchquery msedge chrome firefox dudckduckgo google brave browser PSModule</S>
+          <S N="developmentDependency">False</S>
+          <S N="updated">2024-06-15T21:05:57Z</S>
+          <S N="NormalizedVersion">1.1.2</S>
+          <S N="Authors">Eric Mutua</S>
+          <S N="IsPrerelease">false</S>
+          <S N="ItemType">Module</S>
+          <S N="FileList">google_search.nuspec|google_search.psm1|google_search.psd1|google_search.Tests.ps1|test\search-google.Tests.ps1|test\search-duckduckgo.Tests.ps1|test\search-youtube.Tests.ps1|test\search-bing.Tests.ps1|test\open-site.Tests.ps1</S>
+          <S N="Functions">Search-Google Open-Site Search-Youtube Search-DuckDuckGo Search-Bing</S>
+          <S N="GUID">34c6a0bf-9414-4d7e-8154-9a89c3beb085</S>
+          <S N="PowerShellHostVersion">5.1</S>
+          <S N="ProcessorArchitecture">Amd64</S>
+          <S N="CompanyName">Techcloud ltd</S>
+        </MS>
+      </Obj>
+      <S N="InstalledLocation">C:\Users\herson\Documents\PowerShell\Modules\google_search\1.1.2</S>
+    </MS>
+  </Obj>
+</Objs>
