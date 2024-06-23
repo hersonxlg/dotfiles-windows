@@ -35,18 +35,18 @@ if ($Host.Version.Major -eq 7){
                     Rename-Item $powershell_dir "${powershell_dir}.backup"
                 }
                 #New-Item -ItemType SymbolicLink -Path "${documents_dir}" -name "powershell" -Target ".\\powershell"
-                $comando = "cd $(pwd) ;New-Item -ItemType SymbolicLink -Path '${documents_dir}' -name 'powershell' -Target 'powershell'"
-                $comando = "${comando}; [System.Environment]::Exit(0)"
-                Write-Output "${comando}"
+                $comandos = "cd $(pwd) ;New-Item -ItemType SymbolicLink -Path '${documents_dir}' -name 'powershell' -Target 'powershell'"
+                $comandos = "${comandos}; [System.Environment]::Exit(0)"
+                Write-Output "${comandos}"
                 Write-Output "`n`n"
                 Write-Output "*****************************************************"
-                Write-Output "* Se crea el enlace simbolico hacia 'PowerShell'.   *"
+                Write-Output "* Se creará el enlace simbolico hacia 'PowerShell'. *"
                 Write-Output "*****************************************************"
                 Write-Output " ~\documents\PowerShell                              "
                 Write-Output "*****************************************************"
                 Write-Output "`n`n"
                 sleep 5
-                start -verb runas -FilePath powershell -ArgumentList '-noprofile','-noexit','-nologo',"-command ${comando}"
+                start -verb runas -FilePath powershell -ArgumentList '-noprofile','-noexit','-nologo',"-command ${comandos}"
             }else{
                 # El directorio $powershell_dir es un enlace simbolico.
                 Write-Output "`n`n"
@@ -59,9 +59,10 @@ if ($Host.Version.Major -eq 7){
             }
         }else{
             # El directorio $powershell_dir NO EXISTE.
-                $comando = "cd $(pwd) ;New-Item -ItemType SymbolicLink -Path '${documents_dir}' -name 'powershell' -Target 'powershell'"
-                $comando = "${comando}; [System.Environment]::Exit(0)"
-            start -verb runas -FilePath powershell -ArgumentList '-noprofile','-noexit','-nologo',"-command ${comando}"
+                $comandos = "cd $(pwd) "
+                $comandos = "${comandos}; New-Item -ItemType SymbolicLink -Path '${documents_dir}' -name 'powershell' -Target 'powershell'"
+                $comandos = "${comandos}; [System.Environment]::Exit(0)"
+            start -verb runas -FilePath powershell -ArgumentList '-noprofile','-noexit','-nologo',"-command ${comandos}"
         }
     }
 }
