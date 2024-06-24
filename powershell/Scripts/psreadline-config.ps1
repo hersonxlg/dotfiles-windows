@@ -668,8 +668,11 @@ Set-PSReadLineKeyHandler -Key ' ,P' -ViMode Command -ScriptBlock {
 # ****************************************************************************
 #
 
-Set-PSReadLineKeyHandler -key "/"  -ViMode Command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
-
+Set-PSReadLineKeyHandler -key '/' `
+-ViMode Command `
+-BriefDescription FzfSearchHistory `
+-LongDescription "Insert paired quotes if not already on a quote" `
+-ScriptBlock {
     param($key, $arg)
 
     $line = $null
