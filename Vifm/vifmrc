@@ -114,11 +114,14 @@ colorscheme afterglow
 
 mark b ~/bin/
 mark h ~/
-"mark d ~/Documents
+mark a ~/Documents
 mark d ~/Downloads
 mark p ~/Pictures
 mark m ~/Music
 mark v ~/Videos
+mark u ~/ues
+mark z ~/AppData/Roaming/Vifm
+
 
 " ------------------------------------------------------------------------------
 " Commands
@@ -605,9 +608,6 @@ nnoremap <c-u> <c-w>x
 " ------------------------------------------------------------------------------
 " my mappings:
 " ------------------------------------------------------------------------------
-
-" Abrir el explorador de archivos:
-nnoremap ge :!explorer . &<cr>
 
 " Abrir el explorador de archivos:
 nnoremap ge :!explorer . &<cr>
