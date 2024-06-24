@@ -82,7 +82,12 @@ Set-PSReadLineKeyHandler -Key 'Ctrl+j' -ViMode Insert -Function HistorySearchFor
 ##}
 
 
-Set-PSReadLineKeyHandler -key "Ctrl+;"  -ViMode command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock { 
+
+Set-PSReadLineKeyHandler -key "Ctrl+;" `
+-ViMode Command `
+-BriefDescription AtajaDePruebas `
+-LongDescription "Insert paired quotes if not already on a quote" `
+-ScriptBlock {
     param($key, $arg)
 
     [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition(0)
@@ -98,7 +103,12 @@ Set-PSReadLineKeyHandler -key "Ctrl+;"  -ViMode command -BriefDescription AtajaD
 # ----------------------------------------------------------------------------
 # 
 
-Set-PSReadLineKeyHandler -key "Ctrl+l" -ViMode command -BriefDescription LimpiarLaLineaDeComandos -LongDescription "Limapia todo texto que contengo la linea de comandos" -ScriptBlock {
+
+Set-PSReadLineKeyHandler -key "Ctrl+l" `
+-ViMode Command `
+-BriefDescription LimpiarLaLineaDeComandos `
+-LongDescription "Limapia todo texto que contengo la linea de comandos" `
+-ScriptBlock {
     param($key, $arg)
 
     [Microsoft.PowerShell.PSConsoleReadLine]::SetCursorPosition(0)
@@ -696,7 +706,12 @@ Set-PSReadLineKeyHandler -key '/' `
 # ****************************************************************************
 #
 
-Set-PSReadLineKeyHandler -key "Shift+Tab" -ViMode Insert -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
+
+Set-PSReadLineKeyHandler -key "Shift+Tab" `
+-ViMode Insert `
+-BriefDescription LimpiarLaLineaDeComandos `
+-LongDescription "Limapia todo texto que contengo la linea de comandos" `
+-ScriptBlock {
     param($key, $arg)
 
     $line = $null
@@ -721,7 +736,11 @@ Set-PSReadLineKeyHandler -key "Shift+Tab" -ViMode Insert -BriefDescription Ataja
 
 $global:VisualMode= $false
 
-Set-PSReadLineKeyHandler -key "v" -ViMode Command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
+Set-PSReadLineKeyHandler -key "v" `
+-ViMode Command `
+-BriefDescription VisualModeArtificially `
+-LongDescription "Limapia todo texto que contengo la linea de comandos" `
+-ScriptBlock {
 
     param($key, $arg)
 
@@ -767,7 +786,12 @@ Set-PSReadLineKeyHandler -key "v" -ViMode Command -BriefDescription AtajaDePrueb
 }
 
 
-Set-PSReadLineKeyHandler -key "l" -ViMode Command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
+
+Set-PSReadLineKeyHandler -key "l" `
+-ViMode Command `
+-BriefDescription VisualModeArtificially `
+-LongDescription "Limapia todo texto que contengo la linea de comandos" `
+-ScriptBlock {
 
     param($key, $arg)
 
@@ -790,7 +814,12 @@ Set-PSReadLineKeyHandler -key "l" -ViMode Command -BriefDescription AtajaDePrueb
 }
 
 
-Set-PSReadLineKeyHandler -key "h" -ViMode Command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
+
+Set-PSReadLineKeyHandler -key "h" `
+-ViMode Command `
+-BriefDescription VisualModeArtificially `
+-LongDescription "Limapia todo texto que contengo la linea de comandos" `
+-ScriptBlock {
     param($key, $arg)
 
     $line = $null
@@ -808,7 +837,11 @@ Set-PSReadLineKeyHandler -key "h" -ViMode Command -BriefDescription AtajaDePrueb
 
 
 
-Set-PSReadLineKeyHandler -key "X" -ViMode Command  -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
+Set-PSReadLineKeyHandler -key "X" `
+-ViMode Command `
+-BriefDescription VisualModeArtificially `
+-LongDescription "Limapia todo texto que contengo la linea de comandos" `
+-ScriptBlock {
     param($key, $arg)
 
     $line = $null
@@ -828,7 +861,11 @@ Set-PSReadLineKeyHandler -key "X" -ViMode Command  -BriefDescription AtajaDePrue
 }
 
 
-Set-PSReadLineKeyHandler -key "Ctrl+o" -ViMode Command -BriefDescription AtajaDePruebas -LongDescription "Agrega un punto despues del cursor." -ScriptBlock {
+Set-PSReadLineKeyHandler -key "Ctrl+o" `
+-ViMode Command `
+-BriefDescription VisualModeArtificially `
+-LongDescription "Limapia todo texto que contengo la linea de comandos" `
+-ScriptBlock {
 
     param($key, $arg)
 
