@@ -261,7 +261,10 @@ Set-PSReadLineKeyHandler -Chord '"',"'" `
 # ***************************************************************************************
 #
 
-Set-PSReadLineKeyHandler -Chord "/" -BriefDescription SmartInsertQuote -LongDescription "Insert paired quotes if not already on a quote" -ScriptBlock {
+Set-PSReadLineKeyHandler -Chord '/' `
+-BriefDescription FzfSearchHistory `
+-LongDescription "Insert paired quotes if not already on a quote" `
+-ScriptBlock {
     param($key, $arg)
 
     $line = $null
