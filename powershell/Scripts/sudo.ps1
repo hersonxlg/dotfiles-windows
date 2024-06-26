@@ -24,7 +24,7 @@ if ($listaParametros -gt 0){
         Write-Host ' ';
         Write-Host 'Presiona Enter para continuar ' -NoNewline -Foreground Blue;
         Write-Host 'o ' -NoNewline;
-        Write-Host 'cualquier tecla para salir...' -Foreground Red;
+        Write-Host 'cualquier otra tecla para salir...' -Foreground Red;
         `$key = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
         if(`$key.VirtualKeyCode -ne 13) {[System.Environment]::Exit(0)};
     "
