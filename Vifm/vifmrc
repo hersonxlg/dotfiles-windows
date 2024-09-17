@@ -159,14 +159,22 @@ command! reload :write | restart full
 " my commands
 " ------------------------------------------------------------------------------
 
+command! Find :execute "goto '".term(expand('fzf').' | sed.exe -b -e "s/\\/\//g"')."'"
+
+"command! Find :execute 'goto' term(expand('fzf').' | sed.exe -b -e "s/\\/\//g"') 
+
 command! fb !!foobar2000 %"f &
 command! fba !!foobar2000 /add %"f &
+
+command! nitropdf !!nitropdf %"f &
+command! copydir !!pwsh -nologo -noprofile -command set-clipboard $(pwd)
 
 command! edgep :!pwsh  -noprofile -command msedge -inprivate ((Select-String -path '%"f' -pattern URL.* ) -split '=')[1]
 
 command! unziphere :!7z x %"f
 
 command! vlc :!vlc %"f
+
 
 
 " ------------------------------------------------------------------------------
@@ -612,6 +620,9 @@ nnoremap <c-u> <c-w>x
 " Abrir el explorador de archivos:
 nnoremap ge :!explorer . &<cr>
 
+" Ejecutar fzf
+nnoremap gtg :Find<space>
+nnoremap gtl :Find<cr>
 
 
 
