@@ -26,3 +26,9 @@ Set-Alias -Scope global -Name gvol -Value get-Volume
 # explorer.exe:___________gvol
 if ( test-path alias:fex ) { Remove-Alias fex }
 Set-Alias -Scope global -Name fex -Value explorer
+
+
+#  "Arduino IDE.exe" ----> arduino
+if (test-path alias:arduino ) { Remove-Alias arduino }
+new-alias -Scope global -Name arduino -Value "Arduino IDE.exe"
+
