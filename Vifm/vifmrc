@@ -156,24 +156,52 @@ command! reload :write | restart full
 
 
 " ------------------------------------------------------------------------------
-" my commands
+" mis comandos
 " ------------------------------------------------------------------------------
 
+"**************************************
+" Comandos para fzf.exe
+"**************************************
 command! Find :execute "goto '".term(expand('fzf').' | sed.exe -b -e "s/\\/\//g"')."'"
-
 "command! Find :execute 'goto' term(expand('fzf').' | sed.exe -b -e "s/\\/\//g"') 
 
+"**************************************
+" Comandos para foobar2000.exe
+"**************************************
 command! fb !!foobar2000 %"f &
 command! fba !!foobar2000 /add %"f &
 
 command! nitropdf !!nitropdf %"f &
+
 command! copydir !!pwsh -nologo -noprofile -command set-clipboard $(pwd)
 
+"**************************************
+" Comandos para Navegadores Web
+"**************************************
 command! edgep :!pwsh  -noprofile -command msedge -inprivate ((Select-String -path '%"f' -pattern URL.* ) -split '=')[1]
+command! bravep :!pwsh  -noprofile -command brave -incognito ((Select-String -path '%"f' -pattern URL.* ) -split '=')[1]
 
+
+"**************************************
+" Comandos para 7z.exe
+"**************************************
 command! unziphere :!7z x %"f
 
+"**************************************
+" Comandos para vlc.exe
+"**************************************
 command! vlc :!vlc %"f
+
+
+" ------------------------------------------------------------------------------
+" mis atajos de teclado
+" ------------------------------------------------------------------------------
+
+" Copiar el nombre del Fichero (Usando CMD.exe)
+nnoremap yn :execute 'let $a = '.expand('%"c') | execute('!echo '.expand('$a').' | clip')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
+
+" Copiar el directorio que contiene al Fichero (Usando CMD.exe)
+nnoremap yd :execute 'let $a = '.expand('%"d') | execute('!echo '.expand('$a').' | clip')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
 
 
 
