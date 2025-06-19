@@ -62,7 +62,7 @@ if ($Log) {
 }
 
 # Mostrar modo actual
-Write-Host "`n📁 Ruta base: $Path"
+Write-Host "`n📁 Ruta base: $(Get-Item $Path)"
 Write-Host "🔍 Modo recursivo: $Recurse"
 Write-Host "⚙️  Modo automático: $Auto"
 Write-Host "📝 Guardar log: $Log`n"
