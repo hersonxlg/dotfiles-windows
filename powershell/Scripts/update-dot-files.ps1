@@ -3,6 +3,7 @@
 $dirBase = "C:\myprograms\github"
 $repositoryName = "dotfiles-windows"
 $dir = (Join-Path -Path $dirBase -ChildPath $repositoryName)
+$lastDir = (Get-Location)
 
 if( -not(Get-Command git -ErrorAction SilentlyContinue) ){
     Write-Host "`n  No existe `"git.exe`"  `n" -BackgroundColor Red -ForegroundColor Black 
@@ -14,12 +15,16 @@ if( -not(Test-Path $dir -ErrorAction SilentlyContinue) ){
 }
 
 
+# Ir al repositorio:
+Set-Location $dir
+
 #-------------------------------------------------------------------------------------------
 #     ESTADO DEL REPOSITORIO LOCAL
 #-------------------------------------------------------------------------------------------
 if (git status --porcelain) {
     Write-Host "`n⚠️  Hay cambios pendientes (add o commit). `n" -BackgroundColor Red -ForegroundColor Black 
     git status
+    Set-Location $lastDir
     exit 0
 }
 
@@ -29,8 +34,6 @@ if (git status --porcelain) {
 #-------------------------------------------------------------------------------------------
 git fetch
 $status = git status -uno
-$lastDir = (Get-Location)
-Set-Location $dir
 
 # LISTA DE ESCENARIOS:
 if ($status -match 'up to date') {
