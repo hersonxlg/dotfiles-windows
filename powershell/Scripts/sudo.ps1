@@ -29,9 +29,9 @@ if ($listaParametros -gt 0){
         if(`$key.VirtualKeyCode -ne 13) {[System.Environment]::Exit(0)};
     "
     # ----------------------------------------------------------------------------
-    start -verb runas -Path pwsh -ArgumentList '-noprofile','-noexit','-nologo',"-command ${lista_de_comandos}"
+    Start-Process -verb runas -FilePath pwsh -ArgumentList '-noprofile','-noexit','-nologo',"-command ${lista_de_comandos}"
 }else{
-    start -verb runas -Path pwsh -ArgumentList '-noprofile','-noexit','-nologo'
+    Start-Process -verb runas -FilePath pwsh -ArgumentList '-noprofile','-noexit','-nologo'
 }
 
 
