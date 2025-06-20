@@ -21,8 +21,6 @@ if (git status --porcelain) {
     Write-Host "`n⚠️  Hay cambios pendientes (add o commit). `n" -BackgroundColor Red -ForegroundColor Black 
     git status
     exit 0
-} else {
-    Write-Host "✅ No hay cambios pendientes."
 }
 
 
@@ -41,21 +39,21 @@ if ($status -match 'up to date') {
 }
 elseif ($status -match 'ahead of') {
     # 2. Solo el repositorio LOCAL tiene cambios.
-    Write-Host "⬆️ Tienes cambios que no han sido subidos (push pendiente)."
+    Write-Host "`n⬆️ Tienes cambios que no han sido subidos (push pendiente).`n" -BackgroundColor Yellow -ForegroundColor Black 
     Write-Host "`n  Actualizando el repositorio `"$repositoryName`"...  `n" -BackgroundColor Green -ForegroundColor Black 
     git push
 }
 elseif ($status -match 'behind') {
     # 3. Solo el repositorio REMOTO tiene cambios.
-    Write-Host "⬇️ El repositorio remoto tiene cambios nuevos (pull pendiente)."
+    Write-Host "⬇️ El repositorio remoto tiene cambios nuevos (pull pendiente)." -BackgroundColor Yellow -ForegroundColor Black 
     Write-Host "`n  Actualizando el repositorio `"$repositoryName`"...  `n" -BackgroundColor Green -ForegroundColor Black 
     git pull
 }
 elseif ($status -match 'diverged') {
     # 4. Ambos repositorios, REMOTO y LOCAL, tiene cambios.
-    Write-Host "⚠️ El repositorio local y remoto han divergido. Requiere merge o rebase."
+    Write-Host "⚠️ El repositorio local y remoto han divergido. Requiere merge o rebase." -BackgroundColor Red -ForegroundColor Black 
 } else {
-    Write-Host "❓ Estado del repositorio no reconocido. Revisa manualmente:"
+    Write-Host "❓ Estado del repositorio no reconocido. Revisa manualmente:" -BackgroundColor Red -ForegroundColor Black 
     git status
 }
 
