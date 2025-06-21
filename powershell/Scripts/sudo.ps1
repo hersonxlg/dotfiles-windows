@@ -22,7 +22,7 @@ function showList([string[]]$lista){
 if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
 
     $shell = "powershell.exe"
-    if(Get-Command pwshh.exe -ErrorAction SilentlyContinue) {
+    if(Get-Command pwsh.exe -ErrorAction SilentlyContinue) {
         $shell = "pwsh.exe"
     }
 
