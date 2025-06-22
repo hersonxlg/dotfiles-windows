@@ -1,0 +1,18 @@
+
+# Ignorar archivos temporales
+#*.log
+#*.tmp
+#*.bak
+
+# Ignorar carpetas específicas
+#build/
+#dist/
+#.env/
+
+# Ignorar archivos o carpetas de sistema
+Vifm/vifminfo.json
+#.DS_Store
+#Thumbs.db
+
+# Ignorar todo menos un archivo
+#!important.txt
