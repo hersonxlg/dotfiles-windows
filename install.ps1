@@ -65,9 +65,6 @@ function install
                 Rename-Item -Path "$link" -NewName "$link.original" -Force
                 #Copy-Item -Path "$link" -Destination "$link.original" -Recurse
                 #Remove-Item $link  -Force -Recurse
-                pause
-                ls vifm.original
-                pause
                 #Start-Sleep -Seconds 1
             }
             New-Item -ItemType SymbolicLink -Path $link -Target $target
@@ -207,7 +204,30 @@ do {
         'a' {
             Clear-Host
             Write-Host
-            Write-Host "Instalando TODO"
+            Write-Host "***********************************"
+            Write-Host "*        Instalando TODO..        *"
+            Write-Host "***********************************"
+            Write-Host
+            Write-Host "    Instalando PowerShell      `n" -BackgroundColor Yellow -ForegroundColor Black 
+            install $dirBases[0] $dirNames[0] $targets[0]
+            pause
+            Clear-Host
+            Write-Host
+            Write-Host "***********************************"
+            Write-Host "*        Instalando TODO..        *"
+            Write-Host "***********************************"
+            Write-Host
+            Write-Host "      Instalando Vifm      `n" -BackgroundColor Yellow -ForegroundColor Black 
+            install $dirBases[1] $dirNames[1] $targets[1]
+            pause
+            Clear-Host
+            Write-Host
+            Write-Host "***********************************"
+            Write-Host "*        Instalando TODO..        *"
+            Write-Host "***********************************"
+            Write-Host
+            Write-Host "      Instalando Neovim      `n" -BackgroundColor Yellow -ForegroundColor Black 
+            install $dirBases[2] $dirNames[2] $targets[2]
             Write-Host "`n--- Presiona cualquier tecla para regresar al menu ---`n"
             [void][System.Console]::ReadKey($true)
         }
