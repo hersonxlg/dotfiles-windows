@@ -3,10 +3,25 @@ Param(
     [string]$link
 )
 
-function pause
+Function pause
 {
     Write-Host "`n--- Presiona cualquier tecla para continuar ---`n"
     [void][System.Console]::ReadKey($true)
+}
+
+
+Function Remove-Dir([string]$folder)
+{
+    if (Test-Path $folder) {
+        try {
+            Remove-Item $folder -Recurse -Force
+            Write-Host "✔ Carpeta eliminada: $folder"
+        } catch {
+            Write-Error "❌ Error al eliminar carpeta: $_"
+        }
+    } else {
+        Write-Host "ℹ No existe la carpeta: $folder"
+    }
 }
 
 function install
@@ -47,7 +62,8 @@ function install
             $opt = Read-Host "`n`nDesea cambiar el enlace simbolico? (Presione `"s`" para continar)"
             if ($opt -eq 's') {
                 Write-Host "`n  Cambiando el enlace simbolico...  `n" -BackgroundColor Green -ForegroundColor Black
-                Remove-Item $link -Force -Recurse
+                #Remove-Item $link -Force -Recurse
+                Remove-Dir($link)
                 New-Item -ItemType SymbolicLink -Path $link -Target $target
             } else {
                 Write-Host "`n  El enlace simbolico NO se creará  `n" -BackgroundColor Green -ForegroundColor Black
@@ -59,7 +75,11 @@ function install
             # Crear un respaldo
             if (Test-Path -Path "$link.original") {
                 Write-Warning "  ⚠  Ya existe un respaldo de `"$dirName`".  "
-                Remove-Item $link  -Force -Recurse
+                pause
+                Remove-Dir($link)
+                #Remove-Item -Path $link  -Force -Recurse
+                Write-Host "`n  `"$link`" se ha removido  `n" -ForegroundColor Red
+                pause
             } else {
                 Write-Warning "  ⚠  Creandose el respaldo de `"$dirName`"...  "
                 Rename-Item -Path "$link" -NewName "$link.original" -Force
@@ -116,8 +136,23 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     $shellArgList += $MyInvocation.MyCommand.Path
     #$shellArgList += $commandList
 
-    Start-Process -FilePath $shell -Wait -Verb RunAs -ArgumentList $shellArgList
-    
+    # Validar si se abre la shell con permisos de administrador:
+    try {
+        $proc = Start-Process -FilePath $shell `
+                -Wait -Verb RunAs -PassThru -ErrorAction Stop `
+                -ArgumentList $shellArgList
+    }
+    catch [System.InvalidOperationException] {
+        if ($_.Exception.Message -like "*cancelado*") {
+            Write-Warning "⚠️ El usuario canceló la elevación (UAC)."
+        } else {
+            Write-Error "❌ Start-Process falló: $($_.Exception.Message)"
+        }
+    }
+    catch {
+        Write-Error "❌ Error inesperado: $($_.GetType().FullName): $($_.Exception.Message)"
+    }
+
     exit 0
 
 }
@@ -204,29 +239,26 @@ do {
         'a' {
             Clear-Host
             Write-Host
-            Write-Host "***********************************"
-            Write-Host "*        Instalando TODO..        *"
-            Write-Host "***********************************"
+            Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
+            Write-Host "*         Instalando PowerShell...       *" -BackgroundColor Yellow -ForegroundColor Black 
+            Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
             Write-Host
-            Write-Host "    Instalando PowerShell      `n" -BackgroundColor Yellow -ForegroundColor Black 
             install $dirBases[0] $dirNames[0] $targets[0]
             pause
             Clear-Host
             Write-Host
-            Write-Host "***********************************"
-            Write-Host "*        Instalando TODO..        *"
-            Write-Host "***********************************"
+            Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
+            Write-Host "*            Instalando Vifm...          *" -BackgroundColor Yellow -ForegroundColor Black 
+            Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
             Write-Host
-            Write-Host "      Instalando Vifm      `n" -BackgroundColor Yellow -ForegroundColor Black 
             install $dirBases[1] $dirNames[1] $targets[1]
             pause
             Clear-Host
             Write-Host
-            Write-Host "***********************************"
-            Write-Host "*        Instalando TODO..        *"
-            Write-Host "***********************************"
+            Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
+            Write-Host "*          Instalando Neovim...          *" -BackgroundColor Yellow -ForegroundColor Black 
+            Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
             Write-Host
-            Write-Host "      Instalando Neovim      `n" -BackgroundColor Yellow -ForegroundColor Black 
             install $dirBases[2] $dirNames[2] $targets[2]
             Write-Host "`n--- Presiona cualquier tecla para regresar al menu ---`n"
             [void][System.Console]::ReadKey($true)
@@ -235,6 +267,7 @@ do {
             Clear-Host
             Write-Host
             Write-Host "Saliendo del menú..."
+            Write-Host
         }
         default {
             Clear-Host
