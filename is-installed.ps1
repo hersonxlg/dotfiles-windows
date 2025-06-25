@@ -3,6 +3,22 @@ Param(
     [string]$link
 )
 
+# **************************************************************************************
+# VARIABLES GLOBALES:
+# **************************************************************************************
+
+$shell = New-Object -ComObject WScript.Shell
+$oldDir = (Get-Location)
+$data = @(
+    #@(ejecutables,  dirNames   ,     dirBases                       )
+    @( "pwsh.exe" , "powershell",$shell.SpecialFolders("MyDocuments")), # pwsh
+    @( "vifm.exe" , "vifm"      ,$env:APPDATA                        ), # vifm
+    @( "nvim.exe" , "nvim"      ,$env:LOCALAPPDATA                   )  # nvim
+)
+
+# **************************************************************************************
+# FUNCIONES:
+# **************************************************************************************
 function pause
 {
     Write-Host "`n--- Presiona cualquier tecla para continuar ---`n"
@@ -12,11 +28,11 @@ function pause
 function get_status
 {
     Param(
-        [string]$dirBase,
         [string]$dirName,
-        [string]$target
+        [string]$dirBase
     )
 
+    [string]$target = (Join-Path $PSScriptRoot $dirName);
     $link = Join-Path -Path $dirBase -ChildPath $dirName
 
     # Corroborar que el directorio base existe:
@@ -90,62 +106,23 @@ if(Get-Command pwsh.exe -ErrorAction SilentlyContinue) {
 ##  Start-Process -FilePath $shell -Wait -ArgumentList $shellArgList
 
 
-# VARIABLES:
-$dirOld = (Get-Location)
-$shell = New-Object -ComObject WScript.Shell
-$dirNames = @(
-        "powershell",
-        "vifm",
-        "nvim"
-    )
-$dirBases = @(
-        $shell.SpecialFolders("MyDocuments"), # powershell
-        $env:APPDATA,                         # vifm
-        $env:LOCALAPPDATA                     # nvim
-    )
-$targets = @(
-        (Join-Path $PSScriptRoot $dirNames[0]), # powershell
-        (Join-Path $PSScriptRoot $dirNames[1]), # vifm
-        (Join-Path $PSScriptRoot $dirNames[2])  # nvim
-    )
-$targets | ForEach-Object{
-    if ( -not(Test-Path -Path $_ )) {
-        Write-Host "`n  El archivo [" -NoNewline -BackgroundColor Red -ForegroundColor Black
-        Write-Host "$_" -NoNewline -BackgroundColor Red -ForegroundColor White
-        Write-Host "] NO existe.  `n" -BackgroundColor Red -ForegroundColor Black
-        # Pausa antes de salir...
-        Write-Host "`n--- Presiona cualquier tecla para salir ---`n"
-        [void][System.Console]::ReadKey($true)
-        exit 1
-    }
-}
-
 
 #Write-Host "`n--- Presiona cualquier tecla para salir ---`n"
 #[void][System.Console]::ReadKey($true)
 #exit
 
 Clear-Host
-Write-Host
-Write-Host "********************************" -BackgroundColor Yellow -ForegroundColor Black 
-Write-Host "*     Estado de PowerShell     *" -BackgroundColor Yellow -ForegroundColor Black 
-Write-Host "********************************" -BackgroundColor Yellow -ForegroundColor Black 
-Write-Host
-get_status $dirBases[0] $dirNames[0] $targets[0]
-Write-Host
-Write-Host "********************************" -BackgroundColor Yellow -ForegroundColor Black 
-Write-Host "*       Estado de Vifm         *" -BackgroundColor Yellow -ForegroundColor Black 
-Write-Host "********************************" -BackgroundColor Yellow -ForegroundColor Black 
-Write-Host
-get_status $dirBases[1] $dirNames[1] $targets[1]
-Write-Host
-Write-Host "********************************" -BackgroundColor Yellow -ForegroundColor Black 
-Write-Host "*       Estado de Neovim       *" -BackgroundColor Yellow -ForegroundColor Black 
-Write-Host "********************************" -BackgroundColor Yellow -ForegroundColor Black 
-Write-Host
-get_status $dirBases[2] $dirNames[2] $targets[2]
+$data | ForEach-Object{
+    Write-Host
+    Write-Host "****************************************" -BackgroundColor Yellow -ForegroundColor Black 
+    Write-Host "*      Estado de $('{0,-21}' -f $_[1]) *" -BackgroundColor Yellow -ForegroundColor Black 
+    Write-Host "****************************************" -BackgroundColor Yellow -ForegroundColor Black 
+    Write-Host
+    #uninstall  dirName     dirBase
+    get_status  $_[1]       $_[2]
+}
 
-Set-Location $dirOld
+Set-Location $oldDir
 
 # Pausa antes de salir...
 Write-Host "`n--- Presiona cualquier tecla para salir ---`n"
