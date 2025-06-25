@@ -3,6 +3,23 @@ Param(
     [string]$link
 )
 
+# **************************************************************************************
+# VARIABLES GLOBALES:
+# **************************************************************************************
+
+$shell = New-Object -ComObject WScript.Shell
+
+$data = @(
+    #@(ejecutables,  dirNames   ,     dirBases                       )
+    @( "pwsh.exe" , "powershell",$shell.SpecialFolders("MyDocuments")), # pwsh
+    @( "vifm.exe" , "vifm"      ,$env:APPDATA                        ), # vifm
+    @( "nvim.exe" , "nvim"      ,$env:LOCALAPPDATA                   )  # nvim
+)
+
+
+# **************************************************************************************
+# FUNCIONES:
+# **************************************************************************************
 Function pause
 {
     Write-Host "`n--- Presiona cualquier tecla para continuar ---`n"
@@ -24,16 +41,23 @@ Function Remove-Dir([string]$folder)
     }
 }
 
-function install
+Function install
 {
     Param(
-        [string]$dirBase,
+        [string]$exeName,
         [string]$dirName,
-        [string]$target
+        [string]$dirBase
     )
 
-    $link = Join-Path -Path $dirBase -ChildPath $dirName
-    $dirOld = (Get-Location)
+    [string]$target = (Join-Path $PSScriptRoot $dirName);
+    $link = Join-Path -Path $dirBase -ChildPath $dirName;
+    $dirOld = (Get-Location);
+
+    # Corroborar que el archivo ejecutable existe:
+    if( -not(Get-Command $exeName -ErrorAction SilentlyContinue) ){
+        Write-Host "`n  El ejecutable `"$exeName`", NO EXISTE  `n" -BackgroundColor Red -ForegroundColor Black ;
+        return;
+    }
 
     # Corroborar que el directorio base existe:
     if (-not(Test-Path -Path $dirBase)) {
@@ -157,31 +181,15 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 
 }
 
-# VARIABLES:
-$shell = New-Object -ComObject WScript.Shell
-$dirNames = @(
-        "powershell",
-        "vifm",
-        "nvim"
-    )
-$dirBases = @(
-        $shell.SpecialFolders("MyDocuments"), # powershell
-        $env:APPDATA,                         # vifm
-        $env:LOCALAPPDATA                     # nvim
-    )
-$PSScriptRoot
-$targets = @(
-        (Join-Path $PSScriptRoot $dirNames[0]), # powershell
-        (Join-Path $PSScriptRoot $dirNames[1]), # vifm
-        (Join-Path $PSScriptRoot $dirNames[2])  # nvim
-    )
-$dirNames
-$dirBases
-$targets
-$targets | ForEach-Object{
-    if ( -not(Test-Path -Path $_ )) {
+# **************************************************************************************
+# validaciones:
+# **************************************************************************************
+
+$data | ForEach-Object{
+    $target =  (Join-Path $PSScriptRoot $_[1]);
+    if ( -not(Test-Path -Path $target)) {
         Write-Host "`n  El archivo [" -NoNewline -BackgroundColor Red -ForegroundColor Black
-        Write-Host "$_" -NoNewline -BackgroundColor Red -ForegroundColor White
+        Write-Host "$target" -NoNewline -BackgroundColor Red -ForegroundColor White
         Write-Host "] NO existe.  `n" -BackgroundColor Red -ForegroundColor Black
         # Pausa antes de salir...
         Write-Host "`n--- Presiona cualquier tecla para salir ---`n"
@@ -196,89 +204,62 @@ $targets | ForEach-Object{
 #exit
 
 
+# **************************************************************************************
+# MENU:
+# **************************************************************************************
 do {
     Clear-Host
     Write-Host "==== MENÚ PRINCIPAL ===="
-    Write-Host "1. Instalar powershell"
-    Write-Host "2. Instalar vifm"
-    Write-Host "3. Instalar neovim"
-    Write-Host "a. Instalar TODO"
+    $index = 0
+    $data | ForEach-Object{
+            Write-Host "$($index+2). Instalar $($_[1])"
+            $index++;
+        }
+    Write-Host
+    Write-Host "1. Instalar TODO"
     Write-Host "0. Salir"
-    Write-Host ""
-    $opcion = Read-Host "Elige una opción:"
+    Write-Host
+    [int]$opcion = Read-Host "Elige una opción:"
 
-    switch ($opcion) {
-        '1' {
-            Clear-Host
-            Write-Host
-            Write-Host "Instalando PowerShell`n"
-            # Iniciar la creación de los enlaces simbolicos:
-            install $dirBases[0] $dirNames[0] $targets[0]
-            # Pausa antes de salir...
-            Write-Host "`n--- Presiona cualquier tecla para regresar al menu ---`n"
-            [void][System.Console]::ReadKey($true)
-        }
-        '2' {
-            Clear-Host
-            Write-Host
-            Write-Host "Instalando Vifm`n"
-            # Iniciar la creación de los enlaces simbolicos:
-            install $dirBases[1] $dirNames[1] $targets[1]
-            Write-Host "`n--- Presiona cualquier tecla para regresar al menu ---`n"
-            [void][System.Console]::ReadKey($true)
-        }
-        '3' {
-            Clear-Host
-            Write-Host
-            Write-Host "Instalando Neovim`n"
-            # Iniciar la creación de los enlaces simbolicos:
-            install $dirBases[2] $dirNames[2] $targets[2]
-            Write-Host "`n--- Presiona cualquier tecla para regresar al menu ---`n"
-            [void][System.Console]::ReadKey($true)
-        }
-        'a' {
+    if( ($opcion -ge 2) -and ($opcion -le ($data.length + 1)) ){
+        [int]$i = ($opcion - 2)
+        Clear-Host
+        Write-Host
+        Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
+        Write-Host "*  Instalando $('{0,-27}' -f ($data[$i][1]) )*" -BackgroundColor Yellow -ForegroundColor Black 
+        Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
+        Write-Host
+        #install exeName        dirName         dirBase
+        install  $data[$i][0]   $data[$i][1]    $data[$i][2];
+        pause
+    }
+    elseif($opcion -eq 1){
+        $data | ForEach-Object{
             Clear-Host
             Write-Host
             Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
-            Write-Host "*         Instalando PowerShell...       *" -BackgroundColor Yellow -ForegroundColor Black 
+            Write-Host "*  Instalando $('{0,-27}' -f $_[1])*" -BackgroundColor Yellow -ForegroundColor Black 
             Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
             Write-Host
-            install $dirBases[0] $dirNames[0] $targets[0]
+            #install exeName  dirName  dirBase
+            install  $_[0]    $_[1]    $_[2]
             pause
-            Clear-Host
-            Write-Host
-            Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
-            Write-Host "*            Instalando Vifm...          *" -BackgroundColor Yellow -ForegroundColor Black 
-            Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
-            Write-Host
-            install $dirBases[1] $dirNames[1] $targets[1]
-            pause
-            Clear-Host
-            Write-Host
-            Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
-            Write-Host "*          Instalando Neovim...          *" -BackgroundColor Yellow -ForegroundColor Black 
-            Write-Host "******************************************" -BackgroundColor Yellow -ForegroundColor Black 
-            Write-Host
-            install $dirBases[2] $dirNames[2] $targets[2]
-            Write-Host "`n--- Presiona cualquier tecla para regresar al menu ---`n"
-            [void][System.Console]::ReadKey($true)
-        }
-        '0' {
-            Clear-Host
-            Write-Host
-            Write-Host "Saliendo del menú..."
-            Write-Host
-        }
-        default {
-            Clear-Host
-            Write-Host
-            Write-Host "❌ Opción no válida. Intenta de nuevo."
-            Write-Host "`n--- Presiona cualquier tecla para regresar al menu ---`n"
-            [void][System.Console]::ReadKey($true)
         }
     }
+    elseif($opcion -eq 0){
+        Clear-Host
+        Write-Host
+        Write-Host "Saliendo del menú..."
+        Write-Host
+    }
+    else{
+        Clear-Host
+        Write-Host
+        Write-Host "❌ Opción no válida. Intenta de nuevo."
+        Write-Host "`n--- Presiona cualquier tecla para regresar al menu ---`n"
+        [void][System.Console]::ReadKey($true)
+    }
 } while ($opcion -ne '0')
-
 
 
 # Pausa antes de salir...
