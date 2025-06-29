@@ -22,7 +22,6 @@ if($editor -eq "notepad.exe"){
     $editCommand = "Start-Process -Wait -WindowStyle Maximized $editor $path_file_name"
 }
 
-
 $path_list = ($env:path -split ';' )
 $dirs_machine = [System.Environment]::GetEnvironmentVariable("path", "Machine")
 $dirs_machine_list = ($dirs_machine -split ';')
