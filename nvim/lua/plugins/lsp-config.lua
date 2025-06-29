@@ -20,7 +20,13 @@ return {
         },
         config = function()
             require("mason-lspconfig").setup({
-                ensure_installed = { "lua_ls", "pylsp", "clangd","ts_ls","powershell_es"},
+                ensure_installed = {
+                    "lua_ls", 
+                    "pylsp", 
+                    "clangd",
+                    "ts_ls",
+                    "powershell_es"
+                },
             })
         end
     },
@@ -63,9 +69,31 @@ return {
             lspconfig.vimls.setup({
                 capabilities = capabilities
             })
-            --lspconfig.powershell_es.setup({
-            --    capabilities = capabilities
-            --})
+
+            ---------------------------------
+            -- Configuración del LSP de PowerShell
+            ---------------------------------
+            lspconfig.powershell_es.setup({
+              capabilities = capabilities,
+              filetypes = {
+                    "ps1", 
+                    "psm1", 
+                    "psd1" 
+                },
+              bundle_path = vim.fn.stdpath("data") .. "/mason/packages/powershell-editor-services",
+              shell = "pwsh",
+              settings = {
+                powershell = {
+                  codeFormatting = {
+                    Preset = "OTBS",
+                  },
+                },
+              },
+              init_options = {
+                enableProfileLoading = false,
+              },
+            })
+            ---------------------------------
             vim.keymap.set('n', 'K', vim.lsp.buf.hover, {})
             vim.keymap.set('n', 'gd', vim.lsp.buf.definition, {})
             vim.keymap.set({ 'n', 'v' }, '<leader>ca', vim.lsp.buf.code_action, {})

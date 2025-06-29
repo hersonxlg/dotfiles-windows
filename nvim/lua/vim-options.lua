@@ -46,5 +46,3 @@ vim.keymap.set("n", "<c-l>", "<c-w><c-l>",{noremap = true})
 vim.keymap.set("n", "<leader>.", "<cmd>luafile $MYVIMRC<cr>",{noremap = true})
 
 
-
-
