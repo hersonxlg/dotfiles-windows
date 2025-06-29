@@ -20,7 +20,7 @@ return {
         },
         config = function()
             require("mason-lspconfig").setup({
-                ensure_installed = { "lua_ls", "pylsp", "clangd","tsserver"},
+                ensure_installed = { "lua_ls", "pylsp", "clangd","ts_ls","powershell_es"},
             })
         end
     },
@@ -47,8 +47,15 @@ return {
             lspconfig.lua_ls.setup({
                 capabilities = capabilities
             })
-            lspconfig.tsserver.setup({
-                capabilities = capabilities
+            lspconfig.ts_ls.setup({
+              capabilities = capabilities,
+              filetypes = {
+                "javascript", "javascript.jsx",
+                "typescript", "typescript.tsx",
+              },
+              init_options = {
+                hostInfo = "neovim",
+              },
             })
             --lspconfig.arduino_language_server.setup({
             --    capabilities = capabilities
