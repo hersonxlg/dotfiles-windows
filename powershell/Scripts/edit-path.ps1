@@ -1,9 +1,8 @@
-
 param(
     [Parameter(ValueFromPipeline=$true, Mandatory=$false)]
     [ValidateSet('User', 'Machine', IgnoreCase)]
     [string]$Scope
-    )
+)
 
 # VARIABLES:
 $path_file_name = "_var_paths.txt"
