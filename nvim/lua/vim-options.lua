@@ -46,3 +46,8 @@ vim.keymap.set("n", "<c-l>", "<c-w><c-l>",{noremap = true})
 vim.keymap.set("n", "<leader>.", "<cmd>luafile $MYVIMRC<cr>",{noremap = true})
 
 
+
+-----------------------------------------------------
+-- atajos para LSP
+-----------------------------------------------------
+vim.keymap.set('n', 'gl', vim.diagnostic.open_float, { desc = "Mostrar diagnostic flotante" })
