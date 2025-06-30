@@ -13,7 +13,7 @@ if ( $Scope -eq "" ) {
 
 $editor = "notepad.exe"
 if(Get-Command nvim -ErrorAction SilentlyContinue){
-	$editor = "nvim"
+    $editor = "nvim"
 }
 
 $editCommand = "$editor $path_file_name"
@@ -38,7 +38,7 @@ if ( $Scope -eq "Machine" ) {
     $dirs_machine = ((Get-Content "$path_file_name") -join ';' )
     Remove-Item "$path_file_name"
     $comando = "[Environment]::SetEnvironmentVariable('path', '${dirs_machine}', 'Machine')"
-}else{
+} else{
     Write-Output $dirs_user_list >"$path_file_name"
     Invoke-Expression $editCommand
     $dirs_user = ((Get-Content "$path_file_name") -join ';' )
@@ -46,8 +46,24 @@ if ( $Scope -eq "Machine" ) {
     $comando = "[Environment]::SetEnvironmentVariable('path', '${dirs_user}', 'User')"
 }
 
-Start-Process -wait -verb runas -Path pwsh -ArgumentList @('-noprofile','-nologo',"-command `"${comando}`" ")
+try {
+    $proc = Start-Process -wait -Path pwsh `
+        -Verb RunAs -PassThru -ErrorAction Stop `
+        -ArgumentList @('-noprofile','-nologo',"-command `"${comando}`" ")
+    Write-Host "✅ Proceso iniciado (PID: $($proc.Id))"
+} catch [System.InvalidOperationException] {
+    if ($_.Exception.Message -like "*cancelado*") {
+        Write-Warning "⚠️ El usuario canceló la elevación (UAC)."
+        exit 1;
+    } else {
+        Write-Error "❌ Start-Process falló: $($_.Exception.Message)"
+        exit 1;
+    }
+} catch {
+    Write-Error "❌ Error inesperado: $($_.GetType().FullName): $($_.Exception.Message)"
+    exit 1;
+}
+
+
 $env:path = "${the_rest};${dirs_machine};${dirs_user}"
-
-
 
