@@ -149,6 +149,7 @@ return {
 
             vim.keymap.set("n", "<C-cr>", "<Cmd>ToggleTerm name=desktop<CR>", { noremap = true })
             vim.keymap.set("n", "<C-;>", "<Cmd>ToggleTerm name=desktop<CR>", { noremap = true })
+            vim.keymap.set("n", "<A-;>", "<Cmd>ToggleTerm name=desktop<CR>", { noremap = true })
             vim.keymap.set("n", "<C-,>", "<Cmd>ToggleTerm name=desktop<CR>", { noremap = true })
             vim.keymap.set("n", "<leader>ah", "<Cmd>ToggleTerm size=20 direction=horizontal name=desktop<CR>",
                 { noremap = true })
@@ -170,6 +171,7 @@ return {
 
                 vim.keymap.set("t", "<A-l>", "<Cmd>ToggleTerm<cr>", { noremap = true })
                 vim.keymap.set("t", "<C-;>", "<Cmd>ToggleTerm<cr>", { noremap = true })
+                vim.keymap.set("t", "<A-;>", "<Cmd>ToggleTerm<cr>", { noremap = true })
 
                 vim.keymap.set("t", "<A-l>", "<Cmd>ToggleTerm<cr>", { noremap = true })
                 vim.keymap.set("t", "<A-j>", "<Cmd>ToggleTerm<cr>", { noremap = true })
