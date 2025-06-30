@@ -94,6 +94,15 @@ return {
               },
             })
             ---------------------------------
+            -- Configuración del LSP de Matlab
+            ---------------------------------
+            lspconfig.matlab_ls.setup({
+              cmd = { "matlab-ls" },  -- asegúrate de que esté en tu PATH, o usa la ruta completa
+              filetypes = { "matlab" },
+              root_dir = lspconfig.util.root_pattern(".git", "startup.m"), -- o lo que defina tu proyecto
+              capabilities = require("cmp_nvim_lsp").default_capabilities(),
+            })
+            ---------------------------------
             vim.keymap.set('n', 'K', vim.lsp.buf.hover, {})
             vim.keymap.set('n', 'gd', vim.lsp.buf.definition, {})
             vim.keymap.set({ 'n', 'v' }, '<leader>ca', vim.lsp.buf.code_action, {})
