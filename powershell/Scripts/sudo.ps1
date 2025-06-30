@@ -8,10 +8,10 @@ Param(
     [string[]]$parametros
 )
 
-function showList([string[]]$lista){
+function showList([string[]]$lista) {
     $n = $lista.length
     $i = @()
-    if($n -ne 0){
+    if($n -ne 0) {
         $i = @(0..($n-1))
     }
     $i | ForEach-Object{ Write-Host ('{0,2}:{1}' -f ($_+1),$lista[$_]) -BackgroundColor Green -ForegroundColor Black }
@@ -29,13 +29,16 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     #-------------------------------------------------------
     #  POWERSHELL.EXE
     #-------------------------------------------------------
-    if($shell -eq "powershell.exe"){
-
+    if($shell -eq "powershell.exe") {
         $commandList  = @($parametros | ForEach-Object{'{0}' -f ($_ -replace '"','"""')})
-        if($parametros.length -gt 1){
+        if($parametros.length -gt 1) {
             $commandList = @($commandList | ForEach-Object{'{0}' -f ($_ -replace '""','""""')})
-            $commandList = @($commandList | ForEach-Object{ if($_ -match ' '){'""""{0}""""' -f $_}else{'"{0}"' -f $_} })
-        }else{
+            $commandList = @($commandList | ForEach-Object{ if($_ -match ' ') {
+                        '""""{0}""""' -f $_
+                    } else {
+                        '"{0}"' -f $_
+                    } })
+        } else {
             #$commandList = @($commandList | ForEach-Object{'{0}' -f ($_ -replace '"','""')})
             $commandList = @($commandList | ForEach-Object{'"" {0} ""' -f $_})
         }
@@ -45,13 +48,16 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     #-------------------------------------------------------
     #  PWSH.EXE
     #-------------------------------------------------------
-    else{
-        "pwsh.exe"
-        if($parametros.length -gt 1){
+    else {
+        if($parametros.length -gt 1) {
             $commandList  = @($parametros | ForEach-Object{'{0}' -f ($_ -replace '"','""""')})
             ##$commandList = @($commandList | ForEach-Object{'{0}' -f ($_ -replace '""','""""')})
-            $commandList = @($commandList | ForEach-Object{ if($_ -match ' '){'"""{0}"""' -f $_}else{'"{0}"' -f $_} })
-        }else{
+            $commandList = @($commandList | ForEach-Object{ if($_ -match ' ') {
+                        '"""{0}"""' -f $_
+                    } else {
+                        '"{0}"' -f $_
+                    } })
+        } else {
             $commandList = @($parametros | ForEach-Object{'{0}' -f ($_ -replace '"','""')})
             $commandList = @($commandList | ForEach-Object{'"{0}"' -f $_})
         }
@@ -79,7 +85,7 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 
 $p = $parametros
 $a = $p -join ' '
-try{
+try {
     iex $a
 
     Write-Host
@@ -89,13 +95,13 @@ try{
     Write-Host 
     $keyInfo = [System.Console]::ReadKey($true)
     if ($keyInfo.Key -ne 'Enter') {
-        if($shell -eq "powershell.exe"){
+        if($shell -eq "powershell.exe") {
             exit 0
-        }else{
+        } else {
             [System.Environment]::Exit(0)
         }
     }
-}catch{
+} catch {
     Write-Host "`n  Ocurrio un ERROR  `n" -BackgroundColor Red -ForegroundColor Black
     Sleep 4
     [System.Environment]::Exit(1)
