@@ -75,6 +75,9 @@ function M.setup()
         luasnip.lsp_expand(args.body)
       end,
     },
+    -------------------------------------------------------------------
+        --- atajos para LSP
+    -------------------------------------------------------------------
     mapping = {
       ["<C-d>"] = cmp.mapping.scroll_docs(-4),
       ["<C-f>"] = cmp.mapping.scroll_docs(4),
@@ -95,6 +98,7 @@ function M.setup()
       },
       ["<c-space>"] = cmp.mapping.complete(),
     },
+    -------------------------------------------------------------------
     sources = {
       { name = "nvim_lsp" },
       { name = "path" },
