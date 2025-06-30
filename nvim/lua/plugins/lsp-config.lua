@@ -73,25 +73,29 @@ return {
             ---------------------------------
             -- Configuración del LSP de PowerShell
             ---------------------------------
+            local lspconfig = require("lspconfig")
+            local caps      = require("cmp_nvim_lsp").default_capabilities()
+            -- POWERHELL EDITOR SERVICES
             lspconfig.powershell_es.setup({
-              capabilities = capabilities,
-              filetypes = {
-                    "ps1", 
-                    "psm1", 
-                    "psd1" 
-                },
-              bundle_path = vim.fn.stdpath("data") .. "/mason/packages/powershell-editor-services",
-              shell = "pwsh",
-              settings = {
+              capabilities = caps,
+              filetypes    = { "ps1", "psm1", "psd1" },
+              bundle_path  = vim.fn.stdpath("data")
+                               .. "\\mason\\packages\\powershell-editor-services",
+              shell        = "pwsh",      -- PowerShell 7
+              settings     = {
                 powershell = {
-                  codeFormatting = {
-                    Preset = "OTBS",
-                  },
+                  codeFormatting = { Preset = "OTBS" },
                 },
               },
               init_options = {
                 enableProfileLoading = false,
               },
+              root_dir = function(fname)
+                -- fname es la ruta completa al archivo que está abriendo el LSP
+                local path = vim.fs.dirname(fname)
+                local git  = vim.fs.find({ ".git" }, { upward = true, path = path })[1]
+                return git and vim.fs.dirname(git) or path
+              end,
             })
             ---------------------------------
             -- Configuración del LSP de Matlab
