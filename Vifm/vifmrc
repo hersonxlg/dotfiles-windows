@@ -201,7 +201,7 @@ command! vlc :!vlc %"f
 nnoremap yn :execute 'let $a = '.expand('%"c') | execute('!<nul set /p ="'.expand('$a').'" | clip.exe')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
 
 " Copiar la dirección y el nombre del Fichero (Usando CMD.exe)
-nnoremap yf :execute 'let $a = '.expand('%"f:p') | execute('!<nul set /p ="'.expand('$a').'" | clip.exe')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
+nnoremap yf :execute 'let $a = '.expand('%"c:p') | execute('!<nul set /p ="'.expand('$a').'" | clip.exe')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
 
 " Copiar el directorio que contiene al Fichero (Usando CMD.exe)
 nnoremap yd :execute 'let $a = '.expand('%"d') | execute('!<nul set /p ="'.expand('$a').'" | clip.exe')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
