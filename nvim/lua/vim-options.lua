@@ -2,7 +2,23 @@ vim.cmd("set expandtab")
 vim.cmd("set tabstop=4")
 vim.cmd("set softtabstop=4")
 vim.cmd("set shiftwidth=4")
-vim.cmd("set clipboard+=unnamedplus")
+
+--vim.cmd("set clipboard+=unnamedplus")
+
+vim.opt.clipboard = "unnamedplus"
+vim.g.clipboard = {
+  name = 'win32yank',
+  copy = {
+    ['+'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-i', '--crlf' },
+    ['*'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-i', '--crlf' },
+  },
+  paste = {
+    ['+'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-o', '--lf' },
+    ['*'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-o', '--lf' },
+  },
+  cache_enabled = false,
+}
+
 vim.cmd("set number")
 vim.cmd("set cmdwinheight=20")
 -- Minimal number of screen lines to keep above and below the cursor.
