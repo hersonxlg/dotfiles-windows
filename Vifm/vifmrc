@@ -198,10 +198,13 @@ command! vlc :!vlc %"f
 " ------------------------------------------------------------------------------
 
 " Copiar el nombre del Fichero (Usando CMD.exe)
-nnoremap yn :execute 'let $a = '.expand('%"c') | execute('!echo '.expand('$a').' | clip')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
+nnoremap yn :execute 'let $a = '.expand('%"c') | execute('!<nul set /p ="'.expand('$a').'" | clip.exe')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
+
+" Copiar la dirección y el nombre del Fichero (Usando CMD.exe)
+nnoremap yf :execute 'let $a = '.expand('%"f:p') | execute('!<nul set /p ="'.expand('$a').'" | clip.exe')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
 
 " Copiar el directorio que contiene al Fichero (Usando CMD.exe)
-nnoremap yd :execute 'let $a = '.expand('%"d') | execute('!echo '.expand('$a').' | clip')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
+nnoremap yd :execute 'let $a = '.expand('%"d') | execute('!<nul set /p ="'.expand('$a').'" | clip.exe')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
 
 
 
@@ -570,14 +573,14 @@ if has('win')
     " Yank current directory path to Windows clipboard with forward slashes
     nnoremap yp :!echo %"d:gs!\!/! %i | clip<cr>
     " Yank path to current file to Windows clipboard with forward slashes
-    nnoremap yf :!echo %"c:p:gs!\!/! %i | clip<cr>
+    "nnoremap yf :!echo %"c:p:gs!\!/! %i | clip<cr>
 elseif $WAYLAND_DISPLAY
     if executable('wl-copy')
         " Yank current directory path into primary and selection clipboards
         nnoremap yd :!echo -n %d | wl-copy %i &&
                     \ echo -n %d | wl-copy -p %i<cr>
         " Yank current file path into into primary and selection clipboards
-        nnoremap yf :!echo -n %c:p | wl-copy %i &&
+        "nnoremap yf :!echo -n %c:p | wl-copy %i &&
                     \ echo -n %c:p | wl-copy -p %i<cr>
     endif
 elseif $DISPLAY
@@ -585,13 +588,13 @@ elseif $DISPLAY
         " Yank current directory path into the clipboard
         nnoremap yd :!echo -n %d | xclip -selection clipboard %i<cr>
         " Yank current file path into the clipboard
-        nnoremap yf :!echo -n %c:p | xclip -selection clipboard %i<cr>
+        "nnoremap yf :!echo -n %c:p | xclip -selection clipboard %i<cr>
     elseif executable('xsel')
         " Yank current directory path into primary and selection clipboards
         nnoremap yd :!echo -n %d | xsel --input --primary %i &&
                     \ echo -n %d | xsel --clipboard --input %i<cr>
         " Yank current file path into into primary and selection clipboards
-        nnoremap yf :!echo -n %c:p | xsel --input --primary %i &&
+        "nnoremap yf :!echo -n %c:p | xsel --input --primary %i &&
                     \ echo -n %c:p | xsel --clipboard --input %i<cr>
     endif
 endif
