@@ -27,8 +27,8 @@ Set-PSReadLineKeyHandler -Key Tab -Function Complete
 
 #Set-PSReadLineOption -PredictionViewStyle ListView
 
-Set-PSReadLineKeyHandler -Key 'Ctrl+k' -ViMode Insert -Function HistorySearchBackward
-Set-PSReadLineKeyHandler -Key 'Ctrl+j' -ViMode Insert -Function HistorySearchForward
+Set-PSReadLineKeyHandler -Key 'Ctrl+p' -ViMode Insert -Function HistorySearchBackward
+Set-PSReadLineKeyHandler -Key 'Ctrl+n' -ViMode Insert -Function HistorySearchForward
 
 
 
