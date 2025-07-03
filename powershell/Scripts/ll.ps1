@@ -1,12 +1,17 @@
-if( -not(Get-Command lsd.exe -ErrorAction SilentlyContinue) ){
-    Write-Error "  El programa `"lsd.exe`" se encuentra en el sistema...  "
+$exeFile = "eza.exe"
+
+if( -not(Get-Command $exeFile -ErrorAction SilentlyContinue) ){
+    Write-Error "  El programa `"$exeFile`" se encuentra en el sistema...  "
 }
 
 $pagAlto = $Host.UI.RawUI.WindowSize.Height
-$pagAlto -= 3;
+$pagAlto -= 4;
+
+# $comando = "$exeFile -lh --group-dirs=first"  ## lsd.exe
+$comando = "$exeFile -lh --group-directories-first --color=always --icons=always --time-style=long-iso"  ## eza.exe
 
 try{
-    $linesWithoutPrint = @(lsd.exe -lh --group-dirs=first)
+    $linesWithoutPrint = @(Invoke-Expression "$comando")
     $numLinesWithoutPrint = $linesWithoutPrint.Length
     do{
         $indexLastLineToPrint = $pagAlto - 1
