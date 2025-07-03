@@ -98,7 +98,7 @@ if ( $Scope -eq "Machine" ) {
 #    Abrir una shell con permisos de administrador
 #***************************************************************************************
 
-if(Compare-Object -ReferenceObject (Get-Content $full_dir_to_file) -DifferenceObject (Get-Content $temp)){
+if ((Get-FileHash $full_dir_to_file).Hash -ne (Get-FileHash $temp).Hash) {
     # ✅ Los arhivos [$full_dir_to_file] y [$temp] tienen contenido DIFERENTE:
     try {
         $pro = Start-Process -wait -Path pwsh `
@@ -138,7 +138,7 @@ $env:path = "${the_rest};${dirs_machine};${dirs_user}"
 if (Test-Path -Path $temp -PathType Leaf) {
     if (Test-Path -Path $backup -PathType Leaf) {
         # ✅ El archivo [$backup] existe:
-        if(Compare-Object -ReferenceObject (Get-Content $backup) -DifferenceObject (Get-Content $temp)){
+        if ((Get-FileHash $backup).Hash -ne (Get-FileHash $temp).Hash) {
             # ✅ Los arhivos [$backup] y [$temp] tienen contenido DIFERENTE:
             Remove-Item $backup
             Rename-Item -Path $temp -NewName $backup
