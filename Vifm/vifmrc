@@ -98,13 +98,34 @@ if !has('win')
     set slowfs=curlftpfs
 endif
 
-" Set custom status line look
-set statusline="  Hint: %z%= %A %10u:%-7g %15s %20d  "
-"set statusline="  %t%= %A %10u:%-7g %15E %20d  "
+
 
 " List of color schemes to try (picks the first one supported by the terminal)
 "colorscheme ansa
-colorscheme afterglow
+colorscheme paper
+
+
+" *********************************************************************************************************************
+
+" Colores
+highlight User3 ctermbg=black ctermfg=magenta cterm=bold
+highlight User1 ctermbg=darkblue ctermfg=white cterm=bold
+highlight User2 ctermbg=darkred ctermfg=green cterm=bold
+
+" Define formato de tiempo
+set timefmt='%Y/%m/%d %H:%M'
+
+" Define statusline
+set statusline=
+        \" %3* %4{expand('%c:e')}  "
+        \'%1* %8E '
+        \'%2* %12d '
+        \"%*  %{expand('%\"c:t')}"
+        \'%*'
+        \'%=💽 %a '
+
+" *********************************************************************************************************************
+
 
 " ------------------------------------------------------------------------------
 " Bookmarks
@@ -168,34 +189,78 @@ command! Find :execute "goto '".term(expand('fzf').' | sed.exe -b -e "s/\\/\//g"
 "**************************************
 " Comandos para foobar2000.exe
 "**************************************
-command! fb !!foobar2000 %"f &
-command! fba !!foobar2000 /add %"f &
 
-command! nitropdf !!nitropdf %"f &
+if executable('foobar200')
+    command! fb !!foobar2000 %"f &
+    command! fba !!foobar2000 /add %"f &
+else
+    command! fb  :echo 'No se ha encontrado el programa "foobar2000.exe" en PATH...'
+    command! fba :echo 'No se ha encontrado el programa "foobar2000.exe" en PATH...'
+endif
+
+
+if executable('nitropdf')
+    command! nitropdf !!nitropdf %"f &
+else
+    command! nitropdf :echo 'No se ha encontrado el programa "nitropdf.exe" en PATH...'
+endif
 
 command! copydir !!pwsh -nologo -noprofile -command set-clipboard $(pwd)
 
 "**************************************
 " Comandos para Navegadores Web
 "**************************************
-command! edgep :!pwsh  -noprofile -command msedge -inprivate ((Select-String -path '%"f' -pattern URL.* ) -split '=')[1]
-command! bravep :!pwsh  -noprofile -command brave -incognito ((Select-String -path '%"f' -pattern URL.* ) -split '=')[1]
+
+" ####### BRAVE #######
+if executable('brave')
+    command! bravep :!powershell -noprofile -command brave -incognito ((Select-String -path '%"f' -pattern URL.* ) -split '=')[1]
+else
+    command! bravep :echo 'No se ha encontrado el programa "brave.exe" en PATH...'
+endif
+
+
+" ####### EDGE #######
+if executable('msedge')
+    command! edgep :!powershell -noprofile -command msedge -inprivate ((Select-String -path '%"f' -pattern URL.* ) -split '=')[1]
+else
+    command! edgep :echo 'No se ha encontrado el programa "msedge.exe" en PATH...'
+endif
 
 
 "**************************************
 " Comandos para 7z.exe
 "**************************************
-command! unziphere :!7z x %"f
+if executable('7z')
+    command! unziphere :!7z x %"f
+else
+    command! unziphere :echo 'No se ha encontrado el programa "7z.exe" en PATH...'
+endif
 
 "**************************************
 " Comandos para vlc.exe
 "**************************************
-command! vlc :!vlc %"f
+if executable('vlc')
+    command! vlc :!vlc %"f
+else
+    command! vlc :echo 'No se ha encontrado el programa "vlc.exe" en PATH...'
+endif
 
 
 " ------------------------------------------------------------------------------
 " mis atajos de teclado
 " ------------------------------------------------------------------------------
+
+nnoremap zy :let $paste = expand('%"d')<CR>
+nnoremap zp :execute('cd '.$paste)<CR>
+
+
+nnoremap zl :if has('win') \
+    \| echo " win " \
+    \| else \
+    \| echo "No win " \
+    \| endif<CR>
+
+
 
 " Copiar el nombre del Fichero (Usando CMD.exe)
 nnoremap yn :execute 'let $a = '.expand('%"c') | execute('!<nul set /p ="'.expand('$a').'" | clip.exe')<cr>:echo "\"".$a."\" copiado al portapapeles"<cr>
@@ -653,7 +718,7 @@ nnoremap ge :!explorer . &<cr>
 
 " Ejecutar fzf
 nnoremap gtg :Find<space>
-nnoremap gtl :Find<cr>
+nnoremap gl :Find<cr>
 
 
 
