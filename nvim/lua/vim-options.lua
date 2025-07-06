@@ -9,12 +9,16 @@ vim.opt.clipboard = "unnamedplus"
 vim.g.clipboard = {
   name = 'win32yank',
   copy = {
-    ['+'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-i', '--crlf' },
-    ['*'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-i', '--crlf' },
+--['+'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-i', '--crlf' },
+--['*'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-i', '--crlf' },
+    ['+'] = { 'win32yank.exe', '-i', '--crlf' },
+    ['*'] = { 'win32yank.exe', '-i', '--crlf' },
   },
   paste = {
-    ['+'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-o', '--lf' },
-    ['*'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-o', '--lf' },
+--    ['+'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-o', '--lf' },
+--    ['*'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-o', '--lf' },
+    ['+'] = { 'win32yank.exe', '-o', '--lf' },
+    ['*'] = { 'win32yank.exe', '-o', '--lf' },
   },
   cache_enabled = false,
 }
