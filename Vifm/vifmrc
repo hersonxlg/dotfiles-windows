@@ -9,6 +9,36 @@
 " Main settings
 " ------------------------------------------------------------------------------
 
+" *******************************************************************************
+"                   Mi configuracion de preview
+" *******************************************************************************
+nnoremap w :view<CR>
+set vifminfo+=tui
+set millerview
+set milleroptions=lsize:1,csize:2,rsize:1,rpreview:all 
+
+fileview */ tree %c
+
+" Asociaciones externas
+filextype *.pdf SumatraPDF %"c &
+
+filextype *.txt notepad %"c
+
+" PDFs: texto plano con pdftotext
+fileviewer *.pdf pdftotext -layout -nopgbrk -q %"c:p -
+
+" Imágenes: render ASCII via img2txt (libcaca)
+filextype *.bmp,*.jpg,*.jpeg,*.png,*.gif vimiv %"c &
+
+" Archivos comprimidos: listado con tar
+fileviewer *.tar,*.tar.gz tar -tvf %"c
+
+" Logs: script .ps1 que filtra contenido por regex
+fileviewer *.mp3,*.mkv,*.webm,*.avi,*.mp4 powershell.exe -noprofile -nologo -ExecutionPolicy RemoteSigned -command infomedia %"c
+
+" *******************************************************************************
+
+
 " Command used to edit files in various contexts.  The default is vim.
 " If you would like to use another vi clone such as Elvis or Vile
 " you will need to change this setting.
@@ -824,4 +854,7 @@ set classify+=' ::*.log::'
 set classify+=' ::*.doc,,*.docx,,*.adoc::'
 set classify+=' ::*.xls,,*.xls,,*.xlsmx::'
 set classify+=' ::*.pptx,,*.ppt::'
+
+
+"au BufReadPost *.png,*.jpg set previewprg='viu --width=%pw %c'
 
