@@ -220,7 +220,7 @@ command! Find :execute "goto '".term(expand('fzf').' | sed.exe -b -e "s/\\/\//g"
 " Comandos para foobar2000.exe
 "**************************************
 
-if executable('foobar200')
+if executable('foobar2000')
     command! fb !!foobar2000 %"f &
     command! fba !!foobar2000 /add %"f &
 else
