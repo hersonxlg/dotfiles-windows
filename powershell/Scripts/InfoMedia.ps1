@@ -3,6 +3,11 @@
     [string]$MediaFilePath
 )
 
+if( -no(Get-Command ffprobe.exe -ErrorAction SilentlyContinue) ){
+    Write-Host "  El archivo `"ffprobe.exe`" no se encuentra en PATH...  " -BackgroundColor Red -ForegroundColor Black
+    exit 1
+}
+
 function ConvertTo-FriendlySize {
     param ([double]$Bytes)
     switch ($Bytes) {
