@@ -22,8 +22,6 @@ fileview */ tree %c
 " Asociaciones externas
 filextype *.pdf SumatraPDF %"c &
 
-filextype *.txt notepad %"c
-
 " PDFs: texto plano con pdftotext
 fileviewer *.pdf pdftotext -layout -nopgbrk -q %"c:p -
 
