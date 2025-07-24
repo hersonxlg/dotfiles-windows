@@ -1,7 +1,27 @@
-vim.cmd("set expandtab")
-vim.cmd("set tabstop=4")
-vim.cmd("set softtabstop=4")
-vim.cmd("set shiftwidth=4")
+--vim.cmd("set expandtab")
+--vim.cmd("set tabstop=4")
+--vim.cmd("set softtabstop=4")
+--vim.cmd("set shiftwidth=4")
+
+vim.opt.expandtab = true
+vim.opt.tabstop = 4
+vim.opt.shiftwidth = 4
+vim.opt.softtabstop = -1
+vim.opt.autoindent = true
+vim.opt.smartindent = true
+vim.opt.shiftround = true
+
+
+-----------------------------------------------------
+-- Simbolos sin representación gráfica:
+-----------------------------------------------------
+vim.o.list = true
+vim.o.listchars = 'tab:»·,lead:•,trail:•,eol:↲'
+
+
+-----------------------------------------------------
+-- configurar el portapapeles (clipboard):
+-----------------------------------------------------
 
 --vim.cmd("set clipboard+=unnamedplus")
 
@@ -71,3 +91,5 @@ vim.keymap.set("n", "<leader>.", "<cmd>luafile $MYVIMRC<cr>",{noremap = true})
 -- atajos para LSP
 -----------------------------------------------------
 vim.keymap.set('n', 'gl', vim.diagnostic.open_float, { desc = "Mostrar diagnostic flotante" })
+
+
