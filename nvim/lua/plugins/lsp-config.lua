@@ -60,8 +60,7 @@ return {
             })
 
             lspconfig.pylsp.setup({
-                capabilities = capabilities,
-                root_dir = lspconfig.util.root_pattern(".git", ".")
+                capabilities = capabilities
             })
             lspconfig.lua_ls.setup({
                 capabilities = capabilities
