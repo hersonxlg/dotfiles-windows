@@ -9,7 +9,7 @@ if( -not(Get-Command ffmpeg -ErrorAction SilentlyContinue)){
     exit 1;
 }
 
-$canciones = (Get-ChildItem -Filter "* - *.mp3")
+$canciones = @(Get-ChildItem -Filter "* - *.mp3")
 $N = $canciones.length 
 $i = 1;
 $canciones | ForEach-Object{

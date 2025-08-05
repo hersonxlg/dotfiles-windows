@@ -1,7 +1,27 @@
-vim.cmd("set expandtab")
-vim.cmd("set tabstop=4")
-vim.cmd("set softtabstop=4")
-vim.cmd("set shiftwidth=4")
+--vim.cmd("set expandtab")
+--vim.cmd("set tabstop=4")
+--vim.cmd("set softtabstop=4")
+--vim.cmd("set shiftwidth=4")
+
+vim.opt.expandtab = true
+vim.opt.tabstop = 4
+vim.opt.shiftwidth = 4
+vim.opt.softtabstop = -1
+vim.opt.autoindent = true
+vim.opt.smartindent = true
+vim.opt.shiftround = true
+
+
+-----------------------------------------------------
+-- Simbolos sin representación gráfica:
+-----------------------------------------------------
+vim.o.list = true
+vim.o.listchars = 'tab:»·,lead:•,trail:•,eol:↲'
+
+
+-----------------------------------------------------
+-- configurar el portapapeles (clipboard):
+-----------------------------------------------------
 
 --vim.cmd("set clipboard+=unnamedplus")
 
@@ -37,7 +57,7 @@ vim.o.shell = "pwsh"
 vim.o.shellquote = ""
 vim.o.shellxquote = ""
 vim.o.shellcmdflag =
-"-NoLogo -NoProfile -Command $PSStyle.OutputRendering=[System.Management.Automation.OutputRendering]::PlainText;Remove-Alias -Name tee -Force -ErrorAction SilentlyContinue;"
+"-NoLogo -NoProfile -Command [Console]::InputEncoding = [Console]::OutputEncoding = [Text.Encoding]::UTF8; $PSStyle.OutputRendering=[System.Management.Automation.OutputRendering]::PlainText;Remove-Alias -Name tee -Force -ErrorAction SilentlyContinue;"
 vim.o.shellpipe = '2>&1 | %%{ "$_" } | Out-File %s; exit $LastExitCode'
 vim.o.shellredir = '2>&1 | %%{ "$_" } | tee %s; exit $LastExitCode'
 
@@ -71,3 +91,5 @@ vim.keymap.set("n", "<leader>.", "<cmd>luafile $MYVIMRC<cr>",{noremap = true})
 -- atajos para LSP
 -----------------------------------------------------
 vim.keymap.set('n', 'gl', vim.diagnostic.open_float, { desc = "Mostrar diagnostic flotante" })
+
+

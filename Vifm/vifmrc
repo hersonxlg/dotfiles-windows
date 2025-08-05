@@ -32,7 +32,7 @@ filextype *.bmp,*.jpg,*.jpeg,*.png,*.gif vimiv %"c &
 fileviewer *.tar,*.tar.gz tar -tvf %"c
 
 " Logs: script .ps1 que filtra contenido por regex
-fileviewer *.mp3,*.mkv,*.webm,*.avi,*.mp4 powershell.exe -noprofile -nologo -ExecutionPolicy RemoteSigned -command infomedia '%"c' &
+fileviewer *.mp3,*.mkv,*.webm,*.avi,*.mp4 powershell.exe -noprofile -nologo -ExecutionPolicy RemoteSigned -command infomedia '%"c:p' &
 
 " *******************************************************************************
 

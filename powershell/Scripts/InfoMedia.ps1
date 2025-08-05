@@ -3,7 +3,7 @@
     [string]$MediaFilePath
 )
 
-if( -no(Get-Command ffprobe.exe -ErrorAction SilentlyContinue) ){
+if( -not(Get-Command ffprobe.exe -ErrorAction SilentlyContinue) ){
     Write-Host "  El archivo `"ffprobe.exe`" no se encuentra en PATH...  " -BackgroundColor Red -ForegroundColor Black
     exit 1
 }
@@ -44,8 +44,8 @@ $format = $infoJson.format
 $streams = $infoJson.streams
 
 Write-Host "`n========== INFORMACIÓN GENERAL ==========" -ForegroundColor Cyan
-#Write-Host "Nombre del archivo : $($format.filename)"
-Write-Host "Nombre del archivo : $((Get-Item $MediaFilePath).Name)"
+Write-Host "Nombre del archivo : $($format.filename)"
+#Write-Host "Nombre del archivo : $((Get-Item $MediaFilePath).Name)"
 Write-Host "Formato            : $($format.format_name)"
 Write-Host "Duración           : $(ConvertTo-CleanTime $format.duration)"
 Write-Host "Tamaño             : $(ConvertTo-FriendlySize $format.size)"

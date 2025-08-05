@@ -13,7 +13,7 @@ new-alias -Scope global -Name ifzf -Value Invoke-Fzf
 
 # foobar2000.exe_______fb
 if (test-path alias:fb ) { Remove-Alias fb }
-New-Alias -Scope global -Name fb -Value 'C:\Program Files (x86)\foobar2000\foobar2000.exe'
+New-Alias -Scope global -Name fb -Value 'foobar2000.exe'
 
 # Open init.vim:________nvimc
 if ( test-path alias:nvimc ) { Remove-Alias nvimc }
