@@ -10,7 +10,7 @@ return {
         end
     },
     ---------------------------------
-    -- Install "mason-lspconfig"
+    -- Install "LSP de Mason"
     ---------------------------------
     {
         "williamboman/mason-lspconfig.nvim",
@@ -26,11 +26,25 @@ return {
                     "clangd",
                     "ts_ls",
                     "powershell_es",
+                    "asmfmt", -- formateador de assembler
                     "asm_lsp" -- requiere "cargo.exe" (Rust).
                 },
             })
         end
     },
+
+
+    -------------------------------------------
+    ---- Install "formateadores y linters"
+    -------------------------------------------
+    --{
+    --    "williamboman/mason-tool-installer.nvim",
+    --    lazy = false,
+    --    opts = {
+    --        ensure_installed = { "asmfmt" },
+    --        run_on_start     = true,
+    --    },
+    --},
     ---------------------------------
     -- Install "mason-lspconfig"
     ---------------------------------
@@ -49,6 +63,7 @@ return {
                 capabilities = capabilities
             })
 
+
             -- asm_lsp: remove cmd_cwd (must be a directory, not a file)
             lspconfig.asm_lsp.setup({
                 cmd       = { "asm-lsp" },
@@ -60,8 +75,18 @@ return {
             })
 
             lspconfig.pylsp.setup({
+                settings = {
+                    pylsp = {
+                        plugins = {
+                            rope_rename = { enabled = false },
+                            jedi_rename = { enabled = false },
+                            pylsp_rope = { rename = true }
+                        }
+                    }
+                },
                 capabilities = capabilities
             })
+
             lspconfig.lua_ls.setup({
                 capabilities = capabilities
             })
@@ -123,4 +148,5 @@ return {
             vim.keymap.set({ 'n', 'v' }, '<leader>ca', vim.lsp.buf.code_action, {})
         end
     },
+
 }
