@@ -26,25 +26,12 @@ return {
                     "clangd",
                     "ts_ls",
                     "powershell_es",
-                    "asmfmt", -- formateador de assembler
                     "asm_lsp" -- requiere "cargo.exe" (Rust).
                 },
             })
         end
     },
 
-
-    -------------------------------------------
-    ---- Install "formateadores y linters"
-    -------------------------------------------
-    --{
-    --    "williamboman/mason-tool-installer.nvim",
-    --    lazy = false,
-    --    opts = {
-    --        ensure_installed = { "asmfmt" },
-    --        run_on_start     = true,
-    --    },
-    --},
     ---------------------------------
     -- Install "mason-lspconfig"
     ---------------------------------
