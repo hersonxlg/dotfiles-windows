@@ -32,3 +32,7 @@ Set-Alias -Scope global -Name fex -Value explorer
 #if (test-path alias:arduino ) { Remove-Alias arduino }
 #new-alias -Scope global -Name arduino -Value "Arduino IDE.exe"
 
+#  "vimiv.exe" ----> vimiv 
+if (test-path alias:vimiv ) { Remove-Alias vimiv }
+new-alias -Scope global -Name vimiv -Value "$HOME\anaconda3\Scripts\vimiv.exe"
+
