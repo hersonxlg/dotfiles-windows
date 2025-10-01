@@ -5,6 +5,7 @@
 " Blank lines are ignored.
 " The basic format for each item is shown with an example.
 
+
 " ------------------------------------------------------------------------------
 " Main settings
 " ------------------------------------------------------------------------------
@@ -26,7 +27,8 @@ filextype *.pdf SumatraPDF %"c &
 fileviewer *.pdf pdftotext -layout -nopgbrk -q %"c:p -
 
 " Imágenes: render ASCII via img2txt (libcaca)
-filextype *.bmp,*.jpg,*.jpeg,*.png,*.gif vimiv %"c &
+"filextype *.bmp,*.jpg,*.jpeg,*.png,*.gif vimiv %"c &
+filetype *.bmp,*.jpg,*.jpeg,*.png,*.gif vimiv.exe %"c &
 
 " Archivos comprimidos: listado con tar
 fileviewer *.tar,*.tar.gz tar -tvf %"c
