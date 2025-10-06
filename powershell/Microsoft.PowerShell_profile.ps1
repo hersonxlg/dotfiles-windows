@@ -25,15 +25,15 @@
 # ********************************************************
 #                   Load My Alias:
 # ********************************************************
-Invoke-Expression '~\Documents\PowerShell\myalias.ps1'
+Invoke-Expression "$HOME\Documents\PowerShell\myalias.ps1"
 
 # ********************************************************
 #                   Create Local Variables:
 # ********************************************************
 # Style default PowerShell Console
 #$shell = $Host.UI.RawUI
-$myalias = 'C:\Users\herson\Documents\PowerShell\myalias.ps1'
-$fzfconfig = 'C:\Users\HersonPC\Documents\PowerShell\fzfconfig.ps1'
+$myalias = "$HOME\Documents\PowerShell\myalias.ps1"
+$fzfconfig = "$HOME\Documents\PowerShell\fzfconfig.ps1"
 #  $myfunctions = 'C:\Users\HersonPC\Documents\PowerShell\myFunctions.ps1'
 #  $fzfconfig = 'C:\Users\HersonPC\Documents\PowerShell\fzfconfig.ps1'
 

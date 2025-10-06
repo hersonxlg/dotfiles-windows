@@ -29,8 +29,8 @@ Set-Alias -Scope global -Name fex -Value explorer
 
 
 #  "Arduino IDE.exe" ----> arduino
-if (test-path alias:arduino ) { Remove-Alias arduino }
-new-alias -Scope global -Name arduino -Value "Arduino IDE.exe"
+#if (test-path alias:arduino ) { Remove-Alias arduino }
+#new-alias -Scope global -Name arduino -Value "Arduino IDE.exe"
 
 #  "vimiv.exe" ----> vimiv 
 if (test-path alias:vimiv ) { Remove-Alias vimiv }
