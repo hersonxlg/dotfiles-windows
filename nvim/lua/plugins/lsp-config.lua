@@ -1,113 +1,201 @@
 return {
-  "neovim/nvim-lspconfig",
-  dependencies = {
-    "williamboman/mason.nvim",
-    "folke/neodev.nvim",
-  },
-  lazy = false,
-  config = function()
-    local capabilities = require('cmp_nvim_lsp').default_capabilities()
-    -- Helper para registrar y activar
-    local function register_and_enable(name, opts)
-      if opts then
-        vim.lsp.config(name, opts)
-      end
-      vim.lsp.enable(name)
-    end
-
-    -- clangd
-    register_and_enable("clangd", { capabilities = capabilities })
-
-    -- asm_lsp (corrigiendo cmd_cwd)
-    register_and_enable("asm_lsp", {
-      cmd       = { "asm-lsp" },
-      filetypes = { "asm", "nasm", "gas", "armasm", "avr" },
-      root_dir  = (function()
-        local util = require("lspconfig.util")
-        return function(fname)
-          return util.root_pattern("asm_lsp.toml", ".git")(fname)
+    ---------------------------------
+    -- Install "Mason"
+    ---------------------------------
+    {
+        "williamboman/mason.nvim",
+        lazy = false,
+        config = function()
+            require("mason").setup()
         end
-      end)(),
-      on_attach = function(_, bufnr)
-        vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = bufnr })
-      end,
-    })
-
-    -- pylsp
-    register_and_enable("pylsp", {
-      settings = {
-        pylsp = {
-          plugins = {
-            rope_rename = { enabled = false },
-            jedi_rename = { enabled = false },
-            pylsp_rope = { rename = true },
-          },
+    },
+    ---------------------------------
+    -- Install "LSP de Mason"
+    ---------------------------------
+    {
+        "williamboman/mason-lspconfig.nvim",
+        lazy = false,
+        opts = {
+            auto_install = true,
         },
-      },
-      capabilities = capabilities,
-    })
-
-    -- lua_ls
-    register_and_enable("lua_ls", { capabilities = capabilities })
-
-    -- ts_ls
-    register_and_enable("ts_ls", {
-      capabilities = capabilities,
-      filetypes = {
-        "javascript", "javascript.jsx",
-        "typescript", "typescript.tsx",
-      },
-      init_options = {
-        hostInfo = "neovim",
-      },
-    })
-
-    -- vimls
-    register_and_enable("vimls", { capabilities = capabilities })
-
-    -- PowerShell Editor Services
-    local caps = require("cmp_nvim_lsp").default_capabilities()
-    register_and_enable("powershell_es", {
-      capabilities = caps,
-      filetypes    = { "ps1", "psm1", "psd1" },
-      bundle_path  = vim.fn.stdpath("data") .. "\\mason\\packages\\powershell-editor-services",
-      shell        = "pwsh",
-      settings     = {
-        powershell = {
-          codeFormatting = { Preset = "OTBS" },
-        },
-      },
-      init_options = { enableProfileLoading = false },
-      root_dir = function(fname)
-        local path = vim.fs.dirname(fname)
-        local git  = vim.fs.find({ ".git" }, { upward = true, path = path })[1]
-        return git and vim.fs.dirname(git) or path
-      end,
-    })
-
-    -- matlab_ls
-    register_and_enable("matlab_ls", {
-      cmd = { "matlab-ls" },
-      filetypes = { "matlab" },
-      root_dir = (function()
-        local util = require("lspconfig.util")
-        return function(fname)
-          return util.root_pattern(".git", "startup.m")(fname)
+        config = function()
+            require("mason-lspconfig").setup({
+                ensure_installed = {
+                    "lua_ls",
+                    "pylsp",
+                    "clangd",
+                    "ts_ls",
+                    "powershell_es",
+                    "asm_lsp"
+                },
+            })
         end
-      end)(),
-      capabilities = require("cmp_nvim_lsp").default_capabilities(),
-    })
+    },
 
-    -- Mappings globales mínimos
-    vim.keymap.set('n', 'K', vim.lsp.buf.hover, {})
-    vim.keymap.set('n', 'gd', vim.lsp.buf.definition, {})
-    vim.keymap.set({ 'n', 'v' }, '<leader>ca', vim.lsp.buf.code_action, {})
-  end
+    ---------------------------------
+    -- Install "mason-lspconfig"
+    ---------------------------------
+    {
+        "neovim/nvim-lspconfig",
+        dependencies = {
+            "williamboman/mason.nvim",
+            "folke/neodev.nvim",
+        },
+        lazy = false,
+        config = function()
+            local capabilities = require('cmp_nvim_lsp').default_capabilities()
+
+            -- clangd
+            vim.lsp.config.clangd = {
+                default_config = {
+                    cmd = { "clangd" },
+                    capabilities = capabilities,
+                }
+            }
+            vim.lsp.enable("clangd")
+
+            -- asm_lsp (usar vim.fs para root_dir)
+            vim.lsp.config.asm_lsp = {
+                default_config = {
+                    cmd = { "asm-lsp" },
+                    filetypes = { "asm", "nasm", "gas", "armasm", "avr" },
+                    root_dir = function(fname)
+                        local path = vim.fs.dirname(fname)
+                        local git = vim.fs.find({ ".git" }, { upward = true, path = path })[1]
+                        if git then
+                            return vim.fs.dirname(git)
+                        end
+                        local toml = vim.fs.find({ "asm_lsp.toml" }, { upward = true, path = path })[1]
+                        if toml then
+                            return vim.fs.dirname(toml)
+                        end
+                        return path
+                    end,
+                    on_attach = function(_, bufnr)
+                        vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = bufnr })
+                    end,
+                }
+            }
+            vim.lsp.enable("asm_lsp")
+
+            -- pylsp
+            vim.lsp.config.pylsp = {
+                default_config = {
+                    cmd = { "pylsp" },
+                    settings = {
+                        pylsp = {
+                            plugins = {
+                                rope_rename = { enabled = false },
+                                jedi_rename = { enabled = false },
+                                pylsp_rope = { rename = true }
+                            }
+                        }
+                    },
+                    capabilities = capabilities,
+                }
+            }
+            vim.lsp.enable("pylsp")
+
+            -- lua_ls
+            vim.lsp.config.lua_ls = {
+                default_config = {
+                    cmd = { "lua-language-server" },
+                    capabilities = capabilities,
+                }
+            }
+            vim.lsp.enable("lua_ls")
+
+            -- ts_ls (typescript-language-server)
+            vim.lsp.config.ts_ls = {
+                default_config = {
+                    cmd = { "typescript-language-server", "--stdio" },
+                    filetypes = {
+                        "javascript", "javascript.jsx",
+                        "typescript", "typescript.tsx",
+                    },
+                    init_options = {
+                        hostInfo = "neovim",
+                    },
+                    capabilities = capabilities,
+                }
+            }
+            vim.lsp.enable("ts_ls")
+
+            -- vimls
+            vim.lsp.config.vimls = {
+                default_config = {
+                    cmd = { "vim-language-server" },
+                    capabilities = capabilities,
+                }
+            }
+            vim.lsp.enable("vimls")
+
+            ---------------------------------
+            -- Configuración del LSP de PowerShell
+            ---------------------------------
+            local caps = require("cmp_nvim_lsp").default_capabilities()
+            vim.lsp.config.powershell_es = {
+                default_config = {
+                    cmd = nil, -- powershell_es usa bundle_path y pwsh; mason instala la carpeta
+                    filetypes = { "ps1", "psm1", "psd1" },
+                    capabilities = caps,
+                    bundle_path = vim.fn.stdpath("data") .. "\\mason\\packages\\powershell-editor-services",
+                    shell = "pwsh",
+                    settings = {
+                        powershell = {
+                            codeFormatting = { Preset = "OTBS" },
+                        },
+                    },
+                    init_options = {
+                        enableProfileLoading = false,
+                    },
+                    root_dir = function(fname)
+                        local path = vim.fs.dirname(fname)
+                        local git = vim.fs.find({ ".git" }, { upward = true, path = path })[1]
+                        return git and vim.fs.dirname(git) or path
+                    end,
+                }
+            }
+            -- powershell_es puede requerir ajustes adicionales en cmd o bundle_path según instalación
+            vim.lsp.enable("powershell_es")
+
+            ---------------------------------
+            -- Configuración del LSP de Matlab
+            ---------------------------------
+            vim.lsp.config.matlab_ls = {
+                default_config = {
+                    cmd = { "matlab-ls" },
+                    filetypes = { "matlab" },
+                    root_dir = function(fname)
+                        local path = vim.fs.dirname(fname)
+                        local git = vim.fs.find({ ".git" }, { upward = true, path = path })[1]
+                        if git then
+                            return vim.fs.dirname(git)
+                        end
+                        local startup = vim.fs.find({ "startup.m" }, { upward = true, path = path })[1]
+                        if startup then
+                            return vim.fs.dirname(startup)
+                        end
+                        return path
+                    end,
+                    capabilities = require("cmp_nvim_lsp").default_capabilities(),
+                }
+            }
+            vim.lsp.enable("matlab_ls")
+
+            ---------------------------------
+            -- Mapeos globales
+            ---------------------------------
+            vim.keymap.set('n', 'K', vim.lsp.buf.hover, {})
+            vim.keymap.set('n', 'gd', vim.lsp.buf.definition, {})
+            vim.keymap.set({ 'n', 'v' }, '<leader>ca', vim.lsp.buf.code_action, {})
+        end
+    },
+
 }
 
 
-
-
+-- ***************************************************************************
 --  return {
 --      ---------------------------------
 --      -- Install "Mason"
