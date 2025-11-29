@@ -493,7 +493,7 @@ fileviewer {*.torrent},<application/x-bittorrent>
          \ transmission-show %c
 
 " FuseZipMount
-filetype {*.zip,*.jar,*.war,*.ear,*.oxt,*.apkg},
+filetype {*.7z,*.zip,*.jar,*.war,*.ear,*.oxt,*.apkg},
        \ {Abrir con 7zip}
        \ 7zFM %"f &,
         \<application/zip,application/java-archive>
