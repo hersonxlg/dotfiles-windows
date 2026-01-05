@@ -12,7 +12,10 @@
 #                   UTF-8
 # ********************************************************
 
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$utf8 = [System.Text.UTF8Encoding]::new()
+[Console]::InputEncoding  = $utf8
+[Console]::OutputEncoding = $utf8
+$OutputEncoding           = $utf8
 
 
 
