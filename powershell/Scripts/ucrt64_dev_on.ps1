@@ -1,10 +1,18 @@
 # Archivo: ucrt64_dev_on.ps1
 
 # 1. Definimos la ruta de MSYS2 UCRT64
-$MsysPath = "C:\msys64\ucrt64\bin"
+$MsysPaths = @("C:\msys64\ucrt64\bin","$home\scoop\apps\msys2\current\ucrt64\bin")
+$MsysPath = ""
 
 # 2. Verificamos si la ruta de MSYS2 UCRT64 "EXISTE"
-if (-not (Test-Path $MsysPath) ) {
+foreach($path in $MsysPaths){
+    if (Test-Path $path) {
+        $MsysPath = $path
+        break
+    }
+}
+
+if ($MsysPath -eq "") {
     Write-Error "El entorno UCRT64 no existe."
     return
 }
