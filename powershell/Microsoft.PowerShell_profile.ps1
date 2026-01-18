@@ -211,15 +211,3 @@ function getLatestVerison() {
     $versions=@(cmd /c dir /O-N /b %USERPROFILE%\Documents\PowerShell\Modules\$module_name\);
     return $versions[0];
 }
-
-
-
-
-
-
-
-
-
-
-
-

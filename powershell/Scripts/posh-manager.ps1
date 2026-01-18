@@ -250,7 +250,10 @@ function Install-Theme {
         $NewContent = $Content + $Prefix + $NewCommand
         Write-Host "  [i] Configuración agregada." -ForegroundColor Gray
     }
-    
+
+    $NewContent = $NewContent.TrimEnd() # <--- ¡AQUÍ ESTÁ EL CAMBIO!
+    # Esto borra cualquier \r\n (salto de línea) acumulado al final
+
     Set-Content -Path $ProfilePath -Value $NewContent -Encoding UTF8
     
     Write-Host "  Recargando..." -ForegroundColor Green
