@@ -44,7 +44,7 @@ $fzfconfig = "$HOME\Documents\PowerShell\fzfconfig.ps1"
 # ********************************************************
 #                  Oh-My-Posh theme: 
 # ********************************************************
-set-theme quick-term
+oh-my-posh init pwsh --config "$env:USERPROFILE\.oh-my-posh\themes\wopian.omp.json" | Invoke-Expression
 
 # ********************************************************
 #                  Terminal-Icons:
@@ -211,4 +211,11 @@ function getLatestVerison() {
     $versions=@(cmd /c dir /O-N /b %USERPROFILE%\Documents\PowerShell\Modules\$module_name\);
     return $versions[0];
 }
+
+
+
+
+
+
+
 
