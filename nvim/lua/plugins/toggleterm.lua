@@ -15,7 +15,7 @@ return {
                     --vim.cmd("TermExec cmd=\"clear; echo hola\"")
                 end,
                 close_on_exit = true, -- close the terminal window when the process exits
-                shell = "pwsh -nologo -noprofile -noexit -command {set-theme pure; . '".. vi_mode_pwsh_file .. "'}"
+                shell = "pwsh -nologo -noprofile -noexit -command { . '".. vi_mode_pwsh_file .. "'}"
                 --shell = "cmd"
             }
 
