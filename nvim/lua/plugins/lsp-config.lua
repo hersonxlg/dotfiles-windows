@@ -9,8 +9,9 @@ return {
             require("mason").setup()
         end
     },
+
     ---------------------------------
-    -- Install "LSP de Mason"
+    -- Install "Mason LSP"
     ---------------------------------
     {
         "williamboman/mason-lspconfig.nvim",
@@ -33,7 +34,7 @@ return {
     },
 
     ---------------------------------
-    -- Install "mason-lspconfig"
+    -- Install "nvim-lspconfig"
     ---------------------------------
     {
         "neovim/nvim-lspconfig",
@@ -43,7 +44,7 @@ return {
         },
         lazy = false,
         config = function()
-            local capabilities = require('cmp_nvim_lsp').default_capabilities()
+            local capabilities = require("cmp_nvim_lsp").default_capabilities()
 
             -- clangd
             vim.lsp.config.clangd = {
@@ -54,7 +55,7 @@ return {
             }
             vim.lsp.enable("clangd")
 
-            -- asm_lsp (usar vim.fs para root_dir)
+            -- asm_lsp
             vim.lsp.config.asm_lsp = {
                 default_config = {
                     cmd = { "asm-lsp" },
@@ -87,7 +88,7 @@ return {
                             plugins = {
                                 rope_rename = { enabled = false },
                                 jedi_rename = { enabled = false },
-                                pylsp_rope = { rename = true }
+                                pylsp_rope = { rename = true },
                             }
                         }
                     },
@@ -105,7 +106,7 @@ return {
             }
             vim.lsp.enable("lua_ls")
 
-            -- ts_ls (typescript-language-server)
+            -- ts_ls
             vim.lsp.config.ts_ls = {
                 default_config = {
                     cmd = { "typescript-language-server", "--stdio" },
@@ -131,36 +132,29 @@ return {
             vim.lsp.enable("vimls")
 
             ---------------------------------
-            -- Configuración del LSP de PowerShell
+            -- PowerShell LSP (Neovim 0.11+)
             ---------------------------------
-            local caps = require("cmp_nvim_lsp").default_capabilities()
-            vim.lsp.config.powershell_es = {
-                default_config = {
-                    cmd = nil, -- powershell_es usa bundle_path y pwsh; mason instala la carpeta
-                    filetypes = { "ps1", "psm1", "psd1" },
-                    capabilities = caps,
-                    bundle_path = vim.fn.stdpath("data") .. "\\mason\\packages\\powershell-editor-services",
-                    shell = "pwsh",
-                    settings = {
-                        powershell = {
-                            codeFormatting = { Preset = "OTBS" },
+            vim.lsp.config("powershell_es", {
+                bundle_path = vim.fn.stdpath("data")
+                    .. "/mason/packages/powershell-editor-services",
+
+                settings = {
+                    powershell = {
+                        codeFormatting = {
+                            Preset = "OTBS",
                         },
                     },
-                    init_options = {
-                        enableProfileLoading = false,
-                    },
-                    root_dir = function(fname)
-                        local path = vim.fs.dirname(fname)
-                        local git = vim.fs.find({ ".git" }, { upward = true, path = path })[1]
-                        return git and vim.fs.dirname(git) or path
-                    end,
-                }
-            }
-            -- powershell_es puede requerir ajustes adicionales en cmd o bundle_path según instalación
+                },
+
+                init_options = {
+                    enableProfileLoading = false,
+                },
+            })
+
             vim.lsp.enable("powershell_es")
 
             ---------------------------------
-            -- Configuración del LSP de Matlab
+            -- Matlab LSP
             ---------------------------------
             vim.lsp.config.matlab_ls = {
                 default_config = {
@@ -178,22 +172,20 @@ return {
                         end
                         return path
                     end,
-                    capabilities = require("cmp_nvim_lsp").default_capabilities(),
+                    capabilities = capabilities,
                 }
             }
             vim.lsp.enable("matlab_ls")
 
             ---------------------------------
-            -- Mapeos globales
+            -- Global keymaps
             ---------------------------------
-            vim.keymap.set('n', 'K', vim.lsp.buf.hover, {})
-            vim.keymap.set('n', 'gd', vim.lsp.buf.definition, {})
-            vim.keymap.set({ 'n', 'v' }, '<leader>ca', vim.lsp.buf.code_action, {})
+            vim.keymap.set("n", "K", vim.lsp.buf.hover, {})
+            vim.keymap.set("n", "gd", vim.lsp.buf.definition, {})
+            vim.keymap.set({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, {})
         end
     },
-
 }
-
 
 -- ***************************************************************************
 --  return {
