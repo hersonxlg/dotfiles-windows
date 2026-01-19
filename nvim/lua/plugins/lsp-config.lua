@@ -134,10 +134,23 @@ return {
             ---------------------------------
             -- PowerShell LSP (Neovim 0.11+)
             ---------------------------------
+            local ps_bundle_path = vim.fn.stdpath("data") .. "/mason/packages/powershell-editor-services"
+            
             vim.lsp.config("powershell_es", {
-                bundle_path = vim.fn.stdpath("data")
-                    .. "/mason/packages/powershell-editor-services",
-
+                -- Esto sobreescribe la función automática que falla en Windows
+                cmd = {
+                    "pwsh", -- o "powershell.exe" si no tienes PS7
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-ExecutionPolicy", "Bypass",
+                    "-Command",
+                    string.format(
+                        "& '%s/PowerShellEditorServices/Start-EditorServices.ps1' -HostName 'nvim' -HostProfileId '0' -HostVersion '1.0.0' -Stdio -BundledModulesPath '%s' -LogLevel Normal",
+                        ps_bundle_path,
+                        ps_bundle_path
+                    ),
+                },
+                root_dir = vim.fs.root(0, { ".git", "PSScriptAnalyzerSettings.psd1" }) or vim.fn.getcwd(),
                 settings = {
                     powershell = {
                         codeFormatting = {
@@ -145,10 +158,10 @@ return {
                         },
                     },
                 },
-
                 init_options = {
                     enableProfileLoading = false,
                 },
+                capabilities = capabilities,
             })
 
             vim.lsp.enable("powershell_es")
