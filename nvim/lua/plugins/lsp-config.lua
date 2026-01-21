@@ -27,6 +27,7 @@ return {
                     "clangd",
                     "ts_ls",
                     "powershell_es",
+                    "arduino_language_server",
                     "asm_lsp"
                 },
             })
