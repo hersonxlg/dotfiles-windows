@@ -51,6 +51,7 @@ param (
     [string]$PortName,
 
     [Parameter(Mandatory=$false, Position=1)]
+    [ValidateSet(9600, 19200, 38400, 57600, 74880, 115200, 230400, 460800, 921600)] 
     [int]$BaudRate = 0, # 0 indica "Auto/Default"
 
     [Parameter(Mandatory=$false)]
