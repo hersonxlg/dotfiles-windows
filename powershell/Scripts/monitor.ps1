@@ -1,22 +1,24 @@
 <#
 .SYNOPSIS
-    Monitor Serial Avanzado (monitor) para desarrollo con Arduino/ESP32.
+    Monitor Serial Avanzado "monitor" para desarrollo con Arduino/ESP32.
 
 .DESCRIPTION
-    Esta herramienta es un monitor de puerto serial robusto diseñado para CLI.
-    Características principales:
-    - Interfaz dividida (Split Screen): Recepción (RX) arriba, Transmisión (TX) abajo.
-    - Cero Parpadeo (Flicker-Free): Motor de renderizado estático.
-    - Configuración Automática: Lee puerto y velocidad desde 'sketch.yaml' si existe.
-    - Selector EOL: Control total sobre los caracteres de fin de línea (LF, CR, CRLF).
+    Herramienta de monitoreo serial para consola (CLI) con características de nivel industrial:
+    - Auto-Reconexión (Self-Healing): Detecta desconexiones físicas y reconecta automáticamente.
+    - Anti-Congelamiento: Previene el bloqueo de la terminal al desconectar USB (Fix para Arduino Mega).
+    - Interfaz TUI: Pantalla dividida (RX arriba / TX abajo) sin parpadeos.
+    - Configuración Inteligente: Lee 'sketch.yaml' automáticamente.
 
 .PARAMETER PortName
-    El nombre del puerto COM (ej: COM3, /dev/ttyUSB0). 
-    Si no se especifica, se intenta leer del archivo 'sketch.yaml'.
+    Nombre del puerto COM (ej: COM3, /dev/ttyUSB0). 
+    Si se omite, se intenta leer del archivo 'sketch.yaml'.
 
 .PARAMETER BaudRate
-    La velocidad de transmisión en baudios (ej: 9600, 115200).
-    Valor por defecto: 9600 (o lo que diga 'sketch.yaml').
+    Velocidad de transmisión. Admite valores estándar (9600, 115200, etc.).
+    Usa 0 para detección automática desde 'sketch.yaml' o defecto (9600).
+
+.PARAMETER Echo
+    Muestra en la consola local lo que envías (TX). Por defecto: $true.
 
 .PARAMETER EOL
     Define qué carácter invisible se envía al presionar ENTER.
@@ -25,36 +27,28 @@
     - CR: Carriage Return (\r) -> Equipos antiguos.
     - CRLF: Ambos (\r\n) -> Estándar Windows/Internet.
 
-.PARAMETER Echo
-    Si es $true (por defecto), muestra en pantalla lo que envías.
+.EXAMPLE
+    .\monitor.ps1
+    Inicia en modo automático buscando configuración en la carpeta actual.
 
 .EXAMPLE
-    ./monitor.ps1
-    Busca configuración en sketch.yaml y se conecta automáticamente.
-
-.EXAMPLE
-    ./monitor.ps1 COM12 -BaudRate 115200
-    Conexión manual rápida a 115200 baudios.
-
-.EXAMPLE
-    ./monitor.ps1 COM3 -EOL CRLF
-    Conecta a COM3 y envía \r\n al final de cada comando.
+    .\monitor.ps1 COM5 -BaudRate 115200
+    Inicia conexión directa a COM5 con 115200 baudios.
 
 .NOTES
-    Autor: Gemini AI (Asistente Técnico)
-    Versión: 15.1 (Symbol Fix Edition)
-    Requisito: .NET Framework 4.5+ (Nativo en Windows 10/11)
+    Autor: Gemini AI & User
+    Versión: 1.0.0 (Golden Master)
 #>
 
 param (
-    [Parameter(Mandatory=$false, Position=0)]
+    [Parameter(Mandatory=$false, Position=0)] 
     [string]$PortName,
 
     [Parameter(Mandatory=$false, Position=1)]
-    [ValidateSet(9600, 19200, 38400, 57600, 74880, 115200, 230400, 460800, 921600)] 
-    [int]$BaudRate = 0, # 0 indica "Auto/Default"
+    [ValidateSet(0, 9600, 19200, 38400, 57600, 74880, 115200, 230400, 460800, 921600)] 
+    [int]$BaudRate = 0, # 0 = Auto/Default
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory=$false)] 
     [bool]$Echo = $true,
     
     [Parameter(Mandatory=$false)] 
@@ -62,22 +56,22 @@ param (
     [string]$EOL = "LF" 
 )
 
-# Configuración estricta de errores para evitar comportamientos "zombie"
+# Configuración de seguridad: Detener script ante cualquier error no controlado
 $ErrorActionPreference = "Stop"
-
+# Codificación UTF8 para soportar tildes y caracteres especiales
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # =============================================================================
-# SECCIÓN 1: GESTIÓN DE CONFIGURACIÓN Y ARCHIVOS
+# 1. GESTIÓN DE CONFIGURACIÓN (AUTO-DISCOVERY)
 # =============================================================================
 
 function Get-ProjectConfig {
     <#
     .SYNOPSIS
-        Busca y analiza el archivo 'sketch.yaml' de Arduino CLI.
+        Analiza el archivo 'sketch.yaml' del Arduino CLI.
     .DESCRIPTION
-        Intenta extraer el puerto y la velocidad usando expresiones regulares (Regex)
-        para evitar dependencias externas de librerías YAML.
+        Busca puerto, baudios y EOL usando expresiones regulares para evitar
+        dependencias de librerías YAML externas.
     #>
     $configFile = Join-Path (Get-Location) "sketch.yaml"
     $config = @{ Port = $null; Baud = $null; EOL = $null }
@@ -85,339 +79,364 @@ function Get-ProjectConfig {
     if (Test-Path $configFile) {
         try {
             $content = Get-Content $configFile -Raw
-            
-            # Regex para buscar 'port: COMx' (insensible a mayúsculas)
-            if ($content -match "(?mi)^[\s-]*port:\s*[`"']?([a-z0-9/_]+)[`"']?") {
-                $config.Port = $matches[1]
-                Write-Host " -> Config YAML detectada: Port $($config.Port)" -ForegroundColor DarkGray
+            # Regex para puerto (ej: port: COM3)
+            if ($content -match "(?mi)^[\s-]*port:\s*[`"']?([a-z0-9/_]+)[`"']?") { 
+                $config.Port = $matches[1] 
             }
-            # Regex para buscar 'baudrate: 115200'
-            if ($content -match "(?mi)^[\s-]*\w*(baud|speed|rate)\w*:\s*[`"']?(\d+)[`"']?") {
-                $config.Baud = [int]$matches[2]
+            # Regex para baudios (ej: baud: 115200)
+            if ($content -match "(?mi)^[\s-]*\w*(baud|speed|rate)\w*:\s*[`"']?(\d+)[`"']?") { 
+                $config.Baud = [int]$matches[2] 
             }
-            # Regex para buscar 'eol: CRLF' (personalizado)
-            if ($content -match "(?mi)^[\s-]*eol:\s*[`"']?(None|LF|CR|CRLF)[`"']?") {
-                $config.EOL = $matches[1]
-                Write-Host " -> Config YAML detectada: EOL $($config.EOL)" -ForegroundColor DarkGray
+            # Regex para EOL
+            if ($content -match "(?mi)^[\s-]*eol:\s*[`"']?(None|LF|CR|CRLF)[`"']?") { 
+                $config.EOL = $matches[1] 
             }
-        } catch {
-            Write-Warning "No se pudo leer sketch.yaml correctamente."
-        }
+        } catch {}
     }
     return $config
 }
 
-# --- LÓGICA DE PRIORIDADES DE CONFIGURACIÓN ---
-# 1. Argumentos de Consola (Máxima prioridad)
-# 2. Archivo sketch.yaml (Prioridad media)
-# 3. Valores por defecto (Prioridad baja)
+# --- APLICACIÓN DE PRIORIDADES ---
+# Prioridad: Argumento CLI > sketch.yaml > Defecto
 
 $yamlConfig = Get-ProjectConfig
 
-# A. Determinar PUERTO
-if ([string]::IsNullOrEmpty($PortName)) {
+# Puerto
+if ([string]::IsNullOrEmpty($PortName)) { 
     if ($yamlConfig.Port) { $PortName = $yamlConfig.Port } 
-    else {
-        Write-Host "ERROR: No se ha especificado un Puerto COM." -ForegroundColor Red
-        Write-Host "Ayuda: Usa 'Get-Help ./monitor.ps1 -Full' para ver opciones." -ForegroundColor Yellow
-        exit
-    }
+    else { Write-Host " [ ERROR ] Debes especificar un Puerto COM o tener un sketch.yaml"; exit } 
 }
 
-# B. Determinar VELOCIDAD
-if ($BaudRate -eq 0) {
+# Baudios
+if ($BaudRate -eq 0) { 
     if ($yamlConfig.Baud) { $BaudRate = $yamlConfig.Baud } 
-    else { $BaudRate = 9600 } # Default estándar de Arduino
+    else { $BaudRate = 9600 } 
 }
 
-# C. Determinar EOL (Solo si el usuario no lo forzó en consola)
-if ($yamlConfig.EOL -and $PSBoundParameters.ContainsKey('EOL') -eq $false) {
-    $EOL = $yamlConfig.EOL
+# EOL
+if ($yamlConfig.EOL -and $PSBoundParameters.ContainsKey('EOL') -eq $false) { 
+    $EOL = $yamlConfig.EOL 
 }
 
 # =============================================================================
-# SECCIÓN 2: CONEXIÓN SERIAL (HARDWARE)
+# 2. VARIABLES DE ESTADO GLOBAL
 # =============================================================================
 
-try {
-    Add-Type -AssemblyName System.IO.Ports
+$global:connStatus = "DISCONNECTED" # Estados: CONNECTED, DISCONNECTED
+$global:portObj = $null             # Objeto System.IO.Ports.SerialPort
+$running = $true                    # Control del bucle principal
 
-    Write-Host "Iniciando monitor en $PortName a $BaudRate baudios..." -ForegroundColor Cyan
-    Write-Host "Modo EOL: $EOL" -ForegroundColor DarkGray
+# Buffers de datos
+$history = @()       # Historial de líneas recibidas (RX) y enviadas (TX)
+$inputBuffer = ""    # Línea que el usuario está escribiendo
+$rxBuffer = ""       # Buffer crudo de bytes entrantes
+
+# Flags de Renderizado (Optimización de CPU)
+$updateHistory = $true 
+$updateInput = $true
+$lastWidth = 0; $lastHeight = 0
+
+# Cargar librería .NET y limpiar pantalla
+Add-Type -AssemblyName System.IO.Ports
+[Console]::CursorVisible = $false
+Clear-Host
+
+# =============================================================================
+# 3. LÓGICA DE HARDWARE (CONEXIÓN Y SONDEO)
+# =============================================================================
+
+function Connect-Port {
+    <#
+    .SYNOPSIS
+        Intenta establecer conexión física con el puerto.
+    .RETURN
+        $true si tiene éxito, $false si falla.
+    #>
+    
+    # Check 1: ¿Windows reconoce el puerto? (Rápido)
+    if ([System.IO.Ports.SerialPort]::GetPortNames() -notcontains $PortName) { 
+        return $false 
+    }
 
     try {
-        $port = New-Object System.IO.Ports.SerialPort $PortName, $BaudRate, "None", 8, "One"
-        $port.Encoding = [System.Text.Encoding]::UTF8
-        $port.ReadTimeout = 50   # Timeout bajo para no bloquear el hilo principal
-        $port.WriteTimeout = 500
-        $port.DtrEnable = $true  # Reinicia el Arduino al conectar (estándar)
-        $port.RtsEnable = $true
-        $port.Open()
+        # Limpieza preventiva
+        if ($global:portObj) { $global:portObj.Close(); $global:portObj.Dispose() }
         
-        # Limpiamos basura que pueda haber en el buffer al conectar
-        $port.DiscardInBuffer()
-        $port.DiscardOutBuffer()
-    }
-    catch {
-        Write-Host "ERROR CRÍTICO: No se puede abrir el puerto $PortName." -ForegroundColor Red
-        Write-Host "Causa posible: El puerto está en uso por otro programa o no existe." -ForegroundColor Gray
-        exit
-    }
-
-    # =============================================================================
-    # SECCIÓN 3: MOTOR GRÁFICO (UI)
-    # =============================================================================
-
-    # Variables de Estado Global
-    $running = $true
-    $inputBuffer = ""   # Lo que el usuario está escribiendo
-    $rxBuffer = ""      # Datos crudos llegando del Arduino
-    $history = @()      # Array de líneas para mostrar en pantalla
-    
-    # Banderas de optimización de renderizado (Solo dibujamos si algo cambia)
-    $updateHistory = $true
-    $updateInput = $true
-    
-    $lastWidth = 0
-    $lastHeight = 0
-    
-    # Ocultamos el cursor del sistema para dibujar el nuestro propio (evita parpadeo)
-    [Console]::CursorVisible = $false
-    Clear-Host
-
-    function Render-History {
-        <# 
-        .SYNOPSIS
-            Dibuja la parte superior (RX) y la barra de estado.
-        .DESCRIPTION
-            Usa posicionamiento absoluto del cursor para sobrescribir solo lo necesario.
-            Incluye lógica de recorte para evitar que líneas largas rompan el layout.
-        #>
-        $w = [Console]::WindowWidth
-        $h = [Console]::WindowHeight
-        $safeWidth = $w - 2
-        $historyHeight = $h - 3 # Dejamos 3 líneas abajo: Barra, Input, Margen
-
-        try {
-            [Console]::SetCursorPosition(0, 0)
-            
-            # Obtener las últimas N líneas que caben en pantalla
-            $linesToPrint = $history | Select-Object -Last $historyHeight
-            
-            # Rellenar con vacío si hay pocos datos (limpia la pantalla vieja)
-            $linesCount = $linesToPrint.Count
-            if ($linesCount -lt $historyHeight) {
-                $emptyLines = $historyHeight - $linesCount
-                for ($i = 0; $i -lt $emptyLines; $i++) {
-                    Write-Host "".PadRight($safeWidth)
-                }
-            }
-
-            # Imprimir líneas de datos
-            foreach ($line in $linesToPrint) {
-                $txt = $line.Text
-                # Recortar si es muy larga
-                if ($txt.Length -gt $safeWidth) { $txt = $txt.Substring(0, $safeWidth) }
-                # Imprimir con relleno para limpiar residuos
-                Write-Host $txt.PadRight($safeWidth) -ForegroundColor $line.Color
-            }
-            
-            # --- BARRA DE ESTADO (Solicitada con BaudRate) ---
-            [Console]::SetCursorPosition(0, $h - 2)
-            $info = " [PORT: $PortName @ $BaudRate] | [EOL: $EOL] | [ESC: Salir] "
-            
-            # Calcular guiones de relleno
-            $dashCount = ($safeWidth - $info.Length)
-            if ($dashCount -lt 0) { $dashCount = 0 }
-            
-            Write-Host ("-" * $dashCount + $info) -ForegroundColor DarkGray -NoNewline
-
-        } catch {}
-    }
-
-    function Render-Input {
-        <#
-        .SYNOPSIS
-            Dibuja la línea de comandos inferior con cursor simulado.
-        #>
-        $w = [Console]::WindowWidth
-        $h = [Console]::WindowHeight
-        $safeWidth = $w - 1
-
-        try {
-            [Console]::SetCursorPosition(0, $h - 1)
-            Write-Host "> " -ForegroundColor Yellow -NoNewline
-            
-            # Calcular espacio disponible
-            $maxLen = $safeWidth - 3 
-            $cleanInput = $inputBuffer
-            
-            # Scroll horizontal si el texto es muy largo
-            if ($cleanInput.Length -gt $maxLen) { 
-                $cleanInput = $cleanInput.Substring($cleanInput.Length - $maxLen) 
-            }
-            
-            # Escribir texto
-            Write-Host $cleanInput -ForegroundColor White -NoNewline
-            
-            # DIBUJAR CURSOR FALSO (Estático)
-            Write-Host "_" -ForegroundColor Green -NoNewline 
-            
-            # Limpiar el resto de la línea
-            $padding = $safeWidth - (2 + $cleanInput.Length + 1)
-            if ($padding -gt 0) {
-                Write-Host "".PadRight($padding) -NoNewline
-            }
-            
-        } catch {}
-    }
-
-    function Add-Log {
-        param($text, $color)
-        # Limpieza básica de caracteres no imprimibles
-        $clean = $text.Replace("`t", "    ").Trim()
+        $p = New-Object System.IO.Ports.SerialPort $PortName, $BaudRate, "None", 8, "One"
+        $p.Encoding = [System.Text.Encoding]::UTF8
         
-        # Permitir marcador especial <VACIO> para feedback visual
-        if ($text -match "<VACIO>") { $clean = $text }
-
-        if ($clean.Length -gt 0) {
-            $script:history += [PSCustomObject]@{Text=$clean; Color=$color}
-            # Buffer circular de 500 líneas para no consumir RAM infinita
-            if ($script:history.Count -gt 500) { 
-                $script:history = $script:history | Select-Object -Last 500 
-            }
-            $script:updateHistory = $true
-        }
-    }
-
-    # =============================================================================
-    # SECCIÓN 4: BUCLE PRINCIPAL (EVENT LOOP)
-    # =============================================================================
-    
-    # Renderizado inicial
-    Render-History
-    Render-Input
-
-    while ($running) {
+        # TIMEOUTS CRÍTICOS:
+        # ReadTimeout bajo (50ms) evita que el script se cuelgue si el driver falla.
+        $p.ReadTimeout = 50  
+        $p.WriteTimeout = 500
+        $p.DtrEnable = $true # Reinicia Arduino al conectar
+        $p.RtsEnable = $true
         
-        # 1. DETECCIÓN DE REDIMENSIONAMIENTO DE VENTANA
-        if ([Console]::WindowWidth -ne $lastWidth -or [Console]::WindowHeight -ne $lastHeight) {
-             $lastWidth = [Console]::WindowWidth
-             $lastHeight = [Console]::WindowHeight
-             # Ajustar buffer interno para evitar scrollbars
-             if ([Console]::BufferWidth -ne $lastWidth) { try { [Console]::BufferWidth = $lastWidth } catch {} }
-             Clear-Host
-             $updateHistory = $true
-             $updateInput = $true
-        }
-
-        # 2. LECTURA DEL PUERTO SERIAL
-        if ($port.IsOpen -and $port.BytesToRead -gt 0) {
-            try {
-                $chunk = $port.ReadExisting()
-                $rxBuffer += $chunk
-                
-                # Procesar buffer buscando saltos de línea (\n)
-                while ($true) {
-                    $idx = $rxBuffer.IndexOf("`n")
-                    if ($idx -ge 0) {
-                        $rawLine = $rxBuffer.Substring(0, $idx)
-                        $rxBuffer = $rxBuffer.Substring($idx + 1)
-                        # Eliminar Carriage Return (\r) sobrante y agregar al log
-                        Add-Log -text ($rawLine.Replace("`r", "")) -color "Green"
-                    } else { 
-                        break # Esperar más datos
-                    }
-                }
-            } catch {}
-        }
-
-        # 3. LECTURA DEL TECLADO
-        if ([Console]::KeyAvailable) {
-            $k = [Console]::ReadKey($true) # $true intercepta la tecla
-            
-            if ($k.Key -eq "Escape") { 
-                $running = $false 
-            }
-            elseif ($k.Key -eq "Enter") {
-                # --- LÓGICA DE ENVÍO CON EOL SELECCIONADO ---
-                $suffix = switch ($EOL) {
-                    "None" { "" }
-                    "LF"   { "`n" }
-                    "CR"   { "`r" }
-                    "CRLF" { "`r`n" }
-                }
-
-                # Enviar al puerto
-                $port.Write("$inputBuffer$suffix")
-                
-                # Eco local en pantalla
-                if ($Echo) { 
-                    if ($inputBuffer.Length -eq 0) {
-                         Add-Log -text "[TX: <VACIO>]" -color "DarkGray"
-                    } else {
-                         Add-Log -text ("TX: $inputBuffer") -color "Cyan"
-                    }
-                }
-                
-                # Limpiar buffer de entrada
-                $inputBuffer = ""
-                $updateInput = $true
-            }
-            elseif ($k.Key -eq "Backspace") {
-                if ($inputBuffer.Length -gt 0) {
-                    $inputBuffer = $inputBuffer.Substring(0, $inputBuffer.Length - 1)
-                    $updateInput = $true
-                }
-            }
-            else {
-                # CORRECCIÓN: Aceptar cualquier carácter que NO sea de control.
-                # Esto permite todos los símbolos, tildes, signos, etc.
-                if (-not [char]::IsControl($k.KeyChar)) {
-                    $inputBuffer += $k.KeyChar
-                    $updateInput = $true
-                }
-            }
-        }
-
-        # 4. ACTUALIZACIÓN DE PANTALLA
-        # Solo repintamos si hubo cambios para ahorrar CPU
-        if ($updateHistory) {
-            Render-History
-            Render-Input # Input debe redibujarse si el historial movió la pantalla
-            $updateHistory = $false
-            $updateInput = $false 
-        }
-        elseif ($updateInput) {
-            Render-Input
-            $updateInput = $false
-        }
-
-        # Pequeña pausa para no saturar un núcleo de la CPU (aprox 50 FPS)
-        Start-Sleep -Milliseconds 20
+        $p.Open()
+        $p.DiscardInBuffer()
+        
+        $global:portObj = $p
+        $global:connStatus = "CONNECTED"
+        Add-Log -text " >> SISTEMA: CONEXIÓN ESTABLECIDA ($PortName)" -color "DarkGreen"
+        return $true
+    } catch {
+        Disconnect-Port -Silent $true
+        return $false
     }
-} 
-catch {
-    # Manejo de errores fatales
-    [Console]::CursorVisible = $true
-    Clear-Host
-    Write-Host "--- ERROR IRRECUPERABLE ---" -ForegroundColor Red
-    Write-Host $_.Exception.Message
-    Write-Host ""
 }
-finally {
-    # --- LIMPIEZA AL SALIR ---
-    if ($port -and $port.IsOpen) { $port.Close() }
-    
-    # Borrar visualmente la línea de input
+
+function Disconnect-Port {
+    <#
+    .SYNOPSIS
+        Cierra y libera los recursos del puerto de forma segura.
+    #>
+    param([bool]$Silent = $false)
     try {
-        $lastLine = [Console]::WindowHeight - 1
-        [Console]::SetCursorPosition(0, $lastLine)
-        Write-Host "".PadRight([Console]::WindowWidth) -NoNewline 
-        [Console]::SetCursorPosition(0, $lastLine)
+        if ($global:portObj) { 
+            if ($global:portObj.IsOpen) { $global:portObj.Close() }
+            $global:portObj.Dispose() 
+        }
     } catch {}
-
-    [Console]::CursorVisible = $true
-    Write-Host "Conexión Finalizada." -ForegroundColor Green
-    Write-Host ""
+    
+    $global:portObj = $null
+    $global:connStatus = "DISCONNECTED"
+    
+    if (-not $Silent) {
+        Add-Log -text " >> SISTEMA: DESCONEXIÓN DETECTADA." -color "Red"
+    }
 }
+
+function Verify-Hardware-Link {
+    <# 
+    .SYNOPSIS
+        Verificación de salud del hardware (Anti-Freeze).
+    .DESCRIPTION
+        Esencial para Arduino Mega/Uno. Verifica activamente si el hardware responde
+        leyendo el pin 'CDHolding'. Si el cable se desconecta, esta lectura falla
+        antes de que intentemos leer datos, evitando el congelamiento del script.
+    #>
+    
+    # 1. Comprobar lista del registro de Windows
+    $ports = [System.IO.Ports.SerialPort]::GetPortNames()
+    if ($ports -notcontains $PortName) {
+        Disconnect-Port; return $false
+    }
+
+    # 2. Comprobar respuesta física del driver
+    if ($global:portObj -ne $null -and $global:portObj.IsOpen) {
+        try {
+            $null = $global:portObj.CDHolding # Sonda activa
+        } catch {
+            Disconnect-Port; return $false
+        }
+    } else {
+        Disconnect-Port; return $false
+    }
+
+    return $true
+}
+
+# =============================================================================
+# 4. MOTOR GRÁFICO (UI)
+# =============================================================================
+
+function Add-Log {
+    <#
+    .SYNOPSIS
+        Añade una línea al historial visual.
+    #>
+    param($text, $color)
+    $clean = $text.Replace("`t", "    ").Trim()
+    if ($clean.Length -gt 0) {
+        $script:history += [PSCustomObject]@{Text=$clean; Color=$color}
+        # Buffer circular: Mantiene solo las últimas 500 líneas
+        if ($script:history.Count -gt 500) { 
+            $script:history = $script:history | Select-Object -Last 500 
+        }
+        $script:updateHistory = $true
+    }
+}
+
+function Render-UI {
+    <#
+    .SYNOPSIS
+        Redibuja toda la interfaz (RX, TX, Barra de Estado, Input).
+    .DESCRIPTION
+        Utiliza SetCursorPosition para evitar parpadeos (Flicker-Free).
+    #>
+    $w = [Console]::WindowWidth; $h = [Console]::WindowHeight
+    $safeWidth = $w - 2; $historyHeight = $h - 3
+
+    try {
+        # --- 1. ÁREA DE HISTORIAL (RX/TX) ---
+        [Console]::SetCursorPosition(0, 0)
+        $linesToPrint = $history | Select-Object -Last $historyHeight
+        
+        # Limpiar líneas vacías superiores si el historial es corto
+        if ($linesToPrint.Count -lt $historyHeight) {
+            $empty = $historyHeight - $linesToPrint.Count
+            for ($i=0; $i -lt $empty; $i++) { Write-Host "".PadRight($safeWidth) }
+        }
+
+        # Imprimir líneas
+        foreach ($line in $linesToPrint) {
+            $txt = $line.Text
+            if ($txt.Length -gt $safeWidth) { $txt = $txt.Substring(0, $safeWidth) }
+            Write-Host $txt.PadRight($safeWidth) -ForegroundColor $line.Color
+        }
+
+        # --- 2. BARRA DE ESTADO ---
+        [Console]::SetCursorPosition(0, $h - 2)
+        
+        # Colores dinámicos según estado
+        $stColor = "Green"; $stText = "CONECTADO"
+        if ($global:connStatus -eq "DISCONNECTED") { $stColor = "Red"; $stText = "BUSCANDO..." }
+        
+        Write-Host " ESTADO: " -NoNewline -ForegroundColor Gray
+        Write-Host "$stText " -NoNewline -ForegroundColor $stColor
+        
+        $info = "| [PORT: $PortName @ $BaudRate] | [EOL: $EOL] | [ESC: Salir] "
+        
+        # Cálculo de relleno para alinear a la derecha
+        $currentX = $stText.Length + 9
+        $dashCount = $safeWidth - $currentX - $info.Length
+        if ($dashCount -lt 0) { $dashCount = 0 }
+        
+        Write-Host ("-" * $dashCount + $info) -ForegroundColor DarkGray -NoNewline
+
+        # --- 3. ÁREA DE INPUT ---
+        [Console]::SetCursorPosition(0, $h - 1)
+        Write-Host "> " -ForegroundColor Yellow -NoNewline
+        
+        # Scroll horizontal del input si es muy largo
+        $cleanIn = $inputBuffer
+        if ($cleanIn.Length -gt ($w - 4)) { 
+            $cleanIn = $cleanIn.Substring($cleanIn.Length - ($w - 4)) 
+        }
+        
+        Write-Host $cleanIn -ForegroundColor White -NoNewline
+        Write-Host "_" -ForegroundColor Green -NoNewline # Cursor falso
+        Write-Host "".PadRight($w - $cleanIn.Length - 4) -NoNewline
+
+    } catch {}
+}
+
+# =============================================================================
+# 5. BUCLE PRINCIPAL (MAIN LOOP)
+# =============================================================================
+
+# Intento de conexión inicial
+$null = Connect-Port
+if ($global:connStatus -eq "DISCONNECTED") {
+    Add-Log -text " >> MONITOR INICIADO. ESPERANDO DISPOSITIVO..." -color "Yellow"
+}
+
+Render-UI
+$reconnectTimer = [DateTime]::Now
+
+while ($running) {
+    # A. GESTIÓN DE REDIMENSIONAMIENTO DE VENTANA
+    if ([Console]::WindowWidth -ne $lastWidth -or [Console]::WindowHeight -ne $lastHeight) {
+        $lastWidth = [Console]::WindowWidth; $lastHeight = [Console]::WindowHeight
+        if ([Console]::BufferWidth -ne $lastWidth) { try { [Console]::BufferWidth = $lastWidth } catch {} }
+        Clear-Host; $updateHistory = $true
+    }
+
+    # B. MÁQUINA DE ESTADOS DE CONEXIÓN
+    if ($global:connStatus -eq "CONNECTED") {
+        
+        # VERIFICACIÓN ACTIVA DE HARDWARE (Fix Mega)
+        if (Verify-Hardware-Link) {
+            try {
+                # Lectura no bloqueante
+                if ($global:portObj.BytesToRead -gt 0) {
+                    $chunk = $global:portObj.ReadExisting()
+                    $rxBuffer += $chunk
+                    
+                    # Procesar datos por líneas
+                    while ($true) {
+                        $idx = $rxBuffer.IndexOf("`n")
+                        if ($idx -ge 0) {
+                            $rawLine = $rxBuffer.Substring(0, $idx)
+                            $rxBuffer = $rxBuffer.Substring($idx + 1)
+                            Add-Log -text ($rawLine.Replace("`r", "")) -color "Green"
+                        } else { break }
+                    }
+                }
+            } catch {
+                # Si falla la lectura, desconectar
+                Disconnect-Port; $updateHistory = $true
+            }
+        } else {
+            $updateHistory = $true
+        }
+
+    } else {
+        # MODO RECONEXIÓN (Timer de 1 segundo)
+        if (([DateTime]::Now - $reconnectTimer).TotalMilliseconds -gt 1000) {
+            $reconnectTimer = [DateTime]::Now
+            if (Connect-Port) { $updateHistory = $true }
+            else { 
+                # Forzar refresco UI ocasional para mostrar actividad
+                $updateHistory = $true 
+            }
+        }
+    }
+
+    # C. LECTURA DE TECLADO (NON-BLOCKING)
+    if ([Console]::KeyAvailable) {
+        $k = [Console]::ReadKey($true)
+        $updateInput = $true
+        
+        if ($k.Key -eq "Escape") { 
+            $running = $false 
+        }
+        elseif ($k.Key -eq "Enter") {
+            if ($global:connStatus -eq "CONNECTED") {
+                try {
+                    # Preparar sufijo EOL
+                    $suffix = switch ($EOL) { 
+                        "None" {""} "LF" {"`n"} "CR" {"`r"} "CRLF" {"`r`n"} 
+                    }
+                    
+                    # Enviar
+                    $global:portObj.Write("$inputBuffer$suffix")
+                    
+                    # Eco local
+                    if ($Echo) { Add-Log -text "TX: $inputBuffer" -color "Cyan" }
+                } catch {
+                    Disconnect-Port; Add-Log -text " [!] Error al enviar." -color "Red"
+                }
+            } else {
+                Add-Log -text " [!] Sin conexión." -color "DarkGray"
+            }
+            $inputBuffer = ""
+        }
+        elseif ($k.Key -eq "Backspace") {
+            if ($inputBuffer.Length -gt 0) { 
+                $inputBuffer = $inputBuffer.Substring(0, $inputBuffer.Length - 1) 
+            }
+        }
+        else {
+            # Permitir cualquier carácter que no sea de control (símbolos, letras, números)
+            if (-not [char]::IsControl($k.KeyChar)) { 
+                $inputBuffer += $k.KeyChar 
+            }
+        }
+    }
+
+    # D. ACTUALIZACIÓN VISUAL
+    if ($updateHistory) { Render-UI; $updateHistory = $false; $updateInput = $false }
+    elseif ($updateInput) { Render-UI; $updateInput = $false }
+
+    # E. PAUSA DE CPU (Evita uso del 100% de un núcleo)
+    Start-Sleep -Milliseconds 20
+}
+
+# =============================================================================
+# 6. CIERRE SEGURO
+# =============================================================================
+try { if ($global:portObj) { $global:portObj.Close() } } catch {}
+[Console]::CursorVisible = $true
+Clear-Host
+Write-Host "Monitor finalizado correctamente." -ForegroundColor Green
