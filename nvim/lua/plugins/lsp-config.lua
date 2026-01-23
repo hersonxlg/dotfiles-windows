@@ -196,15 +196,12 @@ return {
                     "arduino-language-server",
                     "-cli", "arduino-cli",
                     "-clangd", "clangd",
+                    -- Ficheros con las ubicaciones de las librerias de Arduino.
+                    -- LIBRERIAS GLOBALES
                     "-cli-config", vim.fn.expand("$LOCALAPPDATA/Arduino15/arduino-cli.yaml"),
-                    
-                    -- AQUI ESTA LA MAGIA: Llamamos a la función
-                    "-fqbn", get_fqbn(),
-                    
-                    ----> ESTO ES EL PROBLEMA <---_
-                    --"-clangd-args", "--background-index",
-                    --"-clangd-args", "--clang-tidy",
-                    --"-clangd-args", "--header-insertion=iwyu",
+                    -- LIBRERIAS LOCALES (se debe crear el archivo "arduino-cli.yaml")
+                    "-cli-config", vim.fn.expand("./arduino-cli.yaml"),
+                    "-fqbn", get_fqbn()
                 },
                 root_markers = { "sketch.yaml", "*.ino", ".git" },
                 filetypes = { "arduino" },
@@ -227,69 +224,17 @@ return {
                         "arduino-language-server",
                         "-cli", "arduino-cli",
                         "-clangd", "clangd",
+                        -- Ficheros con las ubicaciones de las librerias de Arduino.
+                        -- LIBRERIAS GLOBALES
                         "-cli-config", vim.fn.expand("$LOCALAPPDATA/Arduino15/arduino-cli.yaml"),
-                        "-fqbn", fqbn,
-                        --"-clangd-args", "--background-index",
-                        --"-clangd-args", "--clang-tidy",
-                        --"-clangd-args", "--header-insertion=iwyu",
+                        -- LIBRERIAS LOCALES (se debe crear el archivo "arduino-cli.yaml")
+                        "-cli-config", vim.fn.expand("./arduino-cli.yaml"),
+                        "-fqbn", fqbn
                     }
                 end
             })
             
             vim.lsp.enable("arduino_language_server")
-
-            -->  vim.lsp.config("arduino_language_server", {
-            -->      -- Intenta esta sintaxis si quieres mantenerlo en el init.lua
-            -->      cmd = {
-            -->        "arduino-language-server",
-            -->        "-cli", "arduino-cli",
-            -->        "-clangd", "clangd",
-            -->        "-cli-config", vim.fn.expand("$LOCALAPPDATA/Arduino15/arduino-cli.yaml"),
-            -->        "-fqbn", "esp32:esp32:esp32doit-devkit-v1",
-            -->        -- Pasamos los argumentos uno por uno si el server lo permite, 
-            -->        -- o usamos una sola cadena sin espacios extraños
-            -->        --"-clangd-args", "-j=4", 
-            -->        --"-clangd-args", "--background-index",
-            -->        --"-clangd-args", "--pch-storage=memory"
-            -->      },
-            -->    filetypes = { "arduino" },
-            -->    -- En 0.11+, puedes definir los marcadores de raíz directamente
-            -->    root_markers = { "sketch.yaml", "*.ino", ".git" },
-            -->  })
-            -->  
-            -->  -- Habilitamos el servidor
-            -->  vim.lsp.enable("arduino_language_server")
-
-            --> ***********************************************************************************
-            --
-            -->  vim.lsp.config("arduino_language_server", {
-            -->      cmd = {
-            -->          "arduino-language-server",
-            -->  
-            -->          "-clangd",
-            -->          vim.fn.expand(
-            -->              vim.fn.stdpath("data")
-            -->              .."\\mason\\packages\\clangd\\clangd*\\bin\\clangd.exe"
-            -->          ),
-
-            -->          "-cli",
-            -->          "C:\\Users\\herson\\scoop\\shims\\arduino-cli.exe",
-            -->  
-            -->          "-cli-config",
-            -->          os.getenv("LOCALAPPDATA") .. "\\Arduino15\\arduino-cli.yaml",
-            -->  
-            -->          "-fqbn",
-            -->          "esp32:esp32:esp32doit-devkit-v1",
-            -->      },
-            -->      --filetypes = { "arduino", "ino" },
-            -->      filetypes = { "arduino", "ino" },
-            -->      -- En 0.11+, puedes definir los marcadores de raíz directamente
-            -->      root_markers = { "sketch.yaml", "*.ino", ".git" },
-            -->      --root_dir = vim.fs.root(0, { "sketch.yaml", ".git" }),
-            -->      capabilities = capabilities,
-            -->  })
-            -->  
-            -->  vim.lsp.enable("arduino_language_server")
 
             ---------------------------------
             -- Matlab LSP
