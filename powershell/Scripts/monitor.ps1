@@ -58,6 +58,7 @@ param (
 
 # Configuración de seguridad: Detener script ante cualquier error no controlado
 $ErrorActionPreference = "Stop"
+[Console]::TreatControlCAsInput = $true
 # Codificación UTF8 para soportar tildes y caracteres especiales
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -388,7 +389,8 @@ while ($running) {
         $k = [Console]::ReadKey($true)
         $updateInput = $true
         
-        if ($k.Key -eq "Escape") { 
+        # Si es Escape O (Tecla C + Control presionado)
+        if ($k.Key -eq "Escape" -or ($k.Key -eq "C" -and ($k.Modifiers -band [ConsoleModifiers]::Control))) { 
             $running = $false 
         }
         elseif ($k.Key -eq "Enter") {
