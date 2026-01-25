@@ -11,6 +11,10 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Stop"
 
+$oldPrompt = $function:prompt
+
+$script:CancelRequested = $false
+
 # --- PALETA DE COLORES ---
 $Col = @{
     # Base
@@ -63,57 +67,63 @@ $Col = @{
 # Array con diferentes estilos de bordes
 $BoxStyles = @(
     @{
-        Name = "Simple"
-        H  = "─"; V  = "│"
-        TL = "┌"; TR = "┐"
-        BL = "└"; BR = "┘"
+        Name = "Simple";
+        H  = "─";
+        V  = "│";
+        TL = "┌";
+        TR = "┐";
+        BL = "└";
+        BR = "┘";
+    },
+#    @{
+#        Name = "Double";
+#        H  = "═"; V  = "║";
+#        TL = "╔"; TR = "╗";
+#        BL = "╚"; BR = "╝";
+#    },
+#    @{
+#        Name = "Mixed";
+#        H  = "═"; V  = "║";
+#        TL = "╒"; TR = "╕";
+#        BL = "╘"; BR = "╛";
+#    },
+#    @{
+#        Name = "Heavy";
+#        H  = "━"; V  = "┃";
+#        TL = "┏"; TR = "┓";
+#        BL = "┗"; BR = "┛";
+#    },
+#    @{
+#        Name = "Rounded";
+#        H  = "─"; V  = "│";
+#        TL = "╭"; TR = "╮";
+#        BL = "╰"; BR = "╯";
+#    },
+    @{
+        Name = "Solid";
+        H  = "█"; V  = "█";
+        TL = "█"; TR = "█";
+        BL = "█"; BR = "█";
     },
     @{
-        Name = "Double"
-        H  = "═"; V  = "║"
-        TL = "╔"; TR = "╗"
-        BL = "╚"; BR = "╝"
+        Name = "Shaded";
+        H  = "▓"; V  = "▓";
+        TL = "▓"; TR = "▓";
+        BL = "▓"; BR = "▓";
     },
     @{
-        Name = "Mixed"
-        H  = "═"; V  = "║"
-        TL = "╒"; TR = "╕"
-        BL = "╘"; BR = "╛"
-    },
-    @{
-        Name = "Heavy"
-        H  = "━"; V  = "┃"
-        TL = "┏"; TR = "┓"
-        BL = "┗"; BR = "┛"
-    },
-    @{
-        Name = "Rounded"
-        H  = "─"; V  = "│"
-        TL = "╭"; TR = "╮"
-        BL = "╰"; BR = "╯"
-    },
-    @{
-        Name = "Solid"
-        H  = "█"; V  = "█"
-        TL = "█"; TR = "█"
-        BL = "█"; BR = "█"
-    },
-    @{
-        Name = "Shaded"
-        H  = "▓"; V  = "▓"
-        TL = "▓"; TR = "▓"
-        BL = "▓"; BR = "▓"
-    },
-    @{
-        Name = "Dashed"
-        H  = "╌"; V  = "╎"
-        TL = "┌"; TR = "┐"
-        BL = "└"; BR = "┘"
+        Name = "Dashed";
+        H  = "╌";
+        V  = "╎";
+        TL = "┌";
+        TR = "┐";
+        BL = "└";
+        BR = "┘";
     }
 )
 
 
-$Global:BoxChars = $BoxStyles | Where-Object { $_.Name -eq "Rounded" }
+$Global:BoxChars = $BoxStyles | Where-Object { $_.Name -eq "Simple" }
 $Global:BoxCharsDialogBox = $BoxStyles | Where-Object { $_.Name -eq "Solid" }
 
 # --- VARIABLES DE ESTADO ---
@@ -141,6 +151,74 @@ $Script:VimTimeout = 500
 # =============================================================================
 # 1. FUNCIONES BÁSICAS Y TEXTO
 # =============================================================================
+function Get-Lib-Details {
+    param([string]$Name)
+
+    # Mensaje visual discreto (opcional, depende de tu gusto)
+    # Write-Host " Analizando dependencias..." -ForegroundColor DarkGray -BackgroundColor Black
+
+    try {
+        # 1. Obtener datos crudos
+        $jsonStr = arduino-cli lib search "$Name" --format json | Out-String
+        $data = $jsonStr | ConvertFrom-Json
+
+        # 2. Filtrar por nombre exacto
+        $targetLib = $data.libraries | Where-Object { $_.name -eq $Name } | Select-Object -First 1
+
+        if (-not $targetLib) { return $null }
+
+        $versionsList = @()
+        
+        # 3. Obtener llaves de versión
+        $verKeys = $targetLib.releases.PSObject.Properties.Name
+
+        foreach ($vKey in $verKeys) {
+            $relData = $targetLib.releases.$vKey
+            
+            # --- LÓGICA DE DEPENDENCIAS ACTUALIZADA ---
+            $depsStr = "Ninguna"
+            
+            if ($relData.dependencies) {
+                $depsArray = $relData.dependencies | ForEach-Object {
+                    $dName = $_.name
+                    $dVer  = $_.version # Puede venir vacía
+
+                    if (-not [string]::IsNullOrWhiteSpace($dVer)) {
+                        # Formato solicitado: [Nombre@Version]
+                        return "[$dName@$dVer]"
+                    } else {
+                        # Si no pide versión específica: [Nombre]
+                        return "[$dName]" 
+                    }
+                }
+                # Unimos con espacio para que quede limpio: [LibA@1.0] [LibB]
+                $depsStr = $depsArray -join " "
+            }
+            # ------------------------------------------
+
+            # Limpieza para ordenamiento
+            $vClean = try { [version]($vKey -replace '[^0-9\.]','') } catch { [version]"0.0.0" }
+
+            $versionsList += [PSCustomObject]@{
+                Version      = $vKey
+                VersionObj   = $vClean
+                Dependencies = $depsStr
+                Author       = if ($relData.author) { $relData.author } else { $targetLib.author }
+                DownloadUrl  = $relData.url
+                FileName     = $relData.archiveFileName
+                Size         = $relData.size
+                Checksum     = $relData.checksum
+            }
+        }
+
+        # 4. Retornar ordenado (Nueva -> Vieja)
+        return $versionsList | Sort-Object VersionObj -Descending
+
+    } catch {
+        # En caso de error silencioso devolvemos null
+        return $null
+    }
+}
 
 function Get-WrapText {
     param($Text, $Width)
@@ -173,6 +251,7 @@ function Force-Refresh-UI {
     $Script:NeedsRedraw = $true
     Draw-UI
 }
+
 
 # =============================================================================
 # 2. SISTEMA DE DIÁLOGOS
@@ -237,6 +316,7 @@ function Invoke-StreamProcess {
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $Executable
     $psi.Arguments = $Arguments
+    # ---> aqui
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError  = $true
@@ -257,8 +337,8 @@ function Invoke-StreamProcess {
                 $ch = [char]$proc.StandardOutput.Read()
                 if ($ch -eq "`n") {
                     try {
-                        & $OnData "STDOUT" $outBuffer.TrimEnd("`r") $State
                     } catch {
+                        & $OnData $State $outBuffer.TrimEnd("`r") "STDOUT"
                         # No queremos que un error en el callback pare la recolección
                         Write-Verbose "OnData (STDOUT) error: $($_.Exception.Message)"
                     }
@@ -272,7 +352,7 @@ function Invoke-StreamProcess {
                 $ch = [char]$proc.StandardError.Read()
                 if ($ch -eq "`n") {
                     try {
-                        & $OnData "STDERR" $errBuffer.TrimEnd("`r") $State
+                        & $OnData $State $errBuffer.TrimEnd("`r") "STDERR" 
                     } catch {
                         Write-Verbose "OnData (STDERR) error: $($_.Exception.Message)"
                     }
@@ -290,7 +370,7 @@ function Invoke-StreamProcess {
             $ch = [char]$proc.StandardOutput.Read()
             if ($ch -eq "`n") {
                 try {
-                    & $OnData "STDOUT" $outBuffer.TrimEnd("`r") $State
+                    & $OnData $State $outBuffer.TrimEnd("`r") "STDOUT"
                 } catch {
                     Write-Verbose "OnData (STDOUT-drain) error: $($_.Exception.Message)"
                 }
@@ -300,7 +380,7 @@ function Invoke-StreamProcess {
             }
         }
         if ($outBuffer.Length -gt 0) {
-            try { & $OnData "STDOUT" $outBuffer.TrimEnd("`r") $State } catch {}
+            try { & $OnData $State  $outBuffer.TrimEnd("`r") "STDOUT" } catch {}
             $outBuffer = ""
         }
 
@@ -308,7 +388,7 @@ function Invoke-StreamProcess {
             $ch = [char]$proc.StandardError.Read()
             if ($ch -eq "`n") {
                 try {
-                    & $OnData "STDERR" $errBuffer.TrimEnd("`r") $State
+                    & $OnData $State  $errBuffer.TrimEnd("`r") "STDERR"
                 } catch {
                     Write-Verbose "OnData (STDERR-drain) error: $($_.Exception.Message)"
                 }
@@ -318,7 +398,7 @@ function Invoke-StreamProcess {
             }
         }
         if ($errBuffer.Length -gt 0) {
-            try { & $OnData "STDERR" $errBuffer.TrimEnd("`r") $State } catch {}
+            try { & $OnData $State  $errBuffer.TrimEnd("`r") "STDERR" } catch {}
             $errBuffer = ""
         }
 
@@ -332,24 +412,53 @@ function Invoke-StreamProcess {
 }
 
 
-function Show-Dialog-Box-install {
+function Sleep-Cancelable {
+    param([int]$Milliseconds)
+
+    $step = 100
+    $elapsed = 0
+
+    while ($elapsed -lt $Milliseconds) {
+        if (Test-CancelKey) {
+            throw "Cancelado por usuario"
+        }
+        Start-Sleep -Milliseconds $step
+        $elapsed += $step
+    }
+}
+
+
+function Test-CancelKey {
+    if ([Console]::KeyAvailable) {
+        $key = [Console]::ReadKey($true)
+        if ($key.KeyChar -eq 'q') {
+            $script:CancelRequested = $true
+            return $true
+        }
+    }
+    return $false
+}
+
+function Show-Dialog-Box-Script {
     param(
-        [Parameter(Mandatory=$true)][string]$Executable,
-        [Parameter(Mandatory=$false)][string]$Arguments = "",
+        [Parameter(Mandatory=$false)][scriptblock]$Script,
         [Parameter(Mandatory=$true)][string]$Title,
         [Parameter(Mandatory=$false)][string[]]$MessageLines,
         [string]$ColorType = "NORMAL",
         [int]$Width= 80,
         [int]$Height= 8,
         [int]$Padding = 3,
+        [int]$WaitTime = 0,
+        [switch]$Pause,
         [switch]$AutoSize,
         [switch]$ReturnKey
     )
 
     # Normalizar entradas
     if (-not $MessageLines) { $MessageLines = @("") }
-    $Title = $Title ?? ""
-    Write-Output "inicio">log.txt
+    if($null -eq $Title){
+        $Title = ""
+    }
 
     # Obtener tamaño consola y asegurar mínimos
     $W = [Console]::WindowWidth
@@ -367,7 +476,7 @@ function Show-Dialog-Box-install {
                         Select-Object -ExpandProperty Maximum
         $innerWidth = [Math]::Min([Math]::Max($contentMaxLen, 20), [Math]::Min($Width, $W - 4))
     }
-    Write-Output 'se crea $innerWidth'>>log.txt
+
     $BoxW = $innerWidth + ($Padding * 2)
     $BoxW = [Math]::Min($BoxW, $W - 2)
 
@@ -439,48 +548,291 @@ function Show-Dialog-Box-install {
             Width  = $BoxW
             Height = $BoxH
             Line   = $i
+            Buffer = @()
         }
         
         $onData = {
-            param($stream, $data, $ctx)
+            param(
+                [Parameter(Mandatory=$true)]$ctx,
+                [Parameter(Mandatory=$false)][string]$data = "",
+                [Parameter(Mandatory=$false)][string]$stream = "STDOUT"
+            )
         
             # si ya no cabe, ignorar
+            $startLine = $ctx.Top
+            $endLine = $startLine + $ctx.Height
+            $LinesToWrite = $ctx.Height - $ctx.Line - 4
+            $CharsToWrite = $ctx.Width - 4 - 1
+
+
             if ($ctx.Line -ge ($ctx.Height - 2)) { return }
         
+
             $rawLocal = $Host.UI.RawUI
             $innerW = [Math]::Max(0, $ctx.Width - 4)
             $line = [string]$data
-            if ($line.Length -gt $innerW) { $line = $line.Substring(0, $innerW) }
+
+            $ListLines = @($line -split "`n")
+
+            $formato      = '{{0,-{0}}}' -f $innerW
+
+            $ListLines | ForEach-Object { 
+                $lineFormated = $_
+                if ($lineFormated.Length -gt $innerW) {
+                    $lineFormated = $lineFormated.Substring(0, $innerW)
+                }
+                $lineFormated = $formato -f $lineFormated
+                $ctx.Buffer += @($lineFormated)
+            }
+
+            $bufferSize = $ctx.Buffer.Length
+
+            while ($bufferSize -ge $LinesToWrite){
+                $ctx.Buffer = $ctx.Buffer | Where-Object {
+                    $ctx.Buffer.IndexOf($_) -ne 0
+                }
+                $bufferSize = $ctx.Buffer.Length
+            }
         
-            $x = [int]($ctx.Left + $Padding)    # usa padding si quieres
-            $y = [int]($ctx.Top + 2 + $ctx.Line) # 2 para título + offset
-            if ($x -lt 0) { $x = 0 }; if ($y -lt 0) { $y = 0 }
-        
-            [Console]::SetCursorPosition($x, $y)
-            Write-Host ($line.PadRight($innerW)) -NoNewline -BackgroundColor $bg -ForegroundColor $fg
-            $ctx.Line++
+            for($i = 0; $i -lt $bufferSize; $i++) {
+                $x = [int]($ctx.Left + $Padding)    # usa padding si quieres
+                $y = [int]($ctx.Top + $startLine + $i + 1) # 2 para título + offset
+                if ($x -lt 0) { $x = 0 }; 
+                if ($y -lt 0) { $y = 0 }
+            
+                [Console]::SetCursorPosition($x, $y)
+                Write-Host ($ctx.Buffer[$i]) -NoNewline -BackgroundColor $bg -ForegroundColor $fg
+            }
+            #$ctx.Line++
+        }
+
+
+        [Console]::CursorVisible = $false
+
+        try {
+            & $script $onData $context
+        }
+        catch {
+            if ($script:CancelRequested) {
+                & $onData $context " "
+                & $onData $context "Cancelado por el usuario (q)"
+            }
+            else {
+                throw
+            }
+        }
+        finally {
+            #[Console]::CursorVisible = $true
+        }
+
+
+        if($Pause){
+            [Console]::SetCursorPosition($StartX + $Padding, $StartY + $BoxH - 2)
+            Write-Host ("Presione una tecla...").PadRight($innerMax) -BackgroundColor $bg -ForegroundColor $Col.ListSelBg
+            $key = [Console]::ReadKey($true)
+        }else{
+            Start-Sleep $WaitTime
+        }
+
+    } catch {
+        Write-Error "Error: $_"
+    } finally {
+        if (Get-Command "Force-Refresh-UI" -ErrorAction SilentlyContinue) { Force-Refresh-UI }
+    }
+
+    
+    if ($ReturnKey) {return  $key } else {return  $true }
+}
+
+
+
+function Show-Dialog-Box-install {
+    param(
+        [Parameter(Mandatory=$true)][string]$Executable,
+        [Parameter(Mandatory=$false)][string]$Arguments = "",
+        [Parameter(Mandatory=$true)][string]$Title,
+        [Parameter(Mandatory=$false)][string[]]$MessageLines,
+        [string]$ColorType = "NORMAL",
+        [int]$Width= 80,
+        [int]$Height= 8,
+        [int]$Padding = 3,
+        [int]$WaitTime = 0,
+        [switch]$Pause,
+        [switch]$AutoSize,
+        [switch]$ReturnKey
+    )
+
+    # Normalizar entradas
+    if (-not $MessageLines) { $MessageLines = @("") }
+    if($null -eq $Title){
+        $Title = ""
+    }
+
+    # Obtener tamaño consola y asegurar mínimos
+    $W = [Console]::WindowWidth
+    $H = [Console]::WindowHeight
+    if ($W -lt 20 -or $H -lt 5) {
+        Write-Host "Consola demasiado pequeña para mostrar el cuadro." -ForegroundColor Yellow
+        return $null
+    }
+
+    $innerWidth = $Width
+    # Calcular ancho dinámico basado en la línea más larga y título
+    if($AutoSize) {
+        $contentMaxLen = ($MessageLines + $Title).ForEach({ $_.Length }) | 
+                        Measure-Object -Maximum | 
+                        Select-Object -ExpandProperty Maximum
+        $innerWidth = [Math]::Min([Math]::Max($contentMaxLen, 20), [Math]::Min($Width, $W - 4))
+    }
+
+    $BoxW = $innerWidth + ($Padding * 2)
+    $BoxW = [Math]::Min($BoxW, $W - 2)
+
+    # Envolver líneas si exceden el ancho interior
+    function Wrap-Line($text, $maxLen) {
+        if ($text.Length -le $maxLen) { return ,$text }
+        $out = @()
+        $pos = 0
+        while ($pos -lt $text.Length) {
+            $len = [Math]::Min($maxLen, $text.Length - $pos)
+            $out += $text.Substring($pos, $len).TrimEnd()
+            $pos += $len
+        }
+        return $out
+    }
+
+    $innerMax = $BoxW - ($Padding * 2)
+    $wrapped = @()
+    foreach ($line in $MessageLines) {
+        $wrapped += Wrap-Line $line $innerMax
+    }
+
+    $BoxH = $Height + 6
+    if ($AutoSize){
+        $BoxH = $wrapped.Count + 6
+    }
+    if ($BoxH -gt ($H - 2)) {
+        # recortar si no cabe verticalmente
+        $available = $H - 6
+        if ($available -le 0) {
+            Write-Host "No hay espacio vertical suficiente para mostrar el cuadro." -ForegroundColor Yellow
+            return $null
+        }
+        $wrapped = $wrapped[0..($available - 1)]
+        $BoxH = $wrapped.Count + 6
+    }
+
+    $StartX = [Math]::Max(0, [Math]::Floor(($W - $BoxW) / 2))
+    $StartY = [Math]::Max(0, [Math]::Floor(($H - $BoxH) / 2))
+
+    # Colores (asume $Col definido)
+    $bg = $Col.ModalBg; $fg = $Col.ModalFg; $borderC = $Col.Border
+    if ($ColorType -eq "SUCCESS") { $bg = $Col.AlertSuccessBg; $fg = $Col.AlertFg; $borderC = $Col.AlertSuccessBorder }
+    if ($ColorType -eq "ERROR")   { $bg = $Col.AlertErrorBg;   $fg = $Col.AlertFg; $borderC = $Col.AlertErrorBorder }
+
+    try {
+        Draw-Box -StartX $StartX -StartY $StartY -Width $BoxW -Height $BoxH -Color $borderC -BoxChars $BoxCharsDialogBox
+
+        # Fondo interno
+        for ($y = 1; $y -lt $BoxH - 1; $y++) {
+            [Console]::SetCursorPosition($StartX + 1, $StartY + $y)
+            Write-Host (" " * ($BoxW - 2)) -NoNewline -BackgroundColor $bg
+        }
+
+        # Título
+        [Console]::SetCursorPosition($StartX + $Padding, $StartY + 1)
+        Write-Host ($Title.ToUpper()) -BackgroundColor $bg -ForegroundColor $Col.ModalTitle
+
+        # Contenido
+        for ($i = 0; $i -lt $wrapped.Count; $i++) {
+            [Console]::SetCursorPosition($StartX + $Padding, $StartY + 2 + $i)
+            $text = $wrapped[$i].PadRight($innerMax)
+            Write-Host $text -BackgroundColor $bg -ForegroundColor $fg -NoNewline
+        }
+
+        $context = [pscustomobject]@{
+            Left   = $StartX
+            Top    = $StartY
+            Width  = $BoxW
+            Height = $BoxH
+            Line   = $i
+            Buffer = @()
         }
         
+        $onData = {
+            param(
+                [Parameter(Mandatory=$true)]$ctx,
+                [Parameter(Mandatory=$false)][string]$data = "",
+                [Parameter(Mandatory=$false)][string]$stream = "STDOUT"
+            )
+        
+            # si ya no cabe, ignorar
+            $startLine = $ctx.Top
+            $endLine = $startLine + $ctx.Height
+            $LinesToWrite = $ctx.Height - $ctx.Line - 4
+            $CharsToWrite = $ctx.Width - 4 - 1
 
-        Write-Output 'Antes de "Invoke-StreamProcess"'>>log.txt
+
+            if ($ctx.Line -ge ($ctx.Height - 2)) { return }
+        
+
+            $rawLocal = $Host.UI.RawUI
+            $innerW = [Math]::Max(0, $ctx.Width - 4)
+            $line = [string]$data
+
+            $ListLines = @($line -split "`n")
+
+            $formato      = '{{0,-{0}}}' -f $innerW
+
+            $ListLines | ForEach-Object { 
+                $lineFormated = $_
+                if ($lineFormated.Length -gt $innerW) {
+                    $lineFormated = $lineFormated.Substring(0, $innerW)
+                }
+                $lineFormated = $formato -f $lineFormated
+                $ctx.Buffer += @($lineFormated)
+            }
+
+            $bufferSize = $ctx.Buffer.Length
+
+            while ($bufferSize -ge $LinesToWrite){
+                $ctx.Buffer = $ctx.Buffer | Where-Object {
+                    $ctx.Buffer.IndexOf($_) -ne 0
+                }
+                $bufferSize = $ctx.Buffer.Length
+            }
+        
+            for($i = 0; $i -lt $bufferSize; $i++) {
+                $x = [int]($ctx.Left + $Padding)    # usa padding si quieres
+                $y = [int]($ctx.Top + $startLine + $i + 1) # 2 para título + offset
+                if ($x -lt 0) { $x = 0 }; 
+                if ($y -lt 0) { $y = 0 }
+            
+                [Console]::SetCursorPosition($x, $y)
+                Write-Host ($ctx.Buffer[$i]) -NoNewline -BackgroundColor $bg -ForegroundColor $fg
+            }
+            #$ctx.Line++
+        }
 
         # LLAMADA BLOQUEANTE — la función no avanzará hasta que termine el proceso
-        Invoke-StreamProcess -Executable $Executable `
-                             -Arguments $Arguments `
+        Invoke-StreamProcess -Executable "$Executable" `
+                             -Arguments "$Arguments" `
                              -OnData $onData `
                              -State $context
-
-        Write-Output 'Despues de "Invoke-StreamProcess"'>>log.txt
 
         # luego muestra pie y espera tecla (como ahora)
         #[Console]::SetCursorPosition($StartX + $Padding, $StartY + $BoxH - 2)
         #Write-Host ("Presione cualquier tecla...").PadRight($innerMax) -BackgroundColor $bg -ForegroundColor $Col.ListSelBg
         #$key = [Console]::ReadKey($true)
 
-        # Pie
-        [Console]::SetCursorPosition($StartX + $Padding, $StartY + $BoxH - 2)
-        Write-Host ("Presione cualquier tecla...").PadRight($innerMax) -BackgroundColor $bg -ForegroundColor $Col.ListSelBg
-        $key = [Console]::ReadKey($true)
+        if ($Pause) {
+            # Pie
+            [Console]::SetCursorPosition($StartX + $Padding, $StartY + $BoxH - 2)
+            Write-Host ("Presione cualquier tecla...").PadRight($innerMax) -BackgroundColor $bg -ForegroundColor $Col.ListSelBg
+            $key = [Console]::ReadKey($true)
+        } else {
+            Start-Sleep $WaitTime
+        }
 
     } catch {
         Write-Host "Error al dibujar el cuadro: $_" -ForegroundColor Red
@@ -595,53 +947,6 @@ function Show-Dialog-Box {
     if ($ReturnKey) { return $key } else { return $true }
 }
 
-##  function Show-Dialog-Box {
-##      param(
-##          [string]$Title,
-##          [string[]]$MessageLines,
-##          [string]$ColorType = "NORMAL"
-##      )
-##      
-##      $W = [Console]::WindowWidth; $H = [Console]::WindowHeight
-##      $BoxW = 60
-##      $BoxH = $MessageLines.Count + 6   # +2 extra para el marco
-##      $StartX = [Math]::Floor(($W - $BoxW) / 2)
-##      $StartY = [Math]::Floor(($H - $BoxH) / 2)
-##      
-##      $bg = $Col.ModalBg
-##      $fg = $Col.ModalFg
-##      $borderC = $Col.Border
-##      
-##      if ($ColorType -eq "SUCCESS") { $bg = $Col.AlertSuccessBg; $fg = $Col.AlertFg; $borderC = $Col.AlertSuccessBorder }
-##      if ($ColorType -eq "ERROR")   { $bg = $Col.AlertErrorBg;   $fg = $Col.AlertFg; $borderC = $Col.AlertErrorBorder }
-##  
-##      # Dibujar marco
-##      Draw-Box -StartX $StartX -StartY $StartY -Width $BoxW -Height $BoxH -Color $borderC -BoxChars $BoxCharsDialogBox
-##  
-##      # Fondo interno
-##      for ($y = 1; $y -lt $BoxH - 1; $y++) {
-##          [Console]::SetCursorPosition($StartX + 1, $StartY + $y)
-##          Write-Host (" " * ($BoxW - 2)) -NoNewline -BackgroundColor $bg
-##      }
-##  
-##      # Título
-##      [Console]::SetCursorPosition($StartX + 3, $StartY + 1)
-##      Write-Host $Title.ToUpper() -BackgroundColor $bg -ForegroundColor $Col.ModalTitle
-##  
-##      # Contenido
-##      for ($i = 0; $i -lt $MessageLines.Count; $i++) {
-##          [Console]::SetCursorPosition($StartX + 3, $StartY + 2 + $i)
-##          Write-Host $MessageLines[$i] -BackgroundColor $bg -ForegroundColor $fg
-##      }
-##      
-##      # Pie
-##      [Console]::SetCursorPosition($StartX + 3, $StartY + $BoxH - 2)
-##      Write-Host "Presione cualquier tecla..." -BackgroundColor $bg -ForegroundColor $Col.ListSelBg
-##  
-##      [Console]::ReadKey($true) | Out-Null
-##      
-##      Force-Refresh-UI
-##  }
 
 
 # =============================================================================
@@ -667,10 +972,9 @@ function Execute-Install-Or-Downgrade {
         # Esto le dice a arduino-cli: "Oye, tu carpeta de librerías ahora está AQUÍ"
         $env:ARDUINO_DIRECTORIES_USER = $rutaLocal
         
-        # 3. Ahora ejecutamos el install NORMAL (sin flags inventados)
-        #arduino-cli lib install "${LibraryName}@${TargetVersion}"
+
         Show-Dialog-Box-install -Executable "arduino-cli" `
-        -Arguments "lib install ${LibraryName}@${TargetVersion}" `
+        -Arguments "lib install `"${LibraryName}@${TargetVersion}`"" `
         -Title "INSTALACIÓN LOCAL" `
         -MessageLines $MensajeInicial `
         -ColorType "SUCCESS" `
@@ -685,9 +989,11 @@ function Execute-Install-Or-Downgrade {
     elseif ($Location -eq "global"){
         # 4. Ahora ejecutamos el install NORMAL (sin flags inventados)
         #arduino-cli lib install "${LibraryName}@${TargetVersion}"
+
+        # ---> aqui
         
         Show-Dialog-Box-install -Executable "arduino-cli" `
-        -Arguments "lib install ${LibraryName}@${TargetVersion}" `
+        -Arguments "lib install `"${LibraryName}@${TargetVersion}`"" `
         -Title "INSTALACIÓN LOCAL" `
         -MessageLines $MensajeInicial `
         -ColorType "SUCCESS" `
@@ -754,45 +1060,62 @@ function Execute-Uninstall {
 # =============================================================================
 
 function Show-Version-Selector {
-    param($LibData, $CurrentVersion, $ActionType, $Location = "global") 
+    param(
+        $Versions,       # <--- Recibe la lista procesada por Get-Lib-Details
+        $LibName,        # <--- Nombre de la librería (String)
+        $CurrentVersion,
+        $ActionType,
+        $Location = "global"
+    )
     
-    $versions = @()
-    if ($LibData.releases) {
-        $vKeys = $LibData.releases.PSObject.Properties.Name
-        $versions = $vKeys | Select-Object @{N='V';E={[version]($_ -replace '[^0-9\.]','')}} | Sort-Object V -Descending | ForEach-Object { $_.V.ToString() }
-    } else {
-        $versions = @("Latest")
-    }
+    # Validación básica por seguridad
+    if (-not $Versions -or $Versions.Count -eq 0) { return }
 
     $W = [Console]::WindowWidth; $H = [Console]::WindowHeight
-    $MenuW = 40
+    
+    # Aumentamos el ancho para que quepan las dependencias
+    # Si la consola es pequeña, usamos el ancho máximo disponible menos margen
+    $MenuW = 85
+    if ($W -lt 90) { $MenuW = $W - 4 }
+    
+    # Altura dinámica (máximo 15 filas visible)
     $MenuH = 15 
-    if ($versions.Count + 4 -lt $MenuH) { $MenuH = $versions.Count + 4 }
+    if ($Versions.Count + 4 -lt $MenuH) { $MenuH = $Versions.Count + 4 }
     
     $StartX = [Math]::Floor(($W - $MenuW) / 2)
     $StartY = [Math]::Floor(($H - $MenuH) / 2)
     
+    # Lógica de cursor inicial
     $vCursor = 0
     $vOffset = 0
-    $idx = $versions.IndexOf($CurrentVersion)
+    
+    # Buscar índice de la versión actual en la lista de objetos
+    # Usamos .Version porque $Versions es una lista de objetos, no de strings
+    $idx = -1
+    for ($i=0; $i -lt $Versions.Count; $i++) {
+        if ($Versions[$i].Version -eq $CurrentVersion) { $idx = $i; break }
+    }
     if ($idx -ge 0) { $vCursor = $idx }
     
-    # Dibujar marco una sola vez
+    # Dibujar marco
     Draw-Box -StartX $StartX -StartY $StartY -Width $MenuW -Height $MenuH -Color $Col.ModalFg -BoxChars $BoxChars
 
-    # Dibujar fondo interno una sola vez
+    # Dibujar fondo interno
     for ($y = 1; $y -lt $MenuH - 1; $y++) {
         [Console]::SetCursorPosition($StartX + 1, $StartY + $y)
         Write-Host (" " * ($MenuW - 2)) -NoNewline -BackgroundColor $Col.ModalBg
     }
 
-    # Dibujar título una sola vez
+    # Dibujar título
     [Console]::SetCursorPosition($StartX + 2, $StartY + 1)
-    Write-Host "SELECCIONAR VERSION ($ActionType)" -BackgroundColor $Col.ModalBg -ForegroundColor $Col.ModalTitle
+    # Título con formato: ACCIÓN - Librería
+    $titleStr = "SELECCIONAR VERSION ($ActionType): $LibName"
+    if ($titleStr.Length -gt $MenuW - 4) { $titleStr = $titleStr.Substring(0, $MenuW - 7) + "..." }
+    Write-Host $titleStr -BackgroundColor $Col.ModalBg -ForegroundColor $Col.ModalTitle
     
     $selecting = $true
     while ($selecting) {
-        # Solo redibujar la lista
+        # Lógica de Scroll
         $listSpace = $MenuH - 3
         if ($vCursor -ge $vOffset + $listSpace) { $vOffset = $vCursor - $listSpace + 1 }
         if ($vCursor -lt $vOffset) { $vOffset = $vCursor }
@@ -801,35 +1124,59 @@ function Show-Version-Selector {
             $dataIdx = $vOffset + $i
             [Console]::SetCursorPosition($StartX + 2, $StartY + 2 + $i)
             
-            if ($dataIdx -lt $versions.Count) {
-                $ver = $versions[$dataIdx]
-                $mk = "  "
-                if ($ver -eq $CurrentVersion) { $mk = "* " }
+            if ($dataIdx -lt $Versions.Count) {
+                $verObj = $Versions[$dataIdx]
                 
+                # Preparamos los datos visuales
+                $mk = "  "
+                if ($verObj.Version -eq $CurrentVersion) { $mk = "* " }
+                
+                # Formateo de columnas
+                # Col 1: Versión (12 chars aprox)
+                # Col 2: Dependencias (El resto)
+                
+                $vStr = $verObj.Version
+                $dStr = $verObj.Dependencies
+                
+                # Calcular espacio disponible para texto de dependencias
+                # AnchoMenu - Margenes(3) - Marca(2) - Version(12) - Separador(3) = EspacioDeps
+                $depMaxLen = $MenuW - 20 
+                
+                if ($dStr.Length -gt $depMaxLen) { 
+                    $dStr = $dStr.Substring(0, $depMaxLen - 3) + "..." 
+                }
+                
+                # Construimos la línea: "  1.0.0       | [Dep1] [Dep2]"
+                # {0,-12} alinea a la izquierda con 12 espacios
+                $lineText = "$mk{0,-12} | {1}" -f $vStr, $dStr
+                
+                # Rellenar hasta el final de la caja
+                $lineText = $lineText.PadRight($MenuW - 3)
+
                 if ($dataIdx -eq $vCursor) {
-                    Write-Host "$mk$ver".PadRight($MenuW - 3) -BackgroundColor $Col.ModalSelBg -ForegroundColor $Col.ModalSelFg
+                    Write-Host $lineText -BackgroundColor $Col.ModalSelBg -ForegroundColor $Col.ModalSelFg
                 } else {
-                    Write-Host "$mk$ver".PadRight($MenuW - 3) -BackgroundColor $Col.ModalBg -ForegroundColor $Col.ModalFg
+                    Write-Host $lineText -BackgroundColor $Col.ModalBg -ForegroundColor $Col.ModalFg
                 }
             } else {
-                # Limpiar línea si no hay versión
+                # Limpiar línea vacía
                 Write-Host (" " * ($MenuW - 3)) -NoNewline -BackgroundColor $Col.ModalBg
             }
         }
 
         $k = [Console]::ReadKey($true)
         if ($k.Key -eq "UpArrow" -or $k.KeyChar -eq 'k') { if ($vCursor -gt 0) { $vCursor-- } }
-        elseif ($k.Key -eq "DownArrow" -or $k.KeyChar -eq 'j') { if ($vCursor -lt $versions.Count - 1) { $vCursor++ } }
+        elseif ($k.Key -eq "DownArrow" -or $k.KeyChar -eq 'j') { if ($vCursor -lt $Versions.Count - 1) { $vCursor++ } }
         elseif ($k.Key -eq "Escape" -or $k.KeyChar -eq 'q') { $selecting = $false }
         elseif ($k.Key -eq "Enter") { 
             $selecting = $false
-            Execute-Install-Or-Downgrade -LibraryName $LibData.name -TargetVersion $versions[$vCursor] -Location $Location
+            # Al dar Enter, enviamos el nombre de la librería y la versión STRING seleccionada
+            Execute-Install-Or-Downgrade -LibraryName $LibName -TargetVersion $Versions[$vCursor].Version -Location $Location
         }
     }
     
     Force-Refresh-UI
 }
-
 
 function Show-Action-Menu {
     param($Lib)
@@ -838,53 +1185,29 @@ function Show-Action-Menu {
     $isGlobal = ($Lib.InstallStatus -eq "GLOBAL" -or $Lib.InstallStatus -eq "BOTH")
     $isLocal  = ($Lib.InstallStatus -eq "LOCAL"  -or $Lib.InstallStatus -eq "BOTH")
 
+    # --- (Esta parte de generación de opciones se mantiene IGUAL) ---
     if (-not $isLocal) {
-        $options += @{ 
-            Label="Instalar [Local]";
-            Action="INSTALL";
-            Location="local" 
-        } 
+        $options += @{ Label="Instalar [Local]"; Action="INSTALL"; Location="local" } 
     }
     if (-not $isGlobal) {
-        $options += @{
-            Label="Instalar [Global]";
-            Action="INSTALL";
-            Location="global" 
-        } 
+        $options += @{ Label="Instalar [Global]"; Action="INSTALL"; Location="global" } 
     }
     if ($isLocal)  {
-        $options += @{
-            Label="Cambiar Versión [Local]";
-            Action="CHANGE";
-            Location="local";
-            CurrentVer=$Script:RawLocal[$Lib.Name] 
-        }
+        $options += @{ Label="Cambiar Versión [Local]"; Action="CHANGE"; Location="local"; CurrentVer=$Script:RawLocal[$Lib.Name] }
     }
     if ($isGlobal) {
-        $options += @{
-            Label="Cambiar Versión [Global]";
-            Action="CHANGE";
-            Location="global";
-            CurrentVer=$Script:RawGlobal[$Lib.Name]
-        }
+        $options += @{ Label="Cambiar Versión [Global]"; Action="CHANGE"; Location="global"; CurrentVer=$Script:RawGlobal[$Lib.Name] }
     }
     if ($isLocal)  {
-        $options += @{
-            Label="Desinstalar [Local]";
-            Action="UNINSTALL";
-            Location="local"
-        }
+        $options += @{ Label="Desinstalar [Local]"; Action="UNINSTALL"; Location="local" }
     }
     if ($isGlobal) {
-        $options += @{
-            Label="Desinstalar [Global]";
-            Action="UNINSTALL";
-            Location="global"
-        }
+        $options += @{ Label="Desinstalar [Global]"; Action="UNINSTALL"; Location="global" }
     }
     
     if ($options.Count -eq 0) { return }
 
+    # --- (Dimensiones y Dibujado se mantienen IGUAL, solo asegúrate de pasar los BoxChars si los pides por param) ---
     $W = [Console]::WindowWidth; $H = [Console]::WindowHeight
     $MenuW = 40
     $MenuH = $options.Count + 4
@@ -892,22 +1215,21 @@ function Show-Action-Menu {
     $StartY = [Math]::Floor(($H - $MenuH) / 2)
     $mCursor = 0
 
-    # Dibujar marco una sola vez
-    Draw-Box -StartX $StartX -StartY $StartY -Width $MenuW -Height $MenuH -Color $Col.ModalFg -BoxChars $BoxChars
+    # Usamos la variable global $BoxCharsDialogBox o la que tengas definida
+    Draw-Box -StartX $StartX -StartY $StartY -Width $MenuW -Height $MenuH -Color $Col.ModalFg -BoxChars $BoxCharsDialogBox
 
-    # Dibujar fondo interno una sola vez
     for ($y = 1; $y -lt $MenuH - 1; $y++) {
         [Console]::SetCursorPosition($StartX + 1, $StartY + $y)
         Write-Host (" " * ($MenuW - 2)) -NoNewline -BackgroundColor $Col.ModalBg
     }
 
-    # Dibujar título una sola vez
     [Console]::SetCursorPosition($StartX + 2, $StartY + 1)
-    Write-Host "ACCIONES: $($Lib.Name)" -BackgroundColor $Col.ModalBg -ForegroundColor $Col.ModalTitle
+    # Cortamos el nombre si es muy largo para que no rompa el título
+    $safeTitle = if ($Lib.Name.Length -gt 30) { $Lib.Name.Substring(0,27)+"..." } else { $Lib.Name }
+    Write-Host "ACCIONES: $safeTitle" -BackgroundColor $Col.ModalBg -ForegroundColor $Col.ModalTitle
 
     $inMenu = $true
     while ($inMenu) {
-        # Solo redibujar las opciones
         for ($i = 0; $i -lt $options.Count; $i++) {
             [Console]::SetCursorPosition($StartX + 2, $StartY + 2 + $i)
             $opt = $options[$i]
@@ -927,20 +1249,33 @@ function Show-Action-Menu {
             $sel = $options[$mCursor]
             
             if ($sel.Action -eq "INSTALL" -or $sel.Action -eq "CHANGE") {
-                $rawLib = $Script:RawCloud | Where-Object { $_.name -eq $Lib.Name } | Select-Object -First 1
-                if ($rawLib) {
-                    Show-Version-Selector -LibData $rawLib -CurrentVersion $sel.CurrentVer -ActionType $sel.Action -Location $sel.Location
+                
+                # Dibujamos un mensaje de espera sobre el menú
+                [Console]::SetCursorPosition($StartX + 2, $StartY + $MenuH - 2)
+                Write-Host "Analizando dependencias..." -ForegroundColor Yellow -BackgroundColor $Col.ModalBg
+                
+                # Llamamos a nuestra función extractora
+                $versionList = Get-Lib-Details -Name $Lib.Name
+                
+                if ($versionList) {
+                    # Ahora pasamos la LISTA procesada al selector, no el objeto crudo
+                    Show-Version-Selector -Versions $versionList -LibName $Lib.Name -CurrentVersion $sel.CurrentVer -ActionType $sel.Action -Location $sel.Location
                 } else {
-                    Show-Dialog-Box "Error" @("No se encontraron datos remotos.") "ERROR"
+                    Show-Dialog-Box-Script -Title "Error" -MessageLines "No se encontraron versiones para esta librería." -ColorType "ERROR"
                 }
-            }
-            elseif ($sel.Action -eq "UNINSTALL") {
+            } elseif ($sel.Action -eq "UNINSTALL") {
                 Execute-Uninstall -LibraryName $Lib.Name -Location $sel.Location
             }
         }
     }
-    Force-Refresh-UI
+    
+    # Importante: refrescar la interfaz después de cualquier acción
+    # (Asumo que tienes una función para repintar todo)
+    if (Get-Command "Force-Refresh-UI" -ErrorAction SilentlyContinue) {
+        Force-Refresh-UI
+    }
 }
+
 
 
 # =============================================================================
@@ -976,73 +1311,204 @@ function Update-Raw-Local {
     }
 }
 
-function Update-Raw-Cloud {
-    Write-Host "   Descargando índice de la nube (arduino-cli)..." -ForegroundColor Gray
+function Download-Arduino-Json {
+    param(
+        [string]$Path = "$Home/arduino_libraries.json"
+    )
     try {
-        if (-not (Get-Command "arduino-cli" -ErrorAction SilentlyContinue)) { throw "Falta arduino-cli" }
-        $jsonRaw = arduino-cli lib search --format json | Out-String
-        $data = $jsonRaw | ConvertFrom-Json
-        if ($data.libraries) { $Script:RawCloud = $data.libraries }
-    } catch { Write-Error $_; Read-Host "Error fatal. Enter para salir..."; exit }
+        if (-not (Get-Command "arduino-cli" -ErrorAction SilentlyContinue)) { 
+            throw "El ejecutable 'arduino-cli' no se encuentra en el PATH." 
+        }
+
+        Write-Host "Descargando datos desde arduino-cli..." -ForegroundColor Cyan
+        # Obtenemos el JSON directamente y lo redirigimos al archivo
+        # Usamos Out-File con UTF8 para evitar problemas de caracteres especiales
+        arduino-cli lib search --format json | Out-File -FilePath $Path -Encoding UTF8 -Force
+        
+        #Write-Host "Archivo guardado en: $Path" -ForegroundColor Green
+        return $true
+    } catch {
+        #Write-Error "Error al descargar JSON: $_"
+        return $false
+    }
 }
 
+function Ensure-Json-File {
+    param(
+        [string]$Path = "$Home/arduino_libraries.json",
+        [int]$MaxAgeHours = 24
+    )
 
+    $needDownload = $false
 
-function Build-Tabs {
-    $MasterList = $Script:RawCloud | ForEach-Object {
-        $lib = $_
-        $bestVerStr = "0.0.0"
-        $releaseData = $null
-        if ($lib.releases) {
-            $allVerKeys = $lib.releases.PSObject.Properties.Name
-            try {
-                $sortedVers = $allVerKeys | Select-Object @{N='V';E={[version]($_ -replace '[^0-9\.]','')}} | Sort-Object V -Descending
-                if ($sortedVers) { $bestVerStr = $sortedVers[0].V.ToString() }
-            } catch { $bestVerStr = $allVerKeys | Select-Object -Last 1 }
-            try { if ($bestVerStr) { $releaseData = $lib.releases.$bestVerStr } } catch {}
-        }
-
-        $author = if ($releaseData -and $releaseData.author) { $releaseData.author } elseif ($lib.author) { $lib.author } else { "?" }
-        $web    = if ($releaseData -and $releaseData.url) { $releaseData.url } elseif ($lib.website) { $lib.website } else { "" }
-        $sent   = if ($releaseData -and $releaseData.sentence) { $releaseData.sentence } elseif ($lib.sentence) { $lib.sentence } else { "" }
-        $cat    = if ($releaseData -and $releaseData.category) { $releaseData.category } elseif ($lib.category) { $lib.category } else { "General" }
-
-        $verGlobal = $Script:RawGlobal[$lib.name]
-        $verLocal  = $Script:RawLocal[$lib.name]
-        
-        $statusTag = "NONE"
-        $instInfo  = "No instalada"
-        $canUpdate = $false
-        
-        $IsNewer = { param($vCloud, $vInst) try { return [version]($vCloud -replace '[^0-9\.]','') -gt [version]($vInst -replace '[^0-9\.]','') } catch { return $false } }
-
-        if ($verGlobal -and $verLocal) {
-            $statusTag = "BOTH"
-            $instInfo = "G: v$verGlobal | L: v$verLocal"
-            if ((&$IsNewer $bestVerStr $verGlobal) -or (&$IsNewer $bestVerStr $verLocal)) { $canUpdate = $true }
-        } elseif ($verGlobal) {
-            $statusTag = "GLOBAL"
-            $instInfo = "Global (v$verGlobal)"
-            if (&$IsNewer $bestVerStr $verGlobal) { $canUpdate = $true }
-        } elseif ($verLocal) {
-            $statusTag = "LOCAL"
-            $instInfo = "Local (v$verLocal)"
-            if (&$IsNewer $bestVerStr $verLocal) { $canUpdate = $true }
-        }
-
-        [PSCustomObject]@{
-            Name = $lib.name; Author = $author; Sentence = $sent; Website = $web; Category = $cat
-            Latest = $bestVerStr; InstallStatus = $statusTag; InstallInfo = $instInfo; CanUpdate = $canUpdate
-            SearchText = ($lib.name + " " + $sent + " " + $cat + " " + $author).ToLower()
+    # 1. Chequeo de existencia
+    if (-not (Test-Path $Path)) {
+        #Write-Host "Archivo JSON no encontrado. Se descargará." -ForegroundColor Yellow
+        $needDownload = $true
+    } else {
+        # 2. Chequeo de antigüedad (24 horas)
+        $fileInfo = Get-Item $Path
+        $age = (Get-Date) - $fileInfo.LastWriteTime
+        if ($age.TotalHours -gt $MaxAgeHours) {
+            Write-Host "El índice de librerías es antiguo. Buscando actualizaciones..." -ForegroundColor Cyan
+            $needDownload = $true
         }
     }
 
+    # 3. Descarga (Solo si es necesario)
+    if ($needDownload) {
+        try {
+            if (-not (Get-Command "arduino-cli" -ErrorAction SilentlyContinue)) { 
+                throw "arduino-cli no encontrado." 
+            }
+            # Descarga directa a disco (SIN cargar en RAM)
+            arduino-cli lib search --format json | Out-File -FilePath $Path -Encoding UTF8 -Force
+            #Write-Host "Índice actualizado correctamente." -ForegroundColor Green
+        } catch {
+            #Write-Warning "No se pudo descargar el JSON: $_"
+            #Write-Warning "Se intentará usar el archivo existente si hay uno."
+        }
+    }
+}
+
+
+# 1. Función de Gestión del Caché (El motor de optimización)
+function Get-Cached-Library-List {
+    param(
+        [string]$JsonPath = "$Home/arduino_libraries.json",
+        [string]$CachePath = "$Home/arduino_libraries_cache.xml"
+    )
+
+    # 1. VERIFICACIÓN DE CACHÉ
+    # Comparamos fechas para saber si el XML es más nuevo que el JSON
+    $useCache = $false
+    if ((Test-Path $CachePath) -and (Test-Path $JsonPath)) {
+        $jsonTime = (Get-Item $JsonPath).LastWriteTime
+        $cacheTime = (Get-Item $CachePath).LastWriteTime
+        if ($cacheTime -gt $jsonTime) { $useCache = $true }
+    }
+
+    if ($useCache) {
+        # --- CAMINO RÁPIDO (Milisegundos) ---
+        #Write-Host "Cargando caché optimizado..." -ForegroundColor Cyan
+        return (Import-Clixml $CachePath)
+    } else {
+        # --- CAMINO LENTO (Segundos) ---
+        # Solo entramos aquí si el JSON cambió o si es la primera vez.
+        #Write-Host "Procesando librería y generando caché..." -ForegroundColor Yellow
+        
+        # Leemos el JSON aquí mismo (Localmente, para no ensuciar la RAM global)
+        try {
+            if (-not (Test-Path $JsonPath)) { return @() } # Si no hay JSON, devolvemos vacío
+            $content = Get-Content -Path $JsonPath -Raw -Encoding UTF8
+            $data = $content | ConvertFrom-Json
+            $rawLibs = $data.libraries
+        } catch {
+            #Write-Error "Error leyendo el JSON: $_"
+            return @()
+        }
+
+        # Procesamos la lista (La parte pesada de CPU)
+        $processedList = $rawLibs | ForEach-Object {
+            $lib = $_
+            
+            # -- Lógica de Versiones (Corregida) --
+            $bestKey = $null; $releaseData = $null
+            if ($lib.releases) {
+                $allVerKeys = $lib.releases.PSObject.Properties.Name
+                # Mapeamos Original vs Limpia para ordenar
+                $bestCandidate = $allVerKeys | ForEach-Object {
+                    try { [PSCustomObject]@{ Org = $_; Cln = [version]($_ -replace '[^0-9\.]','') } } catch { $null }
+                } | Sort-Object Cln -Descending | Select-Object -First 1
+                
+                if ($bestCandidate) {
+                    $bestKey = $bestCandidate.Org
+                    $releaseData = $lib.releases.$bestKey
+                } else {
+                    # Fallback si falla el parseo de versión
+                    $bestKey = $allVerKeys | Select-Object -Last 1
+                    try { $releaseData = $lib.releases.$bestKey } catch {}
+                }
+            }
+            $displayVer = if ($bestKey) { $bestKey } else { "0.0.0" }
+
+            # -- Extracción de Datos --
+            $author = if ($releaseData -and $releaseData.author) { $releaseData.author } elseif ($lib.author) { $lib.author } else { "?" }
+            $web    = if ($releaseData -and $releaseData.url) { $releaseData.url } elseif ($lib.website) { $lib.website } else { "" }
+            $sent   = if ($releaseData -and $releaseData.sentence) { $releaseData.sentence } elseif ($lib.sentence) { $lib.sentence } else { "" }
+            $cat    = if ($releaseData -and $releaseData.category) { $releaseData.category } elseif ($lib.category) { $lib.category } else { "General" }
+
+            # -- Crear Objeto Optimizado --
+            [PSCustomObject]@{
+                Name       = $lib.name
+                Author     = $author
+                Sentence   = $sent
+                Website    = $web
+                Category   = $cat
+                Latest     = $displayVer
+                SearchText = "$($lib.name) $sent $cat $author".ToLower()
+                # Estos campos se llenarán dinámicamente en Build-Tabs
+                InstallStatus = "NONE"
+                InstallInfo   = ""
+                CanUpdate     = $false
+            }
+        }
+
+        # Guardamos el resultado en disco para la próxima vez
+        if ($processedList) {
+            $processedList | Export-Clixml -Path $CachePath -Depth 2
+        }
+        
+        return $processedList
+    }
+}
+
+# 2. Función Principal (La que llama tu UI)
+function Build-Tabs {
+    # Bloque comparador de versiones
+    $IsNewerBlock = { 
+        param($vCloudStr, $vInstStr) 
+        try { return [version]($vCloudStr -replace '[^0-9\.]','') -gt [version]($vInstStr -replace '[^0-9\.]','') } catch { return $false } 
+    }
+
+    # 1. Obtener la lista maestra (desde caché o procesada)
+    $MasterList = Get-Cached-Library-List
+
+    # 2. Actualización Dinámica de Estado
+    # Esto es MUY rápido y asegura que si instalas algo, se marque sin borrar el caché
+    $MasterList | ForEach-Object {
+        $item = $_
+        $verGlobal = $Script:RawGlobal[$item.Name]
+        $verLocal  = $Script:RawLocal[$item.Name]
+        
+        # Resetear valores por si cambiaron desde el último caché
+        $item.InstallStatus = "NONE"
+        $item.InstallInfo   = "No instalada"
+        $item.CanUpdate     = $false
+
+        if ($verGlobal -and $verLocal) {
+            $item.InstallStatus = "BOTH"
+            $item.InstallInfo = "G: v$verGlobal | L: v$verLocal"
+            if ((& $IsNewerBlock $item.Latest $verGlobal) -or (& $IsNewerBlock $item.Latest $verLocal)) { $item.CanUpdate = $true }
+        } elseif ($verGlobal) {
+            $item.InstallStatus = "GLOBAL"
+            $item.InstallInfo = "Global (v$verGlobal)"
+            if (& $IsNewerBlock $item.Latest $verGlobal) { $item.CanUpdate = $true }
+        } elseif ($verLocal) {
+            $item.InstallStatus = "LOCAL"
+            $item.InstallInfo = "Local (v$verLocal)"
+            if (& $IsNewerBlock $item.Latest $verLocal) { $item.CanUpdate = $true }
+        }
+    }
+
+    # 3. Asignación a las pestañas globales
     $Script:TabLists[0] = @($MasterList)
     $Script:TabLists[1] = @($MasterList | Where-Object { $_.InstallStatus -eq "LOCAL" -or $_.InstallStatus -eq "BOTH" })
     $Script:TabLists[2] = @($MasterList | Where-Object { $_.InstallStatus -eq "GLOBAL" -or $_.InstallStatus -eq "BOTH" })
     $Script:TabLists[3] = @($MasterList | Where-Object { $_.InstallStatus -eq "BOTH" })
     $Script:TabLists[4] = @($MasterList | Where-Object { $_.CanUpdate -eq $true })
 }
+
 
 function Set-InstalledVersion {
     param (
@@ -1175,9 +1641,49 @@ function Update-TabLists {
 }
 
 function Load-Full-System {
+    #### Clear-Host
+    #### Write-Host "`n   [ INICIALIZANDO ]" -ForegroundColor Cyan
+    #### Update-Raw-Global;
+    #### Update-Raw-Local;
+    #### Update-Raw-Cloud;
+    #### Build-Tabs;
+    #### Update-Filter
+
     Clear-Host
-    Write-Host "`n   [ INICIALIZANDO ]" -ForegroundColor Cyan
-    Update-Raw-Global; Update-Raw-Local; Update-Raw-Cloud; Build-Tabs; Update-Filter
+    $title = "  ----[ INICIALIZANDO ]----  "
+    
+
+    $code = {
+        param($print, $ctx)
+    
+        &$print $ctx "Cargando librerías globales"
+        Update-Raw-Global
+        if ($script:CancelRequested) { throw "Cancelado" }
+    
+        &$print $ctx "Cargando librerías locales"
+        Update-Raw-Local
+        if ($script:CancelRequested) { throw "Cancelado" }
+    
+        &$print $ctx "Actualizando la base de datos"
+        Sleep-Cancelable 5000     # simula proceso largo
+        #Load-Raw-Cloud
+        Ensure-Json-File
+        if ($script:CancelRequested) { throw "Cancelado" }
+    
+        &$print $ctx "Construyendo listas"
+        Build-Tabs
+        if ($script:CancelRequested) { throw "Cancelado" }
+    
+        &$print $ctx "FIN"
+    }
+
+    Show-Dialog-Box-Script -Script $code `
+                        -Title $title `
+                        -MessageLines "Iniciando descarga..." `
+                        -ColorType "SUCCESS" `
+                        -Width 60 -Height 10
+    Clear-Host
+    Update-Filter
 }
 
 function Update-Filter {
@@ -1216,7 +1722,8 @@ function Draw-UI {
         Write-Host " " -NoNewline -BackgroundColor $Col.Bg
     }
     $currentX = [Console]::CursorLeft; if ($currentX -lt $W) { Write-Host (" " * ($W - $currentX)) -NoNewline -BackgroundColor $Col.Bg }
-    [Console]::SetCursorPosition(0, 1); Write-Host ("─" * $W) -ForegroundColor DarkGray
+    [Console]::SetCursorPosition(0, 1); Write-Host ("_" * $W) -ForegroundColor DarkGray
+    #[Console]::SetCursorPosition(0, 1); Write-Host ("─" * $W) -ForegroundColor DarkGray
 
     # Lista
     if ($Script:Cursor -ge $Script:ScrollOffset + $ListH) { $Script:ScrollOffset = $Script:Cursor - $ListH + 1 }
@@ -1311,10 +1818,37 @@ try {
         if ([Console]::KeyAvailable) {
             $keyInfo = [Console]::ReadKey($true); $key = $keyInfo.Key; $char = $keyInfo.KeyChar
             if ($Script:Mode -eq "SEARCH") {
-                if ($Script:PendingK) { if ($char -eq 'j') { $Script:PendingK = $false; $Script:Mode = "NAV"; $Script:NeedsRedraw = $true; continue } else { $Script:SearchQuery += "k"; $Script:PendingK = $false } }
-                if ($key -eq "Enter" -or $key -eq "Escape") { $Script:Mode = "NAV"; $Script:PendingK = $false; $Script:NeedsRedraw = $true }
-                elseif ($key -eq "Backspace") { if ($Script:SearchQuery.Length -gt 0) { $Script:SearchQuery = $Script:SearchQuery.Substring(0, $Script:SearchQuery.Length - 1); Update-Filter } }
-                elseif (-not [char]::IsControl($char)) { if ($char -eq 'k') { $Script:PendingK = $true; $Script:PendingKTime = [DateTime]::Now } else { $Script:SearchQuery += $char; Update-Filter } }
+                if ($Script:PendingK) {
+                    if ($char -eq 'j') {
+                        $Script:PendingK = $false;
+                        $Script:Mode = "NAV";
+                        $Script:NeedsRedraw = $true;
+                        continue
+                    } else {
+                        $Script:SearchQuery += "k";
+                        $Script:PendingK = $false
+                    }
+                }
+                if ($key -eq "Enter" -or $key -eq "Escape") {
+                    $Script:Mode = "NAV";
+                    $Script:PendingK = $false;
+                    $Script:NeedsRedraw = $true
+                }
+                elseif ($key -eq "Backspace") {
+                    if ($Script:SearchQuery.Length -gt 0) {
+                        $Script:SearchQuery = $Script:SearchQuery.Substring(0, $Script:SearchQuery.Length - 1);
+                        Update-Filter
+                    }
+                }
+                elseif (-not [char]::IsControl($char)) {
+                    if ($char -eq 'k') {
+                        $Script:PendingK = $true;
+                        $Script:PendingKTime = [DateTime]::Now 
+                    } else {
+                        $Script:SearchQuery += $char;
+                        Update-Filter
+                    }
+                }
             } else {
                 $Script:NeedsRedraw = $true
                 switch ($char) {
@@ -1337,4 +1871,9 @@ try {
         }
         Start-Sleep -Milliseconds 20
     }
-} finally { [Console]::CursorVisible = $true; Clear-Host; Write-Host "Bye." }
+} finally {
+    $function:prompt = $oldPrompt
+    [Console]::CursorVisible = $true;
+    Clear-Host;
+    Write-Host "Bye." 
+}
