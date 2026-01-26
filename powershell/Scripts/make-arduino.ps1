@@ -19,22 +19,22 @@ $loadCommand    = "$compileCommand && $uploadCommand"
 
 if (-not (Get-Command $compiler -ErrorAction SilentlyContinue)){
     Write-Host "No en encuentra el programa [$compiler] en el PATH" -ForegroundColor Red
-    return
+    exit 1
 }
 # Reglas: Empieza con letra/número, caracteres permitidos (a-z, 0-9, _, ., -), máx 63 caracteres.
 $regexArduino = "^[a-zA-Z0-9][a-zA-Z0-9_\.\-]{0,62}$"
 if ( ($dirName -notmatch $regexArduino) -or $dirName.EndsWith('.')) {
     Write-Host " El nombre '$dirName' es INVALIDO para Arduino" -ForegroundColor Red
     Write-Host "Recuerda: Sin espacios, máximo 63 caracteres y no puede terminar en punto." -ForegroundColor Red
-    return
+    exit 1
 }
 if ( -not (Test-Path -Path $inoFile -ErrorAction SilentlyContinue ) ) {
     Write-Host "No se encontró el archivo $inoFile en este directorio" -ForegroundColor Red
-    return
+    exit 1
 }
 if ( -not( Test-Path -Path $sketchFile -ErrorAction SilentlyContinue)  ) {
     Write-Host "No se encontró el archivo $inoFile en este directorio" -ForegroundColor Red
-    return
+    exit 1
 }
 
 switch($Command){
@@ -43,3 +43,5 @@ switch($Command){
     "load"    { Invoke-Expression $loadCommand }
     Default   { Write-Host "Comando Invalido" -ForegroundColor Red }
 }
+
+exit $LASTEXITCODE
