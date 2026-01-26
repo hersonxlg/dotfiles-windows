@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Monitor Serial Avanzado "monitor" para desarrollo con Arduino/ESP32.
 
@@ -58,9 +58,14 @@ param (
 
 # Configuración de seguridad: Detener script ante cualquier error no controlado
 $ErrorActionPreference = "Stop"
-[Console]::TreatControlCAsInput = $true
 # Codificación UTF8 para soportar tildes y caracteres especiales
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    [Console]::TreatControlCAsInput = $true
+} catch {
+    # Si falla (ej. en ISE o consolas redirigidas), continuamos sin romper el script
+    Write-Warning "No se pudo configurar la consola avanzada. Algunas funciones visuales o Ctrl+C podrían no responder igual."
+}
 
 # =============================================================================
 # 1. GESTIÓN DE CONFIGURACIÓN (AUTO-DISCOVERY)
@@ -138,7 +143,25 @@ $updateInput = $true
 $lastWidth = 0; $lastHeight = 0
 
 # Cargar librería .NET y limpiar pantalla
-Add-Type -AssemblyName System.IO.Ports
+#### Add-Type -AssemblyName System.IO.Ports
+
+# --- FIX DE LIBRERÍAS (Blindaje para PS 5.1 y PS Core) ---
+$libLoaded = $false
+try {
+    Add-Type -AssemblyName "System.IO.Ports" -ErrorAction Stop
+    $libLoaded = $true
+} catch {
+    try {
+        [void][System.Reflection.Assembly]::LoadWithPartialName("System.IO.Ports")
+        $libLoaded = $true
+    } catch {}
+}
+
+if (-not $libLoaded) {
+    Write-Host " [ FATAL ] Error: No se pudo cargar System.IO.Ports." -ForegroundColor Red
+    exit
+}
+
 [Console]::CursorVisible = $false
 Clear-Host
 
@@ -197,7 +220,9 @@ function Disconnect-Port {
             if ($global:portObj.IsOpen) { $global:portObj.Close() }
             $global:portObj.Dispose() 
         }
-    } catch {}
+    }
+    catch {
+    }
     
     $global:portObj = $null
     $global:connStatus = "DISCONNECTED"
@@ -266,14 +291,20 @@ function Render-UI {
         Utiliza SetCursorPosition para evitar parpadeos (Flicker-Free).
     #>
     $w = [Console]::WindowWidth; $h = [Console]::WindowHeight
-    $safeWidth = $w - 2; $historyHeight = $h - 3
+    
+    # [CORRECCIÓN 1]: Usamos $w - 1 para limpiar mejor el borde derecho sin saltar de línea
+    $safeWidth = $w - 1 
+    
+    # [CORRECCIÓN 2 - LA CLAVE]: Cambiamos -3 por -2.
+    # Esto hace que el historial baje hasta tocar la barra de estado, eliminando el hueco.
+    $historyHeight = $h - 2
 
     try {
         # --- 1. ÁREA DE HISTORIAL (RX/TX) ---
         [Console]::SetCursorPosition(0, 0)
         $linesToPrint = $history | Select-Object -Last $historyHeight
         
-        # Limpiar líneas vacías superiores si el historial es corto
+        # Limpiar líneas vacías superiores
         if ($linesToPrint.Count -lt $historyHeight) {
             $empty = $historyHeight - $linesToPrint.Count
             for ($i=0; $i -lt $empty; $i++) { Write-Host "".PadRight($safeWidth) }
@@ -289,7 +320,6 @@ function Render-UI {
         # --- 2. BARRA DE ESTADO ---
         [Console]::SetCursorPosition(0, $h - 2)
         
-        # Colores dinámicos según estado
         $stColor = "Green"; $stText = "CONECTADO"
         if ($global:connStatus -eq "DISCONNECTED") { $stColor = "Red"; $stText = "BUSCANDO..." }
         
@@ -298,7 +328,6 @@ function Render-UI {
         
         $info = "| [PORT: $PortName @ $BaudRate] | [EOL: $EOL] | [ESC: Salir] "
         
-        # Cálculo de relleno para alinear a la derecha
         $currentX = $stText.Length + 9
         $dashCount = $safeWidth - $currentX - $info.Length
         if ($dashCount -lt 0) { $dashCount = 0 }
@@ -309,18 +338,22 @@ function Render-UI {
         [Console]::SetCursorPosition(0, $h - 1)
         Write-Host "> " -ForegroundColor Yellow -NoNewline
         
-        # Scroll horizontal del input si es muy largo
         $cleanIn = $inputBuffer
         if ($cleanIn.Length -gt ($w - 4)) { 
             $cleanIn = $cleanIn.Substring($cleanIn.Length - ($w - 4)) 
         }
         
         Write-Host $cleanIn -ForegroundColor White -NoNewline
-        Write-Host "_" -ForegroundColor Green -NoNewline # Cursor falso
-        Write-Host "".PadRight($w - $cleanIn.Length - 4) -NoNewline
+        Write-Host "_" -ForegroundColor Green -NoNewline 
+        
+        # Limpieza final (Agregué protección contra error negativo por seguridad)
+        $pad = $w - $cleanIn.Length - 4
+        if ($pad -lt 0) { $pad = 0 }
+        Write-Host "".PadRight($pad) -NoNewline
 
     } catch {}
 }
+
 
 # =============================================================================
 # 5. BUCLE PRINCIPAL (MAIN LOOP)
@@ -333,6 +366,7 @@ if ($global:connStatus -eq "DISCONNECTED") {
 }
 
 Render-UI
+
 $reconnectTimer = [DateTime]::Now
 
 while ($running) {
