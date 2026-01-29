@@ -90,6 +90,15 @@ vim.keymap.set("n", "<leader>.", "<cmd>luafile $MYVIMRC<cr>",{noremap = true})
 -----------------------------------------------------
 -- atajos para LSP
 -----------------------------------------------------
-vim.keymap.set('n', 'gl', vim.diagnostic.open_float, { desc = "Mostrar diagnostic flotante" })
+vim.keymap.set(
+    'n', 'gl',
+    vim.diagnostic.open_float,
+    { desc = "Mostrar diagnostic flotante" }
+)
 
 
+vim.keymap.set(
+    'n', '<leader>rn',
+    vim.lsp.buf.rename,
+    { desc = "Mostrar diagnostic flotante" }
+)
