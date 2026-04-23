@@ -1,78 +1,75 @@
 <#
 .SYNOPSIS
-    Inicia una nueva sesión interactiva de PowerShell (pwsh o powershell clásico)
-    con el entorno de compilación de Microsoft C++ Build Tools (x64 o x86) ya cargado.
+    Inicia una sesión de PowerShell con el entorno de compilación de MSVC (x64/x86).
 
 .DESCRIPTION
-    Este script detecta si los archivos de entorno `vcvars64.bat` y `vcvars32.bat` existen
-    en una instalación de Visual Studio Build Tools 2022.
-    Luego permite al usuario elegir entre el entorno x64 o x86,
-    crea un archivo `.cmd` temporal que ejecuta el entorno elegido
-    y lanza una nueva sesión de PowerShell (sin abrir nuevas ventanas gráficas).
+    1. Detecta Visual Studio 2022 usando vswhere.exe (Verifica su existencia primero).
+    2. Valida la existencia de vcvarsall.bat antes de intentar ejecutarlo.
+    3. Permite elegir arquitectura.
+    4. Verifica si pwsh, powershell y cmd están disponibles en el sistema.
+    5. Personaliza el prompt para indicar la arquitectura y solo la carpeta actual.
 #>
 
 function Spawn-BuildShell {
-    # Definir posibles rutas de instalación de Build Tools 2022
-    $basePaths = @(
-        "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools",
-        "${env:ProgramFiles}\Microsoft Visual Studio\2022\BuildTools"
-    )
-
-    $found = $false  # Bandera para indicar si se encontró la instalación
-
-    foreach ($base in $basePaths) {
-        # Rutas a los scripts de entorno
-        $vcvars64 = Join-Path $base "VC\Auxiliary\Build\vcvars64.bat"
-        $vcvars32 = Join-Path $base "VC\Auxiliary\Build\vcvars32.bat"
-
-        # Validar que ambos scripts existen
-        if ((Test-Path $vcvars64) -and (Test-Path $vcvars32)) {
-            $found = $true
-            break
-        }
-    }
-
-    # Si no se encontraron los scripts, mostrar error y salir
-    if (-not $found) {
-        Write-Error "No se encontró una instalación válida de Microsoft C++ Build Tools 2022 con vcvars64.bat y vcvars32.bat."
+    # --- 1. Verificación de vswhere.exe ---
+    $vswherePath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (-not (Test-Path $vswherePath)) {
+        Write-Error "No se encontró vswhere.exe. Asegúrate de tener instalado Visual Studio Installer."
         return
     }
 
-    # Menú interactivo para elegir arquitectura
-    Write-Host "Selecciona el entorno de compilación:"
-    Write-Host "1. x64 (64 bits)"
-    Write-Host "2. x86 (32 bits)"
-    $choice = Read-Host "Ingresa 1 o 2"
-
-    # Asignar script de entorno según elección
-    switch ($choice) {
-        '1' { $envScript = $vcvars64 }
-        '2' { $envScript = $vcvars32 }
-        default {
-            Write-Warning "Opción inválida. Cancelando."
-            return
-        }
+    # --- 2. Localización de Visual Studio ---
+    $vsPath = & $vswherePath -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+    if (-not $vsPath) {
+        Write-Error "No se detectó una instalación de C++ Build Tools compatible."
+        return
     }
 
-    # Detectar qué shell usar: pwsh (PowerShell Core) o powershell clásico
-    $shellExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell" }
+    $vcvarsall = Join-Path $vsPath "VC\Auxiliary\Build\vcvarsall.bat"
+    if (-not (Test-Path $vcvarsall)) {
+        Write-Error "No se encontró vcvarsall.bat en: $vcvarsall"
+        return
+    }
 
-    # Crear archivo .cmd temporal para ejecutar entorno y lanzar nueva sesión
-    $tempScript = [System.IO.Path]::GetTempFileName().Replace(".tmp", ".cmd")
+    # --- 3. Menú de Arquitectura ---
+    Write-Host "`n--- Configuración de Entorno MSVC ---" -ForegroundColor Cyan
+    Write-Host "1. x64 (64 bits)"
+    Write-Host "2. x86 (32 bits)"
+    
+    $choice = Read-Host "Selecciona arquitectura (1 o 2)"
+    $arch = switch ($choice) {
+        '1' { "x64" }
+        '2' { "x86" }
+        default { Write-Warning "Opción cancelada."; return }
+    }
 
-    # Contenido del script .cmd
-    @"
-@echo off
-REM Cargar entorno de compilación
-call `"$envScript`"
-echo Entorno cargado: $envScript
+    # --- 4. Verificación de Shell ---
+    if (Get-Command pwsh -ErrorAction SilentlyContinue) { 
+        $shellExe = "pwsh" 
+    } elseif (Get-Command powershell -ErrorAction SilentlyContinue) { 
+        $shellExe = "powershell" 
+    } else {
+        Write-Error "No se encontró ni pwsh ni powershell en el sistema."
+        return
+    }
 
-REM Lanzar nueva shell en misma ventana
-$shellExe -NoExit -Command Set-Theme half-life
-"@ | Set-Content -Encoding ASCII -Path $tempScript
+    if (-not (Get-Command cmd.exe -ErrorAction SilentlyContinue)) {
+        Write-Error "No se encontró cmd.exe. Es necesario para cargar el entorno."
+        return
+    }
 
-    # Ejecutar el script en el mismo terminal sin nueva ventana
-    & cmd /c `"$tempScript`"
+    Write-Host "Iniciando $shellExe para $arch..." -ForegroundColor DarkGray
+
+    # --- 5. Creación del Comando ---
+    # El prompt minimalista que funcionó perfecto en tu prueba
+    $promptCommand = "function prompt { `$dir = Split-Path -Leaf (Get-Location); if (-not `$dir) { `$dir = (Get-Location).Drive.Name + ':\' }; Write-Host '[MSVC $arch] ' -NoNewline -ForegroundColor Green; Write-Host `$dir -NoNewline -ForegroundColor Cyan; return ' > ' }"
+
+    # --- 6. Ejecución en Memoria (Adiós archivo temporal) ---
+    # Usamos "&&" para encadenar la carga del entorno y la apertura de PowerShell 
+    # en una sola instrucción de cmd.exe. Esto evita el mensaje "¿Desea terminar el trabajo por lotes?".
+    $cmdInstruction = "call `"$vcvarsall`" $arch && $shellExe -NoExit -Command `"$promptCommand`""
+    
+    & cmd.exe /c $cmdInstruction
 }
 
 # Ejecutar la función principal
