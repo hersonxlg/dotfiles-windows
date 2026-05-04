@@ -8,6 +8,38 @@
 #                                 
 # ********************************************************
 
+# Función para cambiar de directorio al salir de lf (con validación de PATH)
+function lfcd {
+    # 1. VALIDACIÓN: Comprobar si lf.exe existe en el PATH
+    if (-not (Get-Command "lf" -ErrorAction SilentlyContinue)) {
+        Write-Host "⚠️ Error: 'lf.exe' no se encuentra instalado o no está en el PATH." -ForegroundColor Red
+        Write-Host "Asegúrate de instalarlo (ej. con 'scoop install lf') o de haber reiniciado tu terminal." -ForegroundColor Yellow
+        return # Sale de la función inmediatamente
+    }
+
+    # 2. Crea un archivo temporal
+    $tmp = [System.IO.Path]::GetTempFileName()
+    
+    try {
+        # 3. Ejecuta lf pasándole la orden de guardar la última ruta en el temporal
+        & lf -last-dir-path $tmp $args
+        
+        # 4. Al salir de lf, revisa si el archivo temporal existe y tiene algo escrito
+        if (Test-Path $tmp) {
+            $dir = Get-Content $tmp -Raw
+            # Si hay una ruta válida, cambia la terminal a ese directorio
+            if (![string]::IsNullOrWhiteSpace($dir) -and (Test-Path $dir)) {
+                Set-Location $dir
+            }
+        }
+    } finally {
+        # 5. Siempre borra el archivo temporal al terminar para no dejar basura
+        if (Test-Path $tmp) {
+            Remove-Item $tmp -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 # ********************************************************
 #                   UTF-8
 # ********************************************************
