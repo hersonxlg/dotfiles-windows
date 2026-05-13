@@ -2,7 +2,7 @@
 #        🛠️ PANEL DE CONTROL (Activar / Desactivar)
 # ========================================================
 # Cambia a $false las cosas que no uses siempre para ganar velocidad
-$UsarOhMyPosh      = $true
+$UsarOhMyPosh      = $false
 $UsarTerminalIcons = $false  # Ponlo en $true si quieres cargar los iconos al inicio
 $UsarZLocation     = $false  # Ponlo en $true si quieres cargar ZLocation al inicio
 $AutoCargarFZF     = $false  # Si es $false, abre rapidísimo y lo cargas manual escribiendo: Activar-FZF
