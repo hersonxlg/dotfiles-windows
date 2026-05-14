@@ -61,16 +61,30 @@ return {
         },
         lazy = false,
         config = function()
-            vim.env.PATH = vim.fn.stdpath("data") .. "/mason/bin:" .. vim.env.PATH
+            local uv = vim.uv or vim.loop
+            
+            -- FIX 1: Agregar Mason al PATH usando el separador correcto para cada SO
+            local mason_bin = vim.fn.stdpath("data") .. "/mason/bin"
+            local is_windows = vim.fn.has("win32") == 1
+            local separator = is_windows and ";" or ":"
+
+            if not string.find(vim.env.PATH, mason_bin, 1, true) then
+                vim.env.PATH = mason_bin .. separator .. vim.env.PATH
+            end
 
             local capabilities = require("cmp_nvim_lsp").default_capabilities()
-            local uv = vim.uv or vim.loop
 
             local function notify_missing(name)
                 vim.notify(name .. " no está instalado o no está en PATH", vim.log.levels.WARN)
             end
 
+            -- FIX 2: Función multiplataforma para detectar ejecutables (.cmd / .exe en Windows)
             local function has_exe(name)
+                if is_windows then
+                    return vim.fn.executable(name) == 1 
+                           or vim.fn.executable(name .. ".cmd") == 1 
+                           or vim.fn.executable(name .. ".exe") == 1
+                end
                 return vim.fn.executable(name) == 1
             end
 
@@ -103,7 +117,6 @@ return {
 
             local function get_mason_binary(package, binary)
                 local mason_path = vim.fn.stdpath("data") .. "/mason"
-                local is_windows = vim.fn.has("win32") == 1
                 local ext = is_windows and ".exe" or ""
 
                 local path = mason_path .. "/bin/" .. binary .. ext
@@ -302,9 +315,12 @@ return {
             -- ts_ls
             --------------------------------------------------------
             if has_exe("typescript-language-server") then
+                -- Utilizamos get_mason_binary para asegurar la ruta correcta (especialmente útil en Windows/JS)
+                local ts_binary = get_mason_binary("typescript-language-server", "typescript-language-server")
+                
                 vim.lsp.config.ts_ls = {
                     default_config = {
-                        cmd = { "typescript-language-server", "--stdio" },
+                        cmd = { ts_binary, "--stdio" },
                         filetypes = {
                             "javascript",
                             "javascript.jsx",
@@ -573,11 +589,6 @@ return {
             })
 
             ---------------------------------
-            -- Tu bloque Arduino actual puede quedarse aquí
-            -- sin cambios si todavía lo usas.
-            ---------------------------------
-
-            ---------------------------------
             -- Arduino LSP  (usa clangd + arduino-cli)
             ---------------------------------
             
@@ -585,45 +596,17 @@ return {
             -- 1. HERRAMIENTAS AUXILIARES
             -- ============================================================
             
-            local function is_windows()
-                return vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
-            end
-            
             local function normalize_path(path)
                 return (path or ""):gsub("\\", "/")
             end
             
-            local function program_exists(name)
-                return vim.fn.executable(name) == 1
-            end
-            
-            local function notify_missing(name)
-                vim.notify(name .. " no está instalado o no está en PATH", vim.log.levels.WARN)
-            end
-            
-            local function find_mason_binary(package, binary)
-                local mason_path = vim.fn.stdpath("data") .. "/mason"
-                local ext = is_windows() and ".exe" or ""
-            
-                local path = mason_path .. "/bin/" .. binary .. ext
-                if vim.fn.filereadable(path) == 0 then
-                    path = mason_path .. "/packages/" .. package .. "/" .. binary .. ext
-                end
-            
-                if vim.fn.filereadable(path) == 1 then
-                    return normalize_path(path)
-                end
-            
-                return nil
-            end
-            
             local function resolve_program(package, binary)
-                if program_exists(binary) then
+                if has_exe(binary) then
                     return binary
                 end
             
-                local mason_path = find_mason_binary(package, binary)
-                if mason_path then
+                local mason_path = get_mason_binary(package, binary)
+                if mason_path and vim.fn.filereadable(mason_path) == 1 then
                     return mason_path
                 end
             
@@ -631,7 +614,7 @@ return {
             end
             
             local function get_default_arduino_cli_config()
-                if is_windows() then
+                if is_windows then
                     return normalize_path(vim.fn.expand("$LOCALAPPDATA/Arduino15/arduino-cli.yaml"))
                 end
             
@@ -767,7 +750,7 @@ return {
             
             local function build_arduino_receta(base_dir)
                 local ruta_win = normalize_path(base_dir)
-                if is_windows() then
+                if is_windows then
                     ruta_win = ruta_win:gsub("/", "\\")
                 end
             
@@ -830,18 +813,6 @@ return {
             local cmd_server = resolve_program("arduino-language-server", "arduino-language-server")
             local cmd_cli = resolve_program("arduino-cli", "arduino-cli")
             local cmd_clangd = resolve_program("clangd", "clangd")
-            
-            if not cmd_server then
-                notify_missing("arduino-language-server")
-            end
-            
-            if not cmd_cli then
-                notify_missing("arduino-cli")
-            end
-            
-            if not cmd_clangd then
-                notify_missing("clangd")
-            end
             
             -- ============================================================
             -- 4. ARDUINO LSP
@@ -929,7 +900,6 @@ return {
                     end)
                 end,
             })
-
 
             ---------------------------------
             -- Matlab LSP
