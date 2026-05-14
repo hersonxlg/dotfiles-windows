@@ -22,6 +22,7 @@ return {
         config = function()
             require("mason-lspconfig").setup({
                 ensure_installed = {
+                    -- 🔧 Tus LSPs actuales (Intactos)
                     "lua_ls",
                     "pylsp",
                     "clangd",
@@ -30,6 +31,19 @@ return {
                     "arduino_language_server",
                     "asm_lsp",
                     "vimls",
+
+                    -- 🌐 Desarrollo Web y Datos
+                    "html",
+                    "cssls",
+                    "jsonls",
+
+                    -- 🛠️ Scripting y Configuración
+                    "bashls",
+                    "yamlls",
+                    "marksman",
+
+                    -- 🚀 Herramientas Avanzadas
+                    "ast_grep",
                 },
             })
         end,
@@ -101,6 +115,72 @@ return {
                 end
 
                 return binary
+            end
+
+            ---------------------------------
+            -- AST-Grep LSP
+            ---------------------------------
+            -- Nota: ast_grep usa el comando "sg" en la terminal
+            if has_exe("sg") then
+                vim.lsp.config.ast_grep = {
+                    default_config = {
+                        cmd = { "sg", "lsp" },
+                        filetypes = { "c", "cpp", "rust", "go", "java", "python", "javascript", "typescript", "html", "css", "json" },
+                        root_dir = function(fname)
+                            return vim.fs.dirname(vim.fs.find({ "sgconfig.yml", ".git" }, { upward = true, path = vim.fs.dirname(fname) })[1])
+                        end,
+                        capabilities = capabilities,
+                    },
+                }
+                vim.lsp.enable("ast_grep")
+            end
+
+            --------------------------------------------------------
+            -- HTML
+            --------------------------------------------------------
+            if has_exe("vscode-html-language-server") then
+                vim.lsp.config.html = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("html")
+            end
+
+            --------------------------------------------------------
+            -- CSS
+            --------------------------------------------------------
+            if has_exe("vscode-css-language-server") then
+                vim.lsp.config.cssls = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("cssls")
+            end
+
+            --------------------------------------------------------
+            -- JSON
+            --------------------------------------------------------
+            if has_exe("vscode-json-language-server") then
+                vim.lsp.config.jsonls = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("jsonls")
+            end
+
+            --------------------------------------------------------
+            -- Bash / Shell
+            --------------------------------------------------------
+            if has_exe("bash-language-server") then
+                vim.lsp.config.bashls = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("bashls")
+            end
+
+            --------------------------------------------------------
+            -- YAML
+            --------------------------------------------------------
+            if has_exe("yaml-language-server") then
+                vim.lsp.config.yamlls = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("yamlls")
+            end
+
+            --------------------------------------------------------
+            -- Markdown
+            --------------------------------------------------------
+            if has_exe("marksman") then
+                vim.lsp.config.marksman = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("marksman")
             end
 
             --------------------------------------------------------
