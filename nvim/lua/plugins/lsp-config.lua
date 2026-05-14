@@ -31,6 +31,7 @@ return {
                     "arduino_language_server",
                     "asm_lsp",
                     "vimls",
+                    "emmet_ls",
 
                     -- 🌐 Desarrollo Web y Datos
                     "html",
@@ -115,6 +116,23 @@ return {
                 end
 
                 return binary
+            end
+
+
+            ---------------------------------
+            -- Emmet LSP (Abreviaciones ultra rápidas de HTML/CSS)
+            ---------------------------------
+            if has_exe("emmet-language-server") then
+                vim.lsp.config.emmet_ls = {
+                    default_config = {
+                        capabilities = capabilities,
+                        filetypes = { 
+                            "html", "css", "scss", "sass", "less", 
+                            "javascript", "typescript", "javascriptreact", "typescriptreact" 
+                        },
+                    }
+                }
+                vim.lsp.enable("emmet_ls")
             end
 
             ---------------------------------
