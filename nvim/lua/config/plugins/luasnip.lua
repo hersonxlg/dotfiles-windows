@@ -47,6 +47,14 @@ function M.setup()
       ls.change_choice(1)
     end
   end)
+
+    -------------------------------------------------------------------
+  --- Cargar Snippets personalizados usando el Loader nativo de Lua
+  -------------------------------------------------------------------
+  require("luasnip.loaders.from_lua").lazy_load({ 
+    paths = { vim.fn.stdpath("config") .. "/snippets" } 
+  })
+
 end
 
 return M
