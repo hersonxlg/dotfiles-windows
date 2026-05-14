@@ -46,6 +46,8 @@ return {
         },
         lazy = false,
         config = function()
+            vim.env.PATH = vim.fn.stdpath("data") .. "/mason/bin:" .. vim.env.PATH
+
             local capabilities = require("cmp_nvim_lsp").default_capabilities()
             local uv = vim.uv or vim.loop
 
