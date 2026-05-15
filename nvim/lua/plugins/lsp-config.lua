@@ -62,7 +62,7 @@ return {
         lazy = false,
         config = function()
             local uv = vim.uv or vim.loop
-            
+
             -- FIX 1: Agregar Mason al PATH usando el separador correcto para cada SO
             local mason_bin = vim.fn.stdpath("data") .. "/mason/bin"
             local is_windows = vim.fn.has("win32") == 1
@@ -81,15 +81,54 @@ return {
             -- FIX 2: Función multiplataforma para detectar ejecutables (.cmd / .exe en Windows)
             local function has_exe(name)
                 if is_windows then
-                    return vim.fn.executable(name) == 1 
-                           or vim.fn.executable(name .. ".cmd") == 1 
-                           or vim.fn.executable(name .. ".exe") == 1
+                    return vim.fn.executable(name) == 1
+                        or vim.fn.executable(name .. ".cmd") == 1
+                        or vim.fn.executable(name .. ".exe") == 1
                 end
                 return vim.fn.executable(name) == 1
             end
 
             local function os_home()
                 return (uv.os_homedir() or vim.fn.expand("~")):gsub("\\", "/")
+            end
+
+            -- FUNCIÓN MAESTRA: Obtiene las rutas reales del compilador
+            local function get_pio_includes()
+                local pio_packages = os_home() .. "/.platformio/packages"
+                -- Buscamos el compilador g++ de esp32s3
+                local find_cmd = is_windows 
+                    and ('dir /s /b "' .. pio_packages .. '\\*g++.exe" | findstr /i "xtensa-esp32s3-elf-g++.exe"')
+                    or ('find "' .. pio_packages .. '" -name "*g++" | grep "xtensa-esp32s3"')
+                
+                local handle = io.popen(find_cmd .. ' 2>nul')
+                if not handle then return {} end
+                local compiler_path = handle:read("*l")
+                handle:close()
+
+                if not compiler_path or compiler_path == "" then return {} end
+
+                -- Ejecutamos el comando para sacar las rutas (el truco del pipe "")
+                local cmd = is_windows 
+                    and ('echo. | "' .. compiler_path .. '" -v -E -x c++ - 2>&1')
+                    or ('echo "" | "' .. compiler_path .. '" -v -E -x c++ - 2>&1')
+                    
+                local dump = io.popen(cmd)
+                if not dump then return {} end
+
+                local includes = {}
+                local parsing = false
+                for line in dump:lines() do
+                    if line:find("#include <...> search starts here:") then
+                        parsing = true
+                    elseif line:find("End of search list.") then
+                        parsing = false
+                    elseif parsing then
+                        local path = line:gsub("^%s+", ""):gsub("\\", "/"):gsub("\r", "")
+                        if path ~= "" then table.insert(includes, path) end
+                    end
+                end
+                dump:close()
+                return includes
             end
 
             local function find_pio()
@@ -139,9 +178,9 @@ return {
                 vim.lsp.config.emmet_ls = {
                     default_config = {
                         capabilities = capabilities,
-                        filetypes = { 
-                            "html", "css", "scss", "sass", "less", 
-                            "javascript", "typescript", "javascriptreact", "typescriptreact" 
+                        filetypes = {
+                            "html", "css", "scss", "sass", "less",
+                            "javascript", "typescript", "javascriptreact", "typescriptreact"
                         },
                     }
                 }
@@ -158,7 +197,8 @@ return {
                         cmd = { "sg", "lsp" },
                         filetypes = { "c", "cpp", "rust", "go", "java", "python", "javascript", "typescript", "html", "css", "json" },
                         root_dir = function(fname)
-                            return vim.fs.dirname(vim.fs.find({ "sgconfig.yml", ".git" }, { upward = true, path = vim.fs.dirname(fname) })[1])
+                            return vim.fs.dirname(vim.fs.find({ "sgconfig.yml", ".git" },
+                                { upward = true, path = vim.fs.dirname(fname) })[1])
                         end,
                         capabilities = capabilities,
                     },
@@ -317,7 +357,7 @@ return {
             if has_exe("typescript-language-server") then
                 -- Utilizamos get_mason_binary para asegurar la ruta correcta (especialmente útil en Windows/JS)
                 local ts_binary = get_mason_binary("typescript-language-server", "typescript-language-server")
-                
+
                 vim.lsp.config.ts_ls = {
                     default_config = {
                         cmd = { ts_binary, "--stdio" },
@@ -405,184 +445,156 @@ return {
                 return vim.fs.root(bufnr, { "platformio.ini" })
             end
 
-            local function build_clangd_template(platformio_ini_text)
-                local text = (platformio_ini_text or ""):lower()
+            -- 1. Función para extraer las rutas de sistema dinámicamente
+            local function get_pio_includes()
+                local pio_packages = os_home() .. "/.platformio/packages"
+                local find_cmd = is_windows
+                    and ('dir /s /b "' .. pio_packages .. '\\*g++.exe" | findstr /i "xtensa-esp32s3-elf-g++.exe"')
+                    or ('find "' .. pio_packages .. '" -name "*g++" | grep "xtensa-esp32s3"')
 
+                local handle = io.popen(find_cmd .. ' 2>nul')
+                if not handle then return {} end
+                local compiler_path = handle:read("*l")
+                handle:close()
+
+                if not compiler_path or compiler_path == "" then return {} end
+
+                local shell_cmd = 'echo "" | "' .. compiler_path .. '" -v -E -x c++ - 2>&1'
+                local dump = io.popen(shell_cmd)
+                if not dump then return {} end
+
+                local includes = {}
+                local found_start = false
+                for line in dump:lines() do
+                    if line:find("#include <...> search starts here:") then
+                        found_start = true
+                    elseif line:find("End of search list.") then
+                        found_start = false
+                    elseif found_start then
+                        local path = line:gsub("^%s+", ""):gsub("\\", "/"):gsub("\r", "")
+                        if path ~= "" then table.insert(includes, path) end
+                    end
+                end
+                dump:close()
+                return includes
+            end
+
+            -- 2. Plantilla con el formato exacto que pediste
+            local function build_clangd_template(platformio_ini_text, pio_includes)
+                local text = (platformio_ini_text or ""):lower()
                 local lines = {
                     "CompileFlags:",
                     "  Add:",
                 }
 
-                if text:find("platform%s*=%s*espressif32") or text:find("espressif32") or text:find("esp32") then
+                if text:find("esp32") then
                     table.insert(lines, "    - --target=xtensa-esp32-elf")
-                elseif text:find("platform%s*=%s*atmelavr") or text:find("atmelavr") then
+                elseif text:find("atmelavr") then
                     table.insert(lines, "    - --target=avr")
                 end
 
-                table.insert(lines, "  Remove:")
-                table.insert(lines, "    - -mlongcalls")
-                table.insert(lines, "    - -fstrict-volatile-bitfields")
-                table.insert(lines, "    - -fno-tree-switch-conversion")
-                table.insert(lines, "    - -free")
-                table.insert(lines, "    - -fipa-pta")
-                table.insert(lines, "")
-                table.insert(lines, "Diagnostics:")
-                table.insert(lines, "  Suppress:")
-                table.insert(lines, "    - pp_file_not_found")
-                table.insert(lines, "    - type_unsupported")
-                table.insert(lines, "    - machine_mode")
+                -- Insertar rutas con el formato: - "-isystem" \n - "ruta"
+                for _, path in ipairs(pio_includes or {}) do
+                    table.insert(lines, "    - \"-isystem\"")
+                    table.insert(lines, "    - \"" .. path .. "\"")
+                end
 
+                vim.list_extend(lines, {
+                    "  Remove:",
+                    "    - -mlongcalls",
+                    "    - -fstrict-volatile-bitfields",
+                    "    - -fno-tree-switch-conversion",
+                    "    - -free",
+                    "    - -fipa-pta",
+                    "",
+                    "Diagnostics:",
+                    "  Suppress:",
+                    "    - pp_file_not_found",
+                    "    - type_unsupported",
+                    "    - machine_mode",
+                })
                 return lines
             end
 
+            -- 3. Escritura del archivo
             local function write_clangd(root)
                 local ini_path = root .. "/platformio.ini"
                 local clangd_file = root .. "/.clangd"
                 local ini_text = read_file(ini_path)
-                local new_lines = build_clangd_template(ini_text)
+                
+                local pio_includes = get_pio_includes() -- Obtener rutas
+                local new_lines = build_clangd_template(ini_text, pio_includes)
 
                 vim.fn.writefile(new_lines, clangd_file)
             end
 
+            -- 4. Función principal (Restaurada con ensure_gitignore_entry)
             local function ensure_platformio_setup(bufnr)
                 local root = platformio_root(bufnr)
-                if not root then
-                    return
-                end
-            
+                if not root then return end
+
                 local pio_cmd = find_pio()
                 if not pio_cmd then
-                    vim.notify(
-                        "PlatformIO no está instalado o no está en PATH",
-                        vim.log.levels.ERROR
-                    )
+                    vim.notify("PlatformIO no encontrado", vim.log.levels.ERROR)
                     return
                 end
-            
-                ------------------------------------------------------------
-                -- Asegurar compile_commands.json en .gitignore
-                ------------------------------------------------------------
-            
+
+                -- AQUÍ ESTÁ TU FUNCIÓN ORIGINAL
                 local function ensure_gitignore_entry(entry)
                     local gitignore = root .. "/.gitignore"
                     local lines = {}
-            
-                    -- Leer archivo si existe
                     if vim.fn.filereadable(gitignore) == 1 then
                         lines = vim.fn.readfile(gitignore)
-            
-                        -- Verificar si ya existe
                         for _, line in ipairs(lines) do
-                            if vim.trim(line) == entry then
-                                return
-                            end
+                            if vim.trim(line) == entry then return end
                         end
                     end
-            
-                    -- Agregar línea
                     table.insert(lines, entry)
-            
-                    -- Escribir archivo
                     vim.fn.writefile(lines, gitignore)
-            
-                    vim.notify(
-                        ".gitignore actualizado: " .. entry,
-                        vim.log.levels.INFO
-                    )
+                    vim.notify(".gitignore actualizado: " .. entry, vim.log.levels.INFO)
                 end
-            
+
                 ensure_gitignore_entry("compile_commands.json")
-            
-                ------------------------------------------------------------
-                -- Archivos PlatformIO
-                ------------------------------------------------------------
-            
+
                 local ini_path = root .. "/platformio.ini"
                 local compiledb = root .. "/compile_commands.json"
                 local clangd_file = root .. "/.clangd"
-            
+
                 local ini_time = vim.fn.getftime(ini_path)
-            
-                local db_time =
-                    vim.fn.filereadable(compiledb) == 1
-                    and vim.fn.getftime(compiledb)
-                    or -1
-            
-                local clangd_time =
-                    vim.fn.filereadable(clangd_file) == 1
-                    and vim.fn.getftime(clangd_file)
-                    or -1
-            
-                local need_compiledb =
-                    vim.fn.filereadable(compiledb) == 0
-                    or ini_time > db_time
-            
-                local need_clangd =
-                    vim.fn.filereadable(clangd_file) == 0
-                    or ini_time > clangd_time
-            
-                ------------------------------------------------------------
-                -- Regenerar .clangd
-                ------------------------------------------------------------
-            
-                if need_clangd then
+                local db_time = vim.fn.filereadable(compiledb) == 1 and vim.fn.getftime(compiledb) or -1
+                local clangd_time = vim.fn.filereadable(clangd_file) == 1 and vim.fn.getftime(clangd_file) or -1
+
+                -- Regenerar .clangd si es necesario
+                if vim.fn.filereadable(clangd_file) == 0 or ini_time > clangd_time then
                     write_clangd(root)
-            
-                    vim.notify(
-                        "PlatformIO: .clangd actualizado",
-                        vim.log.levels.INFO
-                    )
+                    vim.notify("PlatformIO: .clangd actualizado", vim.log.levels.INFO)
+                    -- REINICIAR LSP AQUÍ
+                    vim.cmd("LspRestart clangd")
                 end
-            
-                ------------------------------------------------------------
-                -- Regenerar compile_commands.json
-                ------------------------------------------------------------
-            
-                if need_compiledb then
-                    vim.notify(
-                        "PlatformIO: generando compile_commands.json...",
-                        vim.log.levels.INFO
-                    )
-            
-                    vim.fn.jobstart(
-                        { pio_cmd, "run", "-t", "compiledb" },
-                        {
-                            cwd = root,
-            
-                            on_exit = function(_, code)
-                                if code == 0 then
-                                    vim.schedule(function()
-                                        vim.notify(
-                                            "PlatformIO: compile_commands.json listo",
-                                            vim.log.levels.INFO
-                                        )
-            
-                                        vim.cmd("edit")
-                                    end)
-                                else
-                                    vim.schedule(function()
-                                        vim.notify(
-                                            "PlatformIO: falló la generación de compile_commands.json",
-                                            vim.log.levels.ERROR
-                                        )
-                                    end)
-                                end
-                            end,
-                        }
-                    )
-            
-                elseif need_clangd then
-                    vim.schedule(function()
-                        vim.cmd("edit")
-                    end)
+
+                -- Regenerar compile_commands.json si es necesario
+                if vim.fn.filereadable(compiledb) == 0 or ini_time > db_time then
+                    vim.notify("PlatformIO: generando compile_commands.json...", vim.log.levels.INFO)
+                    vim.fn.jobstart({ pio_cmd, "run", "-t", "compiledb" }, {
+                        cwd = root,
+                        on_exit = function(_, code)
+                            if code == 0 then
+                                vim.schedule(function() 
+                                    vim.notify("PlatformIO: compile_commands.json listo")
+                                    -- REINICIAR LSP AQUÍ
+                                    vim.cmd("LspRestart clangd")
+                                    vim.cmd("edit")
+                                end)
+                            end
+                        end,
+                    })
                 end
             end
 
             local pio_group = vim.api.nvim_create_augroup("PlatformIOAutoSetup", { clear = true })
-
             vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
                 group = pio_group,
-                pattern = { "*.c", "*.cpp", "*.h", "*.hpp", "*.cc", "*.hh" },
+                pattern = { "*.c", "*.cpp", "*.h", "*.hpp" },
                 callback = function(args)
                     ensure_platformio_setup(args.buf)
                 end,
@@ -591,63 +603,63 @@ return {
             ---------------------------------
             -- Arduino LSP  (usa clangd + arduino-cli)
             ---------------------------------
-            
+
             -- ============================================================
             -- 1. HERRAMIENTAS AUXILIARES
             -- ============================================================
-            
+
             local function normalize_path(path)
                 return (path or ""):gsub("\\", "/")
             end
-            
+
             local function resolve_program(package, binary)
                 if has_exe(binary) then
                     return binary
                 end
-            
+
                 local mason_path = get_mason_binary(package, binary)
                 if mason_path and vim.fn.filereadable(mason_path) == 1 then
                     return mason_path
                 end
-            
+
                 return nil
             end
-            
+
             local function get_default_arduino_cli_config()
                 if is_windows then
                     return normalize_path(vim.fn.expand("$LOCALAPPDATA/Arduino15/arduino-cli.yaml"))
                 end
-            
+
                 return normalize_path(vim.fn.expand("~/.arduino15/arduino-cli.yaml"))
             end
-            
+
             -- Cuenta cuántos espacios de indentación tiene una línea
             local function obtener_indentacion(linea)
                 local espacios = linea:match("^(%s*)")
                 return #espacios, espacios
             end
-            
+
             -- Verifica si una línea es el inicio de una clave YAML
             local function es_clave(linea, clave)
                 return linea:match("^%s*" .. clave .. ":") ~= nil
             end
-            
+
             -- ============================================================
             -- 2. LÓGICA YAML
             -- ============================================================
-            
+
             local function inyectar_yaml(lineas, jerarquia, campo, valor)
                 local cambio_realizado = false
                 local indent_actual = -1
                 local linea_insertar_idx = #lineas + 1
                 local indent_str_padre = ""
-            
+
                 for _, padre in ipairs(jerarquia) do
                     local encontrado = false
-            
+
                     for i, linea in ipairs(lineas) do
                         local nivel, str_espacios = obtener_indentacion(linea)
-            
+
                         if es_clave(linea, padre) and nivel > indent_actual then
                             indent_actual = nivel
                             indent_str_padre = str_espacios
@@ -656,15 +668,15 @@ return {
                             break
                         end
                     end
-            
+
                     if not encontrado then
                         local nueva_indent = indent_str_padre .. "  "
                         if indent_actual == -1 then
                             nueva_indent = ""
                         end
-            
+
                         local nueva_linea = nueva_indent .. padre .. ":"
-            
+
                         if linea_insertar_idx > #lineas then
                             table.insert(lineas, nueva_linea)
                             linea_insertar_idx = #lineas + 1
@@ -672,39 +684,39 @@ return {
                             table.insert(lineas, linea_insertar_idx, nueva_linea)
                             linea_insertar_idx = linea_insertar_idx + 1
                         end
-            
+
                         cambio_realizado = true
                         indent_actual = #nueva_indent
                         indent_str_padre = nueva_indent
                     end
                 end
-            
+
                 local indent_final = indent_str_padre .. "  "
                 if #jerarquia == 0 then
                     indent_final = ""
                 end
-            
+
                 local encontrado_campo = false
-            
+
                 for i, linea in ipairs(lineas) do
                     local nivel, _ = obtener_indentacion(linea)
-            
+
                     if es_clave(linea, campo) and nivel == #indent_final then
                         local valor_actual = linea:match(":%s*(.+)$")
                         if valor_actual then
                             valor_actual = vim.trim(valor_actual)
                         end
-            
+
                         if valor_actual ~= valor then
                             lineas[i] = indent_final .. campo .. ": " .. valor
                             cambio_realizado = true
                         end
-            
+
                         encontrado_campo = true
                         break
                     end
                 end
-            
+
                 if not encontrado_campo then
                     local nueva_linea = indent_final .. campo .. ": " .. valor
                     if linea_insertar_idx > #lineas then
@@ -714,31 +726,31 @@ return {
                     end
                     cambio_realizado = true
                 end
-            
+
                 return cambio_realizado
             end
-            
+
             local function gestionar_archivo_config(ruta_archivo, configuraciones)
                 local lineas = {}
                 if vim.fn.filereadable(ruta_archivo) == 1 then
                     lineas = vim.fn.readfile(ruta_archivo)
                 end
-            
+
                 local hubo_algun_cambio = false
-            
+
                 for _, config in ipairs(configuraciones) do
                     local cambiado = inyectar_yaml(lineas, config.padres, config.clave, config.valor)
                     if cambiado then
                         hubo_algun_cambio = true
                     end
                 end
-            
+
                 if hubo_algun_cambio then
                     local dir = vim.fn.fnamemodify(ruta_archivo, ":p:h")
                     if vim.fn.isdirectory(dir) == 0 then
                         vim.fn.mkdir(dir, "p")
                     end
-            
+
                     vim.fn.writefile(lineas, ruta_archivo)
                     vim.notify(
                         "Configuración actualizada: " .. vim.fn.fnamemodify(ruta_archivo, ":t"),
@@ -747,13 +759,13 @@ return {
                     vim.cmd("checktime")
                 end
             end
-            
+
             local function build_arduino_receta(base_dir)
                 local ruta_win = normalize_path(base_dir)
                 if is_windows then
                     ruta_win = ruta_win:gsub("/", "\\")
                 end
-            
+
                 return {
                     {
                         padres = { "directories" },
@@ -767,23 +779,23 @@ return {
                     },
                 }
             end
-            
+
             function GestionarEntornoArduino(base_dir)
                 local dir_actual = normalize_path(base_dir or vim.fn.expand("%:p:h"))
                 local archivo_yaml = dir_actual .. "/arduino-cli.yaml"
                 local receta = build_arduino_receta(dir_actual)
                 gestionar_archivo_config(archivo_yaml, receta)
             end
-            
+
             local function get_fqbn(root_dir)
                 local default_fqbn = "arduino:avr:uno"
                 local sketch_yaml = normalize_path(root_dir) .. "/sketch.yaml"
-            
+
                 local file = io.open(sketch_yaml, "r")
                 if not file then
                     return default_fqbn
                 end
-            
+
                 local fqbn = default_fqbn
                 for line in file:lines() do
                     local match = line:match("fqbn:%s*([%w%p%-:_]+)")
@@ -793,53 +805,53 @@ return {
                     end
                 end
                 file:close()
-            
+
                 return fqbn
             end
-            
+
             local function get_arduino_cli_config(root_dir)
                 local local_config = normalize_path(root_dir) .. "/arduino-cli.yaml"
                 if vim.fn.filereadable(local_config) == 1 then
                     return local_config
                 end
-            
+
                 return get_default_arduino_cli_config()
             end
-            
+
             -- ============================================================
             -- 3. RESOLVER BINARIOS NECESARIOS
             -- ============================================================
-            
+
             local cmd_server = resolve_program("arduino-language-server", "arduino-language-server")
             local cmd_cli = resolve_program("arduino-cli", "arduino-cli")
             local cmd_clangd = resolve_program("clangd", "clangd")
-            
+
             -- ============================================================
             -- 4. ARDUINO LSP
             -- ============================================================
-            
+
             vim.api.nvim_create_autocmd("FileType", {
                 pattern = "arduino",
                 callback = function(ev)
                     if not cmd_server or not cmd_cli or not cmd_clangd then
                         return
                     end
-            
+
                     local root_dir = vim.fs.root(ev.buf, { "sketch.yaml", "arduino-cli.yaml", ".git", "*.ino" })
                         or vim.fn.getcwd()
-            
+
                     root_dir = normalize_path(root_dir)
-            
+
                     GestionarEntornoArduino(root_dir)
-            
+
                     local fqbn = get_fqbn(root_dir)
                     local config_path = get_arduino_cli_config(root_dir)
-            
+
                     local capabilities_arduino = vim.lsp.protocol.make_client_capabilities()
                     capabilities_arduino.textDocument.completion.completionItem.snippetSupport = true
                     capabilities_arduino.workspace.semanticTokens = { refreshSupport = false }
                     capabilities_arduino.textDocument.semanticTokens = { dynamicRegistration = false }
-            
+
                     vim.lsp.start({
                         name = "arduino_language_server",
                         cmd = {
@@ -865,11 +877,11 @@ return {
                     })
                 end,
             })
-            
+
             -- ============================================================
             -- 5. PLANTILLA AUTOMÁTICA PARA ARDUINO (.ino)
             -- ============================================================
-            
+
             vim.api.nvim_create_autocmd("BufNewFile", {
                 pattern = "*.ino",
                 callback = function()
@@ -892,9 +904,9 @@ return {
                         "  delay(500);",
                         "}",
                     }
-            
+
                     vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
-            
+
                     vim.schedule(function()
                         vim.cmd("write")
                     end)
