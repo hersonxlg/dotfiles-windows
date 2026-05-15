@@ -546,6 +546,7 @@ return {
                 end
 
                 ensure_gitignore_entry("compile_commands.json")
+                ensure_gitignore_entry(".clangd")
 
                 local ini_path = root .. "/platformio.ini"
                 local compiledb = root .. "/compile_commands.json"
