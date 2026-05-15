@@ -411,7 +411,7 @@ return {
             local function get_pio_includes(platformio_ini_text)
                 local pio_packages = os_home() .. "/.platformio/packages"
                 local text = (platformio_ini_text or ""):lower()
-                
+
                 -- Determinar qué binario buscar según el proyecto
                 local compiler_name = "xtensa-esp32s3-elf-g++" -- default
                 if text:find("atmelavr") or text:find("uno") then
@@ -424,7 +424,8 @@ return {
                 if is_windows then
                     find_cmd = 'dir /s /b "' .. pio_packages .. '\\*' .. compiler_name .. '.exe" 2>nul'
                 else
-                    find_cmd = 'find "' .. pio_packages .. '" -iname "' .. compiler_name .. '" -type f 2>/dev/null | head -n 1'
+                    find_cmd = 'find "' ..
+                    pio_packages .. '" -iname "' .. compiler_name .. '" -type f 2>/dev/null | head -n 1'
                 end
 
                 local handle = io.popen(find_cmd)
@@ -449,8 +450,8 @@ return {
                         found_start = false
                     elseif found_start then
                         local path = clean_line:gsub("\\", "/")
-                        if path ~= "" and vim.fn.isdirectory(path) == 1 then 
-                            table.insert(includes, path) 
+                        if path ~= "" and vim.fn.isdirectory(path) == 1 then
+                            table.insert(includes, path)
                         end
                     end
                 end
@@ -500,11 +501,22 @@ return {
                 local ini_path = root .. "/platformio.ini"
                 local clangd_file = root .. "/.clangd"
                 local ini_text = read_file(ini_path)
-                
+
                 local pio_includes = get_pio_includes(ini_text) -- CAMBIO AQUÍ: añadir ini_text
                 local new_lines = build_clangd_template(ini_text, pio_includes)
 
                 vim.fn.writefile(new_lines, clangd_file)
+            end
+
+            local function safe_lsp_restart(client_name)
+                -- pcall intenta ejecutar el comando. Si falla (v0.12), devuelve 'false' en lugar de un error.
+                local status = pcall(vim.cmd, "LspRestart " .. client_name)
+
+                -- Si el comando falló o si estamos en una versión muy reciente,
+                -- usamos 'edit' para forzar al LSP a leer los nuevos archivos.
+                if not status or vim.fn.has("nvim-0.12") == 1 then
+                    vim.cmd("edit")
+                end
             end
 
             -- 4. Función principal (Restaurada con ensure_gitignore_entry)
@@ -548,7 +560,7 @@ return {
                     write_clangd(root)
                     vim.notify("PlatformIO: .clangd actualizado", vim.log.levels.INFO)
                     -- REINICIAR LSP AQUÍ
-                    vim.cmd("LspRestart clangd")
+                    safe_lsp_restart("clangd")
                 end
 
                 -- Regenerar compile_commands.json si es necesario
@@ -558,10 +570,10 @@ return {
                         cwd = root,
                         on_exit = function(_, code)
                             if code == 0 then
-                                vim.schedule(function() 
+                                vim.schedule(function()
                                     vim.notify("PlatformIO: compile_commands.json listo")
                                     -- REINICIAR LSP AQUÍ
-                                    vim.cmd("LspRestart clangd")
+                                    safe_lsp_restart("clangd")
                                     vim.cmd("edit")
                                 end)
                             end
