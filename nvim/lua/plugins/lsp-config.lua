@@ -92,44 +92,6 @@ return {
                 return (uv.os_homedir() or vim.fn.expand("~")):gsub("\\", "/")
             end
 
-            -- FUNCIÓN MAESTRA: Obtiene las rutas reales del compilador
-            local function get_pio_includes()
-                local pio_packages = os_home() .. "/.platformio/packages"
-                -- Buscamos el compilador g++ de esp32s3
-                local find_cmd = is_windows 
-                    and ('dir /s /b "' .. pio_packages .. '\\*g++.exe" | findstr /i "xtensa-esp32s3-elf-g++.exe"')
-                    or ('find "' .. pio_packages .. '" -name "*g++" | grep "xtensa-esp32s3"')
-                
-                local handle = io.popen(find_cmd .. ' 2>nul')
-                if not handle then return {} end
-                local compiler_path = handle:read("*l")
-                handle:close()
-
-                if not compiler_path or compiler_path == "" then return {} end
-
-                -- Ejecutamos el comando para sacar las rutas (el truco del pipe "")
-                local cmd = is_windows 
-                    and ('echo. | "' .. compiler_path .. '" -v -E -x c++ - 2>&1')
-                    or ('echo "" | "' .. compiler_path .. '" -v -E -x c++ - 2>&1')
-                    
-                local dump = io.popen(cmd)
-                if not dump then return {} end
-
-                local includes = {}
-                local parsing = false
-                for line in dump:lines() do
-                    if line:find("#include <...> search starts here:") then
-                        parsing = true
-                    elseif line:find("End of search list.") then
-                        parsing = false
-                    elseif parsing then
-                        local path = line:gsub("^%s+", ""):gsub("\\", "/"):gsub("\r", "")
-                        if path ~= "" then table.insert(includes, path) end
-                    end
-                end
-                dump:close()
-                return includes
-            end
 
             local function find_pio()
                 if has_exe("pio") then
@@ -445,34 +407,51 @@ return {
                 return vim.fs.root(bufnr, { "platformio.ini" })
             end
 
-            -- 1. Función para extraer las rutas de sistema dinámicamente
-            local function get_pio_includes()
+            -- 1. Función para extraer las rutas de sistema dinámicamente (VERSIÓN CORREGIDA)
+            local function get_pio_includes(platformio_ini_text)
                 local pio_packages = os_home() .. "/.platformio/packages"
-                local find_cmd = is_windows
-                    and ('dir /s /b "' .. pio_packages .. '\\*g++.exe" | findstr /i "xtensa-esp32s3-elf-g++.exe"')
-                    or ('find "' .. pio_packages .. '" -name "*g++" | grep "xtensa-esp32s3"')
+                local text = (platformio_ini_text or ""):lower()
+                
+                -- Determinar qué binario buscar según el proyecto
+                local compiler_name = "xtensa-esp32s3-elf-g++" -- default
+                if text:find("atmelavr") or text:find("uno") then
+                    compiler_name = "avr-g++"
+                elseif text:find("esp32") and not text:find("s3") then
+                    compiler_name = "xtensa-esp32-elf-g++"
+                end
 
-                local handle = io.popen(find_cmd .. ' 2>nul')
+                local find_cmd
+                if is_windows then
+                    find_cmd = 'dir /s /b "' .. pio_packages .. '\\*' .. compiler_name .. '.exe" 2>nul'
+                else
+                    find_cmd = 'find "' .. pio_packages .. '" -iname "' .. compiler_name .. '" -type f 2>/dev/null | head -n 1'
+                end
+
+                local handle = io.popen(find_cmd)
                 if not handle then return {} end
                 local compiler_path = handle:read("*l")
                 handle:close()
 
                 if not compiler_path or compiler_path == "" then return {} end
 
-                local shell_cmd = 'echo "" | "' .. compiler_path .. '" -v -E -x c++ - 2>&1'
+                local echo_cmd = is_windows and 'echo.' or 'echo ""'
+                local shell_cmd = echo_cmd .. ' | "' .. compiler_path .. '" -v -E -x c++ - 2>&1'
                 local dump = io.popen(shell_cmd)
                 if not dump then return {} end
 
                 local includes = {}
                 local found_start = false
                 for line in dump:lines() do
-                    if line:find("#include <...> search starts here:") then
+                    local clean_line = line:gsub("\r", ""):gsub("^%s+", "")
+                    if clean_line:find("#include <...> search starts here:") then
                         found_start = true
-                    elseif line:find("End of search list.") then
+                    elseif clean_line:find("End of search list%.") then
                         found_start = false
                     elseif found_start then
-                        local path = line:gsub("^%s+", ""):gsub("\\", "/"):gsub("\r", "")
-                        if path ~= "" then table.insert(includes, path) end
+                        local path = clean_line:gsub("\\", "/")
+                        if path ~= "" and vim.fn.isdirectory(path) == 1 then 
+                            table.insert(includes, path) 
+                        end
                     end
                 end
                 dump:close()
@@ -522,7 +501,7 @@ return {
                 local clangd_file = root .. "/.clangd"
                 local ini_text = read_file(ini_path)
                 
-                local pio_includes = get_pio_includes() -- Obtener rutas
+                local pio_includes = get_pio_includes(ini_text) -- CAMBIO AQUÍ: añadir ini_text
                 local new_lines = build_clangd_template(ini_text, pio_includes)
 
                 vim.fn.writefile(new_lines, clangd_file)
