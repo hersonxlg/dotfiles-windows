@@ -15,7 +15,19 @@ return {
 
         configs.setup({
             -- Tus lenguajes favoritos
-            ensure_installed = { "lua", "vim", "vimdoc", "query", "python", "asm", "c" },
+            ensure_installed = {
+                "lua",
+                "vim",
+                "vimdoc",
+                "query",
+                "python",
+                "asm",
+                "c",
+                "cpp",
+                "javascript",
+                "html",
+                "css"
+            },
             highlight = { enable = true },
             indent = { enable = true },
         })
