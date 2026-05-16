@@ -1,8 +1,3 @@
---vim.cmd("set expandtab")
---vim.cmd("set tabstop=4")
---vim.cmd("set softtabstop=4")
---vim.cmd("set shiftwidth=4")
-
 vim.opt.expandtab = true
 vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
@@ -21,28 +16,26 @@ vim.o.listchars = 'tab:»·,lead:•,trail:•,eol:↲'
 
 
 -----------------------------------------------------
--- configurar el portapapeles (clipboard):
+-- Configurar el portapapeles (clipboard):
 -----------------------------------------------------
-
---vim.cmd("set clipboard+=unnamedplus")
-
 vim.opt.clipboard = "unnamedplus"
-vim.g.clipboard = {
-  name = 'win32yank',
-  copy = {
---['+'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-i', '--crlf' },
---['*'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-i', '--crlf' },
-    ['+'] = { 'win32yank.exe', '-i', '--crlf' },
-    ['*'] = { 'win32yank.exe', '-i', '--crlf' },
-  },
-  paste = {
---    ['+'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-o', '--lf' },
---    ['*'] = { 'C:\\ProgramData\\chocolatey\\bin\\win32yank.exe', '-o', '--lf' },
-    ['+'] = { 'win32yank.exe', '-o', '--lf' },
-    ['*'] = { 'win32yank.exe', '-o', '--lf' },
-  },
-  cache_enabled = false,
-}
+
+-- CAMBIO: Solo aplicar la configuración de 'win32yank' si estás en Windows
+if vim.fn.has("win32") == 1 then
+  vim.g.clipboard = {
+    name = 'win32yank',
+    copy = {
+      ['+'] = { 'win32yank.exe', '-i', '--crlf' },
+      ['*'] = { 'win32yank.exe', '-i', '--crlf' },
+    },
+    paste = {
+      ['+'] = { 'win32yank.exe', '-o', '--lf' },
+      ['*'] = { 'win32yank.exe', '-o', '--lf' },
+    },
+    cache_enabled = false,
+  }
+end
+-- NOTA: En Linux, Neovim detectará automáticamente xclip, xsel o wl-copy gracias a unnamedplus.
 
 vim.cmd("set number")
 vim.cmd("set cmdwinheight=20")
@@ -52,18 +45,32 @@ vim.g.mapleader = " "
 
 
 -----------------------------------------------------
--- Powershell
+-- Configuración del Shell Interno (Multiplataforma)
 -----------------------------------------------------
-vim.o.shell = "pwsh"
-vim.o.shellquote = ""
-vim.o.shellxquote = ""
-vim.o.shellcmdflag =
-"-NoLogo -NoProfile -Command [Console]::InputEncoding = [Console]::OutputEncoding = [Text.Encoding]::UTF8; $PSStyle.OutputRendering=[System.Management.Automation.OutputRendering]::PlainText;Remove-Alias -Name tee -Force -ErrorAction SilentlyContinue;"
-vim.o.shellpipe = '2>&1 | %%{ "$_" } | Out-File %s; exit $LastExitCode'
-vim.o.shellredir = '2>&1 | %%{ "$_" } | tee %s; exit $LastExitCode'
+-- CAMBIO: Separar las opciones del sistema para evitar que Linux intente usar comandos de Windows
+if vim.fn.has("win32") == 1 then
+    vim.o.shell = "pwsh"
+    vim.o.shellquote = ""
+    vim.o.shellxquote = ""
+    vim.o.shellcmdflag =
+    "-NoLogo -NoProfile -Command [Console]::InputEncoding = [Console]::OutputEncoding = [Text.Encoding]::UTF8; $PSStyle.OutputRendering=[System.Management.Automation.OutputRendering]::PlainText;Remove-Alias -Name tee -Force -ErrorAction SilentlyContinue;"
+    vim.o.shellpipe = '2>&1 | %%{ "$_" } | Out-File %s; exit $LastExitCode'
+    vim.o.shellredir = '2>&1 | %%{ "$_" } | tee %s; exit $LastExitCode'
+else
+    -- Si estás en Linux/macOS, usa tu orden de preferencia (fish -> bash -> shell por defecto)
+    if vim.fn.executable("fish") == 1 then
+        vim.o.shell = "fish"
+    elseif vim.fn.executable("bash") == 1 then
+        vim.o.shell = "bash"
+    else
+        vim.o.shell = vim.o.shell
+    end
+end
 
 
-
+-----------------------------------------------------
+-- Atajos de teclado generales
+-----------------------------------------------------
 vim.keymap.set("n", "<leader>w", ":w<CR>", { noremap = true })
 vim.keymap.set("n", "<leader>q", ":quit<CR>", { noremap = true })
 vim.keymap.set("n", "<leader>x", ":bd<CR>", { noremap = true })
@@ -87,7 +94,6 @@ vim.keymap.set("n", "<c-l>", "<c-w><c-l>",{noremap = true})
 vim.keymap.set("n", "<leader>.", "<cmd>luafile $MYVIMRC<cr>",{noremap = true})
 
 
-
 -----------------------------------------------------
 -- atajos para LSP
 -----------------------------------------------------
@@ -103,3 +109,4 @@ vim.keymap.set(
     vim.lsp.buf.rename,
     { desc = "Mostrar diagnostic flotante" }
 )
+
