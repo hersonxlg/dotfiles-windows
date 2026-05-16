@@ -509,12 +509,14 @@ return {
             end
 
             local function safe_lsp_restart(client_name)
-                -- pcall intenta ejecutar el comando. Si falla (v0.12), devuelve 'false' en lugar de un error.
                 local status = pcall(vim.cmd, "LspRestart " .. client_name)
 
-                -- Si el comando falló o si estamos en una versión muy reciente,
-                -- usamos 'edit' para forzar al LSP a leer los nuevos archivos.
                 if not status or vim.fn.has("nvim-0.12") == 1 then
+                    -- Si el archivo tiene cambios sin guardar (ej. el snippet expandido), lo guardamos silenciosamente
+                    if vim.api.nvim_get_option_value("modified", { buf = 0 }) then
+                        vim.cmd("silent! write")
+                    end
+                    -- Ahora sí recargamos sin riesgo de error E37
                     vim.cmd("edit")
                 end
             end
@@ -575,7 +577,6 @@ return {
                                     vim.notify("PlatformIO: compile_commands.json listo")
                                     -- REINICIAR LSP AQUÍ
                                     safe_lsp_restart("clangd")
-                                    vim.cmd("edit")
                                 end)
                             end
                         end,
@@ -583,21 +584,73 @@ return {
                 end
             end
 
+
             local pio_group = vim.api.nvim_create_augroup("PlatformIOAutoSetup", { clear = true })
+            
+            ------------------------------------------------------------
+            -- 1. Autocomando Pasivo (Al abrir archivos)
+            ------------------------------------------------------------
             vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
                 group = pio_group,
-                pattern = { "*.c", "*.cpp", "*.h", "*.hpp" },
+                pattern = { "*.c", "*.cpp", "*.h", "*.hpp", "*.ino" },
                 callback = function(args)
-                    ensure_platformio_setup(args.buf)
+                    -- Solo revisa silenciosamente si falta el compile_commands.json
+                    ensure_platformio_setup(args.buf, false) 
                 end,
             })
 
-            
-            -- El comando manual :PioRefresh (¡SÍ FUERZA LA REGENERACIÓN!)
+            ------------------------------------------------------------
+            -- 2. Comando manual :PioRefresh
+            ------------------------------------------------------------
             vim.api.nvim_create_user_command("PioRefresh", function()
-                ensure_platformio_setup(vim.api.nvim_get_current_buf(), true) -- true = forzado
+                ensure_platformio_setup(vim.api.nvim_get_current_buf(), true)
             end, {})
 
+            ------------------------------------------------------------
+            -- 3. Intercepción del Menú de Autocompletado (nvim-cmp)
+            ------------------------------------------------------------
+            local cmp_ok, cmp = pcall(require, "cmp")
+            
+            if cmp_ok then
+                -- Escuchamos exactamente cuando presionas 'Enter' en el menú
+                cmp.event:on("confirm_done", function(evt)
+                    -- Obtenemos el nombre exacto de la opción que elegiste en el menú
+                    local item = evt.entry:get_completion_item()
+                    local trigger = item.label
+                    
+                    if not trigger then return end
+
+                    -- ==============================================================
+                    -- 🎯 LISTA DE TUS SNIPPETS
+                    -- ==============================================================
+                    local pio_snippets = {
+                        ["espwifi"] = true,
+                        ["piomain"] = true,
+                        ["uno_setup"] = true,
+                    }
+
+                    -- Si presionaste Enter sobre uno de nuestros snippets...
+                    if pio_snippets[trigger] then
+                        vim.schedule(function()
+                            local bufnr = vim.api.nvim_get_current_buf()
+                            
+                            if not platformio_root(bufnr) then return end
+
+                            -- Guardamos el archivo para que PlatformIO lea las nuevas librerías
+                            vim.api.nvim_buf_call(bufnr, function()
+                                if vim.api.nvim_get_option_value("modified", { buf = bufnr }) then
+                                    vim.cmd("silent! write")
+                                end
+                            end)
+
+                            vim.notify("PlatformIO: Plantilla '" .. trigger .. "' confirmada. Generando mapa...", vim.log.levels.INFO)
+                            ensure_platformio_setup(bufnr, true) 
+                        end)
+                    end
+                end)
+            else
+                vim.notify("No se encontró nvim-cmp. La automatización de snippets requiere nvim-cmp.", vim.log.levels.WARN)
+            end
 
             ---------------------------------
             -- Arduino LSP  (usa clangd + arduino-cli)
