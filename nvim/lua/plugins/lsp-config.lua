@@ -520,7 +520,7 @@ return {
             end
 
             -- 4. Función principal (Restaurada con ensure_gitignore_entry)
-            local function ensure_platformio_setup(bufnr)
+            local function ensure_platformio_setup(bufnr, force)
                 local root = platformio_root(bufnr)
                 if not root then return end
 
@@ -557,7 +557,7 @@ return {
                 local clangd_time = vim.fn.filereadable(clangd_file) == 1 and vim.fn.getftime(clangd_file) or -1
 
                 -- Regenerar .clangd si es necesario
-                if vim.fn.filereadable(clangd_file) == 0 or ini_time > clangd_time then
+                if force or vim.fn.filereadable(clangd_file) == 0 or ini_time > clangd_time then
                     write_clangd(root)
                     vim.notify("PlatformIO: .clangd actualizado", vim.log.levels.INFO)
                     -- REINICIAR LSP AQUÍ
@@ -565,7 +565,7 @@ return {
                 end
 
                 -- Regenerar compile_commands.json si es necesario
-                if vim.fn.filereadable(compiledb) == 0 or ini_time > db_time then
+                if force or vim.fn.filereadable(compiledb) == 0 or ini_time > db_time then
                     vim.notify("PlatformIO: generando compile_commands.json...", vim.log.levels.INFO)
                     vim.fn.jobstart({ pio_cmd, "run", "-t", "compiledb" }, {
                         cwd = root,
@@ -591,6 +591,13 @@ return {
                     ensure_platformio_setup(args.buf)
                 end,
             })
+
+            
+            -- El comando manual :PioRefresh (¡SÍ FUERZA LA REGENERACIÓN!)
+            vim.api.nvim_create_user_command("PioRefresh", function()
+                ensure_platformio_setup(vim.api.nvim_get_current_buf(), true) -- true = forzado
+            end, {})
+
 
             ---------------------------------
             -- Arduino LSP  (usa clangd + arduino-cli)
