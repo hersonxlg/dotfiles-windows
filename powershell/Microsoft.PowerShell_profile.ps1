@@ -4,7 +4,7 @@
 # Cambia a $false las cosas que no uses siempre para ganar velocidad
 $UsarOhMyPosh      = $true
 $UsarTerminalIcons = $false  # Ponlo en $true si quieres cargar los iconos al inicio
-$UsarZLocation     = $false  # Ponlo en $true si quieres cargar ZLocation al inicio
+#$UsarZLocation     = $false  # Ponlo en $true si quieres cargar ZLocation al inicio
 $AutoCargarFZF     = $false  # Si es $false, abre rapidísimo y lo cargas manual escribiendo: Activar-FZF
 
 
@@ -67,9 +67,9 @@ if ($UsarTerminalIcons) {
     Import-Module Terminal-Icons -DisableNameChecking
 }
 
-if ($UsarZLocation) {
-    Import-Module ZLocation -DisableNameChecking
-}
+#if ($UsarZLocation) {
+#    Import-Module ZLocation -DisableNameChecking
+#}
 
 # ----------------------------------------------------------------------------------------------
 #
@@ -192,4 +192,9 @@ function getLatestVerison() {
     )
     $versions=@(cmd /c dir /O-N /b $env:USERPROFILE\Documents\PowerShell\Modules\$module_name\);
     return $versions[0];
+}
+
+# Validación multiplataforma para Zoxide
+if (Get-Command zoxide -ErrorAction SilentlyContinue) {
+    zoxide init powershell | Out-String | Invoke-Expression
 }
