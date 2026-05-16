@@ -1,5 +1,6 @@
 return {
     "IndianBoy42/fuzzy_slash.nvim",
+    enabled = false,
     dependencies = {
         { "IndianBoy42/fuzzy.nvim",
             dependencies = {
