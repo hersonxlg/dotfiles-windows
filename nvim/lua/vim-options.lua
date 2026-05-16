@@ -10,6 +10,7 @@ vim.opt.softtabstop = -1
 vim.opt.autoindent = true
 vim.opt.smartindent = true
 vim.opt.shiftround = true
+vim.opt.wrap = false
 
 
 -----------------------------------------------------
