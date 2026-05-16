@@ -1,7 +1,8 @@
 return {
     {
         "nvim-telescope/telescope.nvim",
-        tag = "0.1.5",
+        --tag = "0.1.8",
+        branch = "master",
         lazy = true,
         dependencies = {
             {
@@ -38,6 +39,13 @@ return {
 
         },
         keys = {
+            {
+                "<leader>ds",
+                function()
+                    require('telescope.builtin').lsp_document_symbols()
+                end,
+                desc = "LSP Document Symbols",
+            },
             {
                 "<leader><leader>;",
                 '<cmd>Telescope cmdline<cr>',
@@ -81,29 +89,33 @@ return {
             {
                 "<leader>rp",
                 function()
+                    -- Obtenemos la ruta dinámicamente según el sistema operativo
+                    local plugins_path = vim.fn.stdpath("config") .. "/lua/plugins"
+                    
                     require("telescope.builtin").find_files({
-                        promt_title = "Plugins",
-                        cwd = "~\\AppData\\Local\\nvim\\lua\\plugins",
+                        prompt_title = "Plugins",
+                        cwd = plugins_path,
                         attach_mappings = function(_, map)
                             local actions = require("telescope.actions")
                             local action_state = require("telescope.actions.state")
-                            map("i", "<c-y>", function(promt_bufnr)
+                            map("i", "<c-y>", function(prompt_bufnr)
                                 local new_plugin = action_state.get_current_line()
-                                actions.close(promt_bufnr)
-                                vim.cmd(string.format("edit ~\\AppData\\Local\\nvim\\lua\\plugins/%s.lua", new_plugin))
+                                actions.close(prompt_bufnr)
+                                -- Usamos la ruta dinámica para crear o editar el archivo
+                                vim.cmd(string.format("edit %s/%s.lua", plugins_path, new_plugin))
                             end)
                             return true
                         end
                     })
                 end,
-                desc = "Telescope Git Branches",
+                desc = "Find/Create Plugins",
             },
             {
                 "<leader>pf",
                 function()
                     require('telescope.builtin').find_files()
                 end,
-                desc = "Telescope Git Branches",
+                desc = "Telescope Find Files",
             },
             {
                 "<leader>bb",
