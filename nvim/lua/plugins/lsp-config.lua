@@ -62,11 +62,14 @@ return {
 
             require("mason-null-ls").setup({
                 ensure_installed = {
-                    "clang-format", -- Mason lo descargará automáticamente
+                    "clang-format", 
+                    "stylua",   -- 🔧 Agregado: Formateador para Lua
+                    "prettier", -- 🔧 Agregado: Formateador web (JSON, HTML, JS, Markdown)
+                    "asmfmt",   -- 🔧 Agregado: Formateador para Assembly
                 },
                 automatic_setup = false, 
                 handlers = {
-                    -- ¡ESTA ES LA MAGIA!: Se ejecuta EN CUANTO MASON INSTALA LA HERRAMIENTA (o si ya existe)
+                    -- Handler para clang_format (Con tu parche especial para Windows)
                     clang_format = function(source_name, methods)
                         local null_ls = require("null-ls")
                         local clang_cmd = "clang-format"
@@ -75,7 +78,6 @@ return {
                             clang_cmd = vim.fn.stdpath("data") .. "/mason/packages/clang-format/venv/Scripts/clang-format.exe"
                         end
 
-                        -- Registramos el formateador de forma dinámica en caliente
                         null_ls.register(
                             null_ls.builtins.formatting.clang_format.with({
                                 command = clang_cmd,
@@ -84,6 +86,22 @@ return {
                                 }
                             })
                         )
+                    end,
+
+                    -- 🚀 NUEVOS HANDLERS: Registros directos para los nuevos formateadores
+                    stylua = function()
+                        local null_ls = require("null-ls")
+                        null_ls.register(null_ls.builtins.formatting.stylua)
+                    end,
+
+                    prettier = function()
+                        local null_ls = require("null-ls")
+                        null_ls.register(null_ls.builtins.formatting.prettier)
+                    end,
+
+                    asmfmt = function()
+                        local null_ls = require("null-ls")
+                        null_ls.register(null_ls.builtins.formatting.asmfmt)
                     end,
                 }
             })
