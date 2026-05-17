@@ -7,6 +7,10 @@ local fmt = require("luasnip.extras.fmt").fmt
 
 return {
 
+    -- =========================================================
+    -- Standard C++
+    -- =========================================================
+
     -- 1. Estructura Base Clásica
     s(
         "basecpp",
@@ -123,7 +127,11 @@ std::cout << {} << std::endl;{}
         })
     ),
 
+    -- =========================================================
+    -- Arduino / ESP32
+    -- =========================================================
 
+    -- 8. Plantilla de conexión WiFi para ESP32
     s(
         "espwifi",
         fmt([[
@@ -192,6 +200,138 @@ void loop() {{
 ]], {
             i(1, "TuWiFi"),
             i(2, "TuPassword"),
+            i(0)
+        })
+    ),
+
+    -- =========================================================
+    -- OneButton
+    -- =========================================================
+
+    -- 9. Plantilla avanzada para OneButton
+    s(
+        "onebtn",
+        fmt([[
+#include <Arduino.h>
+#include <OneButton.h>
+
+// ======================
+// Button Configuration
+// ======================
+
+// GPIO where the button is connected.
+// Recommended for ESP32: 4, 5, 18, 19, 21, 22, 23.
+constexpr uint8_t BUTTON_PIN = {};
+
+// Button wiring:
+// GPIO ---- BUTTON ---- GND
+//
+// activeLow = true:
+//   The button is considered pressed when the pin goes LOW.
+//
+// inputPullup = true:
+//   Enables the internal pull-up resistor.
+constexpr bool BUTTON_ACTIVE_LOW = true;
+constexpr bool BUTTON_ENABLE_PULLUP = true;
+
+// ======================
+// Timing Configuration
+// ======================
+
+constexpr uint16_t DEBOUNCE_MS = 50;
+constexpr uint16_t CLICK_MS = 200;
+constexpr uint16_t LONG_PRESS_MS = 400;
+constexpr uint16_t LONG_PRESS_INTERVAL_MS = 100;
+constexpr uint16_t IDLE_MS = 1000;
+
+// ======================
+// OneButton Instance
+// ======================
+
+// Classic and simple constructor form.
+// This version is very practical for Arduino and ESP32.
+OneButton button(BUTTON_PIN, BUTTON_ACTIVE_LOW, BUTTON_ENABLE_PULLUP);
+
+// ======================
+// Button Callbacks
+// ======================
+
+void onPress() {{
+    Serial.println("[EVENT] Button Pressed");
+}}
+
+void onClick() {{
+    Serial.println("[EVENT] Single Click");
+}}
+
+void onDoubleClick() {{
+    Serial.println("[EVENT] Double Click");
+}}
+
+void onLongPressStart() {{
+    Serial.println("[EVENT] Long Press Start");
+}}
+
+void onLongPressStop() {{
+    Serial.println("[EVENT] Long Press Stop");
+}}
+
+void onDuringLongPress() {{
+    Serial.print("[EVENT] Holding Button: ");
+    Serial.print(button.getPressedMs());
+    Serial.println(" ms");
+}}
+
+// ======================
+// Button Initialization
+// ======================
+
+void setupButton() {{
+
+    // Timing configuration.
+    button.setDebounceMs(DEBOUNCE_MS);
+    button.setClickMs(CLICK_MS);
+    button.setPressMs(LONG_PRESS_MS);
+    button.setLongPressIntervalMs(LONG_PRESS_INTERVAL_MS);
+    button.setIdleMs(IDLE_MS);
+
+    // Callback assignment.
+    button.attachPress(onPress);
+    button.attachClick(onClick);
+    button.attachDoubleClick(onDoubleClick);
+    button.attachLongPressStart(onLongPressStart);
+    button.attachLongPressStop(onLongPressStop);
+    button.attachDuringLongPress(onDuringLongPress);
+}}
+
+// ======================
+// Setup
+// ======================
+
+void setup() {{
+    Serial.begin(115200);
+
+    Serial.println();
+    Serial.println("OneButton Example Started");
+
+    setupButton();
+}}
+
+// ======================
+// Main Loop
+// ======================
+
+void loop() {{
+
+    // IMPORTANT:
+    // tick() must run continuously so the internal state machine
+    // can detect clicks, double clicks, long presses, and repeats.
+    button.tick();
+
+    {}
+}}
+]], {
+            i(1, "4"),
             i(0)
         })
     ),
