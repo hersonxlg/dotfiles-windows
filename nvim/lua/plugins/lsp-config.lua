@@ -592,7 +592,6 @@ return {
 					"",
 					"Diagnostics:",
 					"  Suppress:",
-					"    - pp_file_not_found",
 					"    - type_unsupported",
 					"    - machine_mode",
 				})
