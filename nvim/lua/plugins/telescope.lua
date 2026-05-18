@@ -43,6 +43,13 @@ return {
         },
         keys = {
             {
+                "grr",
+                function()
+                    require("telescope.builtin").lsp_references()
+                end,
+                desc = "LSP References",
+            },
+            {
                 "<leader>ds",
                 function()
                     require('telescope.builtin').lsp_document_symbols()
