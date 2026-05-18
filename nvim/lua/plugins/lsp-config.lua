@@ -62,16 +62,12 @@ return {
 
 			require("mason-null-ls").setup({
 				ensure_installed = {
-					"clang-format",
-					"stylua", -- 🔧 Agregado: Formateador para Lua
-					"prettier", -- 🔧 Agregado: Formateador web (JSON, HTML, JS, Markdown)
-					"asmfmt", -- 🔧 Agregado: Formateador para Assembly
+					"clang-format", -- Mason lo descargará automáticamente
 				},
-				automatic_installation = false,
 				automatic_setup = false,
 				handlers = {
-					-- Handler para clang_format (Con tu parche especial para Windows)
-					clang_format = function()
+					-- ¡ESTA ES LA MAGIA!: Se ejecuta EN CUANTO MASON INSTALA LA HERRAMIENTA (o si ya existe)
+					clang_format = function(source_name, methods)
 						local null_ls = require("null-ls")
 						local clang_cmd = "clang-format"
 
@@ -80,28 +76,13 @@ return {
 								.. "/mason/packages/clang-format/venv/Scripts/clang-format.exe"
 						end
 
+						-- Registramos el formateador de forma dinámica en caliente
 						null_ls.register(null_ls.builtins.formatting.clang_format.with({
 							command = clang_cmd,
 							extra_args = {
 								"-style={BasedOnStyle: LLVM, IndentWidth: 4, TabWidth: 4, UseTab: Never}",
 							},
 						}))
-					end,
-
-					-- 🚀 NUEVOS HANDLERS: Registros directos para los nuevos formateadores
-					stylua = function()
-						local null_ls = require("null-ls")
-						null_ls.register(null_ls.builtins.formatting.stylua)
-					end,
-
-					prettier = function()
-						local null_ls = require("null-ls")
-						null_ls.register(null_ls.builtins.formatting.prettier)
-					end,
-
-					asmfmt = function()
-						local null_ls = require("null-ls")
-						null_ls.register(null_ls.builtins.formatting.asmfmt)
 					end,
 				},
 			})
@@ -429,59 +410,41 @@ return {
 				vim.lsp.enable("vimls")
 			end
 
-
-            --------------------------------------------------------
-			-- PowerShell LSP (100% Multiplataforma y Validado)
 			--------------------------------------------------------
-			local is_windows = vim.fn.has("win32") == 1
+			-- PowerShell LSP (Neovim 0.11+)
+			--------------------------------------------------------
 			local ps_bundle_path = vim.fn.stdpath("data") .. "/mason/packages/powershell-editor-services"
-			local ps_cmd = "pwsh"
-			local script_path = ps_bundle_path .. "/PowerShellEditorServices/Start-EditorServices.ps1"
+			local ps_cmd = has_exe("pwsh") and "pwsh" or "powershell.exe"
 
-			if is_windows then
-				ps_bundle_path = ps_bundle_path:gsub("/", "\\")
-				script_path = ps_bundle_path .. "\\PowerShellEditorServices\\Start-EditorServices.ps1"
-				-- Validación 1: Preferir pwsh moderno, si no, usar powershell clásico
-				ps_cmd = has_exe("pwsh") and "pwsh" or "powershell.exe"
-			end
-
-			vim.lsp.config.powershell_es = {
-				cmd = {
-					ps_cmd,
-					"-NoLogo",
-					"-NoProfile",
-					"-ExecutionPolicy",
-					"Bypass",
-					"-Command",
-					string.format(
-						"& '%s' -HostName 'nvim' -HostProfileId '0' -HostVersion '1.0.0' -Stdio -BundledModulesPath '%s' -LogLevel Information",
-						script_path,
-						ps_bundle_path
-					),
-				},
-				filetypes = { "ps1", "psm1", "psd1" },
-				root_dir = vim.fs.root(0, { ".git", "PSScriptAnalyzerSettings.psd1" }) or vim.fn.getcwd(),
-				settings = {
-					powershell = {
-						codeFormatting = {
-							Preset = "OTBS",
+			if has_exe(ps_cmd) then
+				vim.lsp.config("powershell_es", {
+					cmd = {
+						ps_cmd,
+						"-NoLogo",
+						"-NoProfile",
+						"-ExecutionPolicy",
+						"Bypass",
+						"-Command",
+						string.format(
+							"& '%s/PowerShellEditorServices/Start-EditorServices.ps1' -HostName 'nvim' -HostProfileId '0' -HostVersion '1.0.0' -Stdio -BundledModulesPath '%s' -LogLevel Normal",
+							ps_bundle_path,
+							ps_bundle_path
+						),
+					},
+					root_dir = vim.fs.root(0, { ".git", "PSScriptAnalyzerSettings.psd1" }) or vim.fn.getcwd(),
+					settings = {
+						powershell = {
+							codeFormatting = {
+								Preset = "OTBS",
+							},
 						},
 					},
-				},
-				init_options = {
-					enableProfileLoading = false,
-				},
-			}
-
-			-- Validación 2: ¿Existe la shell en el sistema?
-			if has_exe(ps_cmd) then
-				-- Validación 3: ¿Mason descargó el script del servidor?
-				if vim.fn.filereadable(script_path) == 1 then
-					vim.lsp.enable("powershell_es")
-				else
-					-- Opcional: Avisarte si te falta instalar el LSP en una máquina nueva
-					-- vim.notify("Falta instalar 'powershell-editor-services' en Mason", vim.log.levels.WARN)
-				end
+					init_options = {
+						enableProfileLoading = false,
+					},
+					capabilities = capabilities,
+				})
+				vim.lsp.enable("powershell_es")
 			else
 				notify_missing(ps_cmd)
 			end
@@ -592,6 +555,7 @@ return {
 					"",
 					"Diagnostics:",
 					"  Suppress:",
+					"    - pp_file_not_found",
 					"    - type_unsupported",
 					"    - machine_mode",
 				})
@@ -611,9 +575,7 @@ return {
 			end
 
 			local function safe_lsp_restart(client_name)
-				local status = pcall(function()
-					vim.cmd("LspRestart " .. client_name)
-				end)
+				local status = pcall(vim.cmd, "LspRestart " .. client_name)
 
 				if not status or vim.fn.has("nvim-0.12") == 1 then
 					-- Si el archivo tiene cambios sin guardar (ej. el snippet expandido), lo guardamos silenciosamente
@@ -1019,8 +981,7 @@ return {
 					local capabilities_arduino = vim.lsp.protocol.make_client_capabilities()
 					capabilities_arduino.textDocument.completion.completionItem.snippetSupport = true
 					capabilities_arduino.workspace.semanticTokens = { refreshSupport = false }
-					---@diagnostic disable-next-line: missing-fields
-					capabilities_arduino.textDocument.semanticTokens = { dynamicRegistration = false } -- 🌟 Silenciado con la anotación de arriba
+					capabilities_arduino.textDocument.semanticTokens = { dynamicRegistration = false }
 
 					vim.lsp.start({
 						name = "arduino_language_server",
@@ -1106,12 +1067,311 @@ return {
 				vim.lsp.enable("matlab_ls")
 			end
 
-			---------------------------------
-			-- Global keymaps
-			---------------------------------
-			vim.keymap.set("n", "K", vim.lsp.buf.hover, {})
-			vim.keymap.set("n", "gd", vim.lsp.buf.definition, {})
-			vim.keymap.set({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, {})
+			------------------------------------------------------------
+			-- Atajos de Teclado del LSP (Con descripciones)
+			------------------------------------------------------------
+
+			------------------------------------------------------------
+			-- Atajos de Teclado del LSP (Solo los necesarios)
+			------------------------------------------------------------
+
+			-- [1] ATAJOS QUE NEOVIM NO INCLUYE POR DEFECTO:
+			vim.keymap.set("n", "gd", vim.lsp.buf.definition, { desc = "LSP: Ir a Definición" })
+			vim.keymap.set("n", "gD", vim.lsp.buf.declaration, { desc = "LSP: Ir a Declaración (Cabecera)" })
+			--vim.keymap.set("n", "<leader>f", function() vim.lsp.buf.format({ async = true }) end, { desc = "LSP: Formatear archivo" })
+			--vim.keymap.set("n", "<leader>e", vim.diagnostic.open_float, { desc = "LSP: Mostrar error en flotante" })
+			vim.keymap.set("n", "gl", vim.diagnostic.open_float, { desc = "Mostrar diagnostic flotante" })
+			--vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "LSP: Lista de errores" })
+
+			-- [2] TUS SOBREESCRITURAS (Porque prefieres usar tu <leader> en lugar de los nativos 'gra' y 'grn'):
+			vim.keymap.set({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, { desc = "LSP: Acciones de Código" })
+
+			-- =========================================================
+			-- Smart Rename para LSP
+			-- =========================================================
+			--
+			-- Problema:
+			-- ---------------------------------------------------------
+			-- El rename nativo:
+			--
+			--     vim.lsp.buf.rename()
+			--
+			-- funciona perfectamente en la mayoría de LSPs modernos
+			-- (Pyright, LuaLS, Rust Analyzer, etc.).
+			--
+			-- Sin embargo, con clangd puede ocurrir un problema de
+			-- sincronización:
+			--
+			--   1. El rename se aplica correctamente en memoria.
+			--   2. Pero clangd NO refresca inmediatamente el AST.
+			--   3. Aparecen diagnostics falsos temporales.
+			--
+			-- Ejemplo:
+			--
+			--   "Call to undeclared function"
+			--
+			-- El error desaparece al ejecutar:
+			--
+			--     :wa
+			--
+			-- porque clangd depende mucho de:
+			--
+			--   - didSave
+			--   - reparseo desde disco
+			--   - background indexing
+			--   - include graph
+			--
+			-- especialmente en proyectos grandes de C/C++.
+			--
+			--
+			-- Solución:
+			-- ---------------------------------------------------------
+			-- Implementar manualmente el request:
+			--
+			--     textDocument/rename
+			--
+			-- y guardar TODOS los buffers únicamente cuando el
+			-- WorkspaceEdit haya terminado de aplicarse.
+			--
+			-- Esto evita:
+			--
+			--   - race conditions
+			--   - timers arbitrarios
+			--   - delays dependientes del tamaño del proyecto
+			--
+			--
+			-- NOTA IMPORTANTE:
+			-- ---------------------------------------------------------
+			-- Este workaround SOLO se aplica a clangd.
+			--
+			-- Los demás LSPs usan:
+			--
+			--     vim.lsp.buf.rename()
+			--
+			-- directamente.
+			--
+			--
+			-- Referencias:
+			-- ---------------------------------------------------------
+			-- LSP Spec:
+			--   textDocument/rename
+			--
+			-- Neovim:
+			--   :help vim.lsp.Client.request()
+			--   :help vim.lsp.util.apply_workspace_edit()
+			--
+			-- =========================================================
+
+			-- ---------------------------------------------------------
+			-- Rename especializado para clangd
+			-- ---------------------------------------------------------
+			local function clangd_rename()
+				-- Obtener la palabra bajo el cursor.
+				--
+				-- <cword> = "current word"
+				local curr_name = vim.fn.expand("<cword>")
+
+				-- Mostrar prompt interactivo.
+				vim.ui.input({
+					prompt = "Nuevo nombre: ",
+					default = curr_name,
+				}, function(new_name)
+					-- Cancelar si:
+					--   - el usuario presiona ESC
+					--   - el nombre es vacío
+					--   - el nombre no cambió
+					if not new_name or new_name == curr_name then
+						return
+					end
+
+					-- Buscar el cliente clangd asociado
+					-- al buffer actual.
+					--
+					-- [1] porque get_clients() devuelve una lista.
+					local client = vim.lsp.get_clients({
+						bufnr = 0,
+						name = "clangd",
+					})[1]
+
+					-- Validar existencia del cliente.
+					if not client then
+						vim.notify("clangd no encontrado", vim.log.levels.ERROR)
+						return
+					end
+
+					-- Construir parámetros LSP para:
+					--
+					--   textDocument/rename
+					--
+					-- IMPORTANTE:
+					-- Se usa client.offset_encoding para evitar:
+					--
+					--   "multiple different client offset_encodings detected"
+					--
+					-- y:
+					--
+					--   "position_encoding param is required"
+					local params = vim.lsp.util.make_position_params(0, client.offset_encoding)
+
+					-- Nuevo nombre solicitado.
+					params.newName = new_name
+
+					-- =====================================================
+					-- Request manual al servidor LSP
+					-- =====================================================
+					--
+					-- En vez de usar:
+					--
+					--     vim.lsp.buf.rename()
+					--
+					-- usamos directamente:
+					--
+					--     client:request(...)
+					--
+					-- para poder saber EXACTAMENTE cuándo termina
+					-- el rename.
+					--
+					-- Esto permite ejecutar:
+					--
+					--     :wall
+					--
+					-- únicamente después de aplicar el WorkspaceEdit.
+					-- =====================================================
+
+					client:request(
+						"textDocument/rename",
+						params,
+
+						-- Callback ejecutado cuando clangd responde.
+						function(err, result)
+							-- Manejo de errores LSP.
+							if err then
+								vim.notify(err.message, vim.log.levels.ERROR)
+								return
+							end
+
+							-- Aplicar WorkspaceEdit recibido.
+							--
+							-- Esto modifica:
+							--   - buffers
+							--   - referencias
+							--   - headers
+							--   - múltiples archivos
+							if result then
+								vim.lsp.util.apply_workspace_edit(result, client.offset_encoding)
+							end
+
+							-- =================================================
+							-- clangd necesita didSave
+							-- =================================================
+							--
+							-- Guardar TODOS los buffers modificados para
+							-- forzar:
+							--
+							--   - reparseo
+							--   - refresh del AST
+							--   - actualización de diagnostics
+							--
+							-- silent! evita mensajes molestos.
+							-- =================================================
+							vim.cmd("silent! wall")
+
+							vim.notify("Rename completado y guardado", vim.log.levels.INFO)
+						end,
+
+						-- Buffer actual
+						0
+					)
+				end)
+			end
+
+			-- ---------------------------------------------------------
+			-- Filetypes relacionados con clangd
+			-- ---------------------------------------------------------
+			--
+			-- Incluye:
+			--   - C
+			--   - C++
+			--   - Objective-C
+			--   - headers
+			--
+			-- porque el problema también ocurre en:
+			--   .h
+			--   .hpp
+			--   .hh
+			--   etc.
+			-- ---------------------------------------------------------
+			local clang_filetypes = {
+				c = true,
+				cpp = true,
+				cc = true,
+				cxx = true,
+				h = true,
+				hpp = true,
+				hh = true,
+				hxx = true,
+				objc = true,
+				objcpp = true,
+			}
+
+			-- ---------------------------------------------------------
+			-- Smart Rename
+			-- ---------------------------------------------------------
+			--
+			-- Selecciona automáticamente:
+			--
+			--   - clangd_rename() para C/C++
+			--   - vim.lsp.buf.rename() para el resto
+			--
+			-- Esto evita aplicar workarounds innecesarios
+			-- a otros LSPs que ya funcionan correctamente.
+			-- ---------------------------------------------------------
+			local function smart_rename()
+				if clang_filetypes[vim.bo.filetype] then
+					-- Workaround especializado para clangd
+					clangd_rename()
+				else
+					-- Rename estándar para cualquier otro LSP
+					vim.lsp.buf.rename()
+				end
+			end
+
+			-- ---------------------------------------------------------
+			-- Keymap
+			-- ---------------------------------------------------------
+			vim.keymap.set("n", "<leader>rn", smart_rename, {
+				desc = "Smart LSP Rename",
+			})
+
+			-- =========================================================
+			-- NOTA SOBRE LOS KEYMAPS LSP EN NEOVIM 0.11+
+			-- =========================================================
+			--
+			-- Neovim moderno ya incluye MUCHOS keymaps LSP por
+			-- defecto, por lo que NO necesitas configurarlos manualmente.
+			--
+			-- Incluidos automáticamente:
+			--
+			--   K     -> hover
+			--   grr   -> references
+			--   gri   -> implementation
+			--   grn   -> rename
+			--   gra   -> code action
+			--   grt   -> type definition
+			--   [d    -> previous diagnostic
+			--   ]d    -> next diagnostic
+			--
+			-- Documentación oficial:
+			--   :help lsp-defaults
+			--
+			-- Referencias:
+			--   https://neovim.io/doc/user/lsp/
+			--   https://neovim.io/doc/user/news-0.11/
+			--
+			-- Por eso este archivo solo define mappings
+			-- personalizados realmente necesarios.
+			--
+			-- =========================================================
 		end,
 	},
 }
