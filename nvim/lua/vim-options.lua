@@ -1,12 +1,46 @@
-vim.opt.expandtab = true
-vim.opt.tabstop = 4
-vim.opt.shiftwidth = 4
-vim.opt.softtabstop = -1
-vim.opt.autoindent = true
-vim.opt.smartindent = true
-vim.opt.shiftround = true
-vim.opt.wrap = false
+vim.g.netrw_banner = 0
 
+vim.opt.nu = true
+vim.opt.relativenumber = true
+
+vim.opt.tabstop = 4
+vim.opt.softtabstop = 4
+vim.opt.shiftwidth = 4
+vim.opt.expandtab = true
+
+vim.opt.wrap = false
+vim.opt.smartindent = true
+vim.opt.inccommand = "split"
+
+vim.opt.splitbelow = true
+vim.opt.splitright = true
+
+vim.opt.ignorecase = true
+vim.opt.smartcase = true
+vim.opt.laststatus = 3
+
+vim.opt.swapfile = false
+vim.opt.backup = false
+vim.opt.undodir = vim.fn.stdpath("data") .. "/undodir"
+vim.opt.undofile = true
+
+
+vim.opt.clipboard:append("unnamedplus")
+vim.opt.isfname:append("@-@")
+-- vim.opt.guicursor = ""
+vim.opt.scrolloff = 8
+
+vim.opt.colorcolumn = "0"
+vim.opt.signcolumn = "yes"
+vim.opt.cmdheight = 0
+vim.opt.termguicolors = true
+
+vim.api.nvim_create_autocmd("TextYankPost", {
+    desc = "Hinglight when yanking (copying) text",
+    callback = function()
+        vim.hl.on_yank()
+    end
+})
 
 -----------------------------------------------------
 -- Simbolos sin representación gráfica:
@@ -20,28 +54,23 @@ vim.o.listchars = 'tab:»·,lead:•,trail:•,eol:↲'
 -----------------------------------------------------
 vim.opt.clipboard = "unnamedplus"
 
--- CAMBIO: Solo aplicar la configuración de 'win32yank' si estás en Windows
-if vim.fn.has("win32") == 1 then
-  vim.g.clipboard = {
-    name = 'win32yank',
-    copy = {
-      ['+'] = { 'win32yank.exe', '-i', '--crlf' },
-      ['*'] = { 'win32yank.exe', '-i', '--crlf' },
-    },
-    paste = {
-      ['+'] = { 'win32yank.exe', '-o', '--lf' },
-      ['*'] = { 'win32yank.exe', '-o', '--lf' },
-    },
-    cache_enabled = false,
-  }
-end
--- NOTA: En Linux, Neovim detectará automáticamente xclip, xsel o wl-copy gracias a unnamedplus.
+--  -- CAMBIO: Solo aplicar la configuración de 'win32yank' si estás en Windows
+--  if vim.fn.has("win32") == 1 then
+--    vim.g.clipboard = {
+--      name = 'win32yank',
+--      copy = {
+--        ['+'] = { 'win32yank.exe', '-i', '--crlf' },
+--        ['*'] = { 'win32yank.exe', '-i', '--crlf' },
+--      },
+--      paste = {
+--        ['+'] = { 'win32yank.exe', '-o', '--lf' },
+--        ['*'] = { 'win32yank.exe', '-o', '--lf' },
+--      },
+--      cache_enabled = false,
+--    }
+--  end
+--  -- NOTA: En Linux, Neovim detectará automáticamente xclip, xsel o wl-copy gracias a unnamedplus.
 
-vim.cmd("set number")
-vim.cmd("set cmdwinheight=20")
--- Minimal number of screen lines to keep above and below the cursor.
-vim.opt.scrolloff = 10
-vim.g.mapleader = " "
 
 
 -----------------------------------------------------
@@ -66,31 +95,5 @@ else
         vim.o.shell = vim.o.shell
     end
 end
-
-
------------------------------------------------------
--- Atajos de teclado generales
------------------------------------------------------
-vim.keymap.set("n", "<leader>w", ":w<CR>", { noremap = true })
-vim.keymap.set("n", "<leader>q", ":quit<CR>", { noremap = true })
-vim.keymap.set("n", "<leader>x", ":bd<CR>", { noremap = true })
-vim.keymap.set("n", "<leader>s", ":so %<CR>", { noremap = true })
-vim.keymap.set("n", "<leader>ev", ":vsplit $MYVIMRC<CR>", { noremap = true })
-vim.keymap.set("n", "<leader>sv", ":w<CR>:so %<CR>:q<CR>", { noremap = true })
-
-vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
-
-vim.keymap.set("i", "kj", "<Esc>")
-vim.keymap.set("n", "zv", "<c-v>",{noremap = true})
-vim.keymap.set("n", "<leader>;", "q:",{noremap = true})
-
-
-vim.keymap.set("n", "<c-j>", "<c-w><c-j>",{noremap = true})
-vim.keymap.set("n", "<c-k>", "<c-w><c-k>",{noremap = true})
-vim.keymap.set("n", "<c-h>", "<c-w><c-h>",{noremap = true})
-vim.keymap.set("n", "<c-l>", "<c-w><c-l>",{noremap = true})
-
-
-vim.keymap.set("n", "<leader>.", "<cmd>luafile $MYVIMRC<cr>",{noremap = true})
 
 

@@ -1,7 +1,8 @@
+require("vim._core.ui2").enable({})
+
 ------------------------------------------------------------
 -- Instalar LAZY:
 ------------------------------------------------------------
--- bateria
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
     vim.fn.system({
@@ -17,10 +18,17 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 
+
+
 ------------------------------------------------------------
 -- Configuraciones de NeoVim:
 ------------------------------------------------------------
 require("vim-options")
+
+------------------------------------------------------------
+-- Configuraciones de NeoVim:
+------------------------------------------------------------
+require("keymaps")
 
 ------------------------------------------------------------
 -- PLUGINS FOR LAZY:
@@ -44,6 +52,10 @@ function RequireAll(relative_path)
     end
 end
 
+
+------------------------------------------------------------
+-- Comandos Automáticos
+------------------------------------------------------------
 RequireAll("autocmd")
 
 
