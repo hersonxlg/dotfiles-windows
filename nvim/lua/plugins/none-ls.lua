@@ -11,18 +11,18 @@ return {
 
         -- Crear builtin personalizado para MATLAB Formatter
         local matlab_formatter = helpers.make_builtin({
-            name           = "matlab-formatter",
-            method         = null_ls.methods.FORMATTING,
-            filetypes      = { "matlab" },
+            name = "matlab-formatter",
+            method = null_ls.methods.FORMATTING,
+            filetypes = { "matlab" },
             generator_opts = {
-                command  = "python",
-                args     = {
+                command = "python",
+                args = {
                     matlab_script,
                     "$FILENAME",
                 },
                 to_stdin = false,
             },
-            factory        = helpers.generator_factory,
+            factory = helpers.generator_factory,
         })
 
         -- Crear builtin personalizado para ASM Formatter (asmfmt)
@@ -40,31 +40,75 @@ return {
         null_ls.setup({
             sources = {
                 ----------------------------------------------
-                -- Formateadores integrados
+                -- Formateadores integrados con reglas dinámicas
                 ----------------------------------------------
-                null_ls.builtins.formatting.stylua,
+                null_ls.builtins.formatting.stylua.with({
+                    extra_args = function()
+                        -- Detecta si el OS actual es Windows
+                        local is_windows = vim.fn.has("win32") == 1
+                        local line_ending_value = is_windows and "Windows" or "Unix"
+
+                        return {
+                            "--indent-type",
+                            "Spaces",
+                            "--indent-width",
+                            "4",
+                            "--column-width",
+                            "120",
+                            "--quote-style",
+                            "AutoPreferDouble",
+                            -- Se aplica dinámicamente según el entorno
+                            "--line-endings",
+                            line_ending_value,
+                        }
+                    end,
+                }),
+
                 null_ls.builtins.formatting.prettier,
-                
+
                 ----------------------------------------------
-                -- Formateador de ASM (asmfmt)
+                -- Formateador para C / C++ (clang-format)
                 ----------------------------------------------
+                null_ls.builtins.formatting.clang_format.with({
+                        extra_args = {
+                                -- Definimos las reglas inline en una sola línea de configuración
+                                "--style={BasedOnStyle: LLVM, IndentWidth: 4, UseTab: Never, ColumnLimit: 120}"
+                        },
+                }),
+
                 asm_formatter,
-                
-                ----------------------------------------------
-                -- Formateador de MATLAB
-                ----------------------------------------------
                 matlab_formatter,
             },
         })
 
         -- Mapeo para formatear (Null-ls)
         vim.keymap.set("n", "<leader>cf", function()
-            vim.lsp.buf.format({ 
-                async = true,
+            local ft = vim.bo.filetype
+
+            local preferred = {
+                --lua = "stylua",
+                lua = "null-ls",
+                cpp = "null-ls",
+                c = "null-ls",
+                matlab = "null-ls",
+                asm = "null-ls",
+            }
+
+            local wanted = preferred[ft]
+
+            vim.lsp.buf.format({
+                bufnr = 0,
+                async = false,
+                timeout_ms = 3000,
+
                 filter = function(client)
-                    return client.name == "null-ls"
-                end
+                    if wanted then
+                        return client.name == wanted
+                    end
+
+                    return client.name == "null-ls" or client.name == "none-ls"
+                end,
             })
-        end, { desc = "Formatear código (ASM/MATLAB/C++/otros)" })
+        end, { desc = "Formatear código" })
     end,
 }
