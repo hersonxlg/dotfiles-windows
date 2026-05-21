@@ -274,31 +274,66 @@ return {
 			end
 
 			--------------------------------------------------------
-			-- clangd
+			-- clangd (Optimizado para Neovim 0.12+ y Windows)
 			--------------------------------------------------------
-			if has_exe("clangd") then
-				local query_driver = os_home() .. "/.platformio/packages/toolchain-*/bin/*"
 
-				vim.lsp.config.clangd = {
-					default_config = {
-						cmd = {
-							"clangd",
-							"--background-index",
-							"--query-driver=" .. query_driver,
-						},
-						root_dir = function(fname)
-							return vim.fs.root(fname, {
-								"compile_commands.json",
-								"platformio.ini",
-								".git",
-							}) or vim.fs.dirname(fname)
-						end,
-						capabilities = capabilities,
-					},
+			-- 1. VALIDACIÓN: Solo se ejecuta si 'clangd' está instalado en el sistema
+			if vim.fn.executable("clangd") == 1 then
+				-- Detectamos el sistema operativo actual
+				local is_windows = vim.fn.has("win32") == 1
+
+				-- Argumentos base comunes para ambos sistemas
+				local cmd = {
+					"clangd",
+					"--background-index",
+					"--clang-tidy",
+					"--header-insertion=never",
 				}
+				local fallbackFlags = {}
+
+				if is_windows then
+					-- ==========================================
+					-- CONFIGURACIÓN PARA WINDOWS (Scoop / MinGW)
+					-- ==========================================
+					local home = (vim.env.USERPROFILE or vim.uv.os_homedir()):gsub("\\", "/")
+					local pio_driver = home .. "/.platformio/packages/toolchain-*/bin/*"
+					local scoop_driver = home .. "/scoop/apps/mingw/current/bin/*"
+					local query_driver = pio_driver .. "," .. scoop_driver
+					local mingw_include = home .. "/scoop/apps/mingw/current/x86_64-w64-mingw32/include"
+
+					table.insert(cmd, "--query-driver=" .. query_driver)
+					fallbackFlags = {
+						"--target=x86_64-w64-mingw32",
+						"-I" .. mingw_include,
+					}
+				else
+					-- ==========================================
+					-- CONFIGURACIÓN PARA LINUX / MACOS
+					-- ==========================================
+					-- En Linux los compiladores están en rutas estándar, así que
+					-- solo le indicamos a clangd que confíe en los binarios del sistema.
+					table.insert(cmd, "--query-driver=/usr/bin/gcc,/usr/bin/g++,/usr/bin/clang")
+
+					-- Nota: Linux no necesita 'fallbackFlags' para encontrar <pthread.h>
+					-- o <unistd.h> porque ya viven en el directorio raíz nativo (/usr/include).
+				end
+
+				-- 2. Aplicamos la configuración en la API moderna de Neovim 0.12
+				vim.lsp.config.clangd = vim.tbl_deep_extend("force", vim.lsp.config.clangd or {}, {
+					cmd = cmd,
+					init_options = {
+						fallbackFlags = fallbackFlags,
+					},
+					root_markers = {
+						"compile_commands.json",
+						"compile_flags.txt",
+						"platformio.ini",
+						".git",
+					},
+				})
+
+				-- 3. Activamos el servidor de forma segura
 				vim.lsp.enable("clangd")
-			else
-				notify_missing("clangd")
 			end
 
 			--------------------------------------------------------
