@@ -1,1692 +1,1692 @@
 return {
-	---------------------------------
-	-- Install "Mason"
-	---------------------------------
-	{
-		"williamboman/mason.nvim",
-		lazy = false,
-		config = function()
-			require("mason").setup()
-		end,
-	},
-
-	---------------------------------
-	-- Install "Mason LSP"
-	---------------------------------
-	{
-		"williamboman/mason-lspconfig.nvim",
-		lazy = false,
-		opts = {
-			auto_install = true,
-		},
-		config = function()
-			require("mason-lspconfig").setup({
-				ensure_installed = {
-					-- 🔧 Tus LSPs actuales (Intactos)
-					"lua_ls",
-					"pylsp",
-					"clangd",
-					"ts_ls",
-					"powershell_es",
-					"arduino_language_server",
-					"asm_lsp",
-					"vimls",
-					"emmet_ls",
-
-					-- 🌐 Desarrollo Web y Datos
-					"html",
-					"cssls",
-					"jsonls",
-
-					-- 🛠️ Scripting y Configuración
-					"bashls",
-					"yamlls",
-					"marksman",
-
-					-- 🚀 Herramientas Avanzadas
-					"ast_grep",
-				},
-			})
-		end,
-	},
-
-	---------------------------------
-	-- Auto-install Formatters (Mason + None-LS)
-	---------------------------------
-	{
-		"jay-babu/mason-null-ls.nvim",
-		lazy = false,
-		dependencies = { "williamboman/mason.nvim", "nvimtools/none-ls.nvim" },
-		config = function()
-			local is_windows = vim.loop.os_uname().sysname:match("Windows")
-
-			require("mason-null-ls").setup({
-				ensure_installed = {
-					"clang-format", -- Mason lo descargará automáticamente
-				},
-				automatic_setup = false,
-				handlers = {
-					-- ¡ESTA ES LA MAGIA!: Se ejecuta EN CUANTO MASON INSTALA LA HERRAMIENTA (o si ya existe)
-					clang_format = function(source_name, methods)
-						local null_ls = require("null-ls")
-						local clang_cmd = "clang-format"
-
-						if is_windows then
-							clang_cmd = vim.fn.stdpath("data")
-								.. "/mason/packages/clang-format/venv/Scripts/clang-format.exe"
-						end
-
-						-- Registramos el formateador de forma dinámica en caliente
-						null_ls.register(null_ls.builtins.formatting.clang_format.with({
-							command = clang_cmd,
-							extra_args = {
-								"-style={BasedOnStyle: LLVM, IndentWidth: 4, TabWidth: 4, UseTab: Never}",
-							},
-						}))
-					end,
-				},
-			})
-		end,
-	},
-
-	---------------------------------
-	-- Install "nvim-lspconfig"
-	---------------------------------
-	{
-		"neovim/nvim-lspconfig",
-		dependencies = {
-			"williamboman/mason.nvim",
-			"folke/neodev.nvim",
-		},
-		lazy = false,
-		config = function()
-			local uv = vim.uv or vim.loop
-
-			-- FIX 1: Agregar Mason al PATH usando el separador correcto para cada SO
-			local mason_bin = vim.fn.stdpath("data") .. "/mason/bin"
-			local is_windows = vim.fn.has("win32") == 1
-			local separator = is_windows and ";" or ":"
-
-			if not string.find(vim.env.PATH, mason_bin, 1, true) then
-				vim.env.PATH = mason_bin .. separator .. vim.env.PATH
-			end
-
-			local capabilities = require("cmp_nvim_lsp").default_capabilities()
-
-			local function notify_missing(name)
-				vim.notify(name .. " no está instalado o no está en PATH", vim.log.levels.WARN)
-			end
-
-			-- FIX 2: Función multiplataforma para detectar ejecutables (.cmd / .exe en Windows)
-			local function has_exe(name)
-				if is_windows then
-					return vim.fn.executable(name) == 1
-						or vim.fn.executable(name .. ".cmd") == 1
-						or vim.fn.executable(name .. ".exe") == 1
-				end
-				return vim.fn.executable(name) == 1
-			end
-
-			local function os_home()
-				return (uv.os_homedir() or vim.fn.expand("~")):gsub("\\", "/")
-			end
-
-			local function find_pio()
-				if has_exe("pio") then
-					return "pio"
-				end
-
-				local home = os_home()
-				local candidates = {
-					home .. "/.platformio/penv/bin/pio",
-					home .. "/.platformio/penv/Scripts/pio.exe",
-					home .. "/.local/bin/pio",
-					home .. "/AppData/Roaming/Python/Python311/Scripts/pio.exe",
-					home .. "/AppData/Roaming/Python/Python312/Scripts/pio.exe",
-				}
-
-				for _, path in ipairs(candidates) do
-					if vim.fn.filereadable(path) == 1 then
-						return path:gsub("\\", "/")
-					end
-				end
-
-				return nil
-			end
-
-			local function get_mason_binary(package, binary)
-				local mason_path = vim.fn.stdpath("data") .. "/mason"
-				local ext = is_windows and ".exe" or ""
-
-				local path = mason_path .. "/bin/" .. binary .. ext
-				if vim.fn.filereadable(path) == 0 then
-					path = mason_path .. "/packages/" .. package .. "/" .. binary .. ext
-				end
-
-				if vim.fn.filereadable(path) == 1 then
-					return path:gsub("\\", "/")
-				end
-
-				return binary
-			end
-
-			---------------------------------
-			-- Emmet LSP (Abreviaciones ultra rápidas de HTML/CSS)
-			---------------------------------
-			if has_exe("emmet-language-server") then
-				vim.lsp.config.emmet_ls = {
-					default_config = {
-						capabilities = capabilities,
-						filetypes = {
-							"html",
-							"css",
-							"scss",
-							"sass",
-							"less",
-							"javascript",
-							"typescript",
-							"javascriptreact",
-							"typescriptreact",
-						},
-					},
-				}
-				vim.lsp.enable("emmet_ls")
-			end
-
-			---------------------------------
-			-- AST-Grep LSP
-			---------------------------------
-			-- Nota: ast_grep usa el comando "sg" en la terminal
-			if has_exe("sg") then
-				vim.lsp.config.ast_grep = {
-					default_config = {
-						cmd = { "sg", "lsp" },
-						filetypes = {
-							"c",
-							"cpp",
-							"rust",
-							"go",
-							"java",
-							"python",
-							"javascript",
-							"typescript",
-							"html",
-							"css",
-							"json",
-						},
-						root_dir = function(fname)
-							return vim.fs.dirname(
-								vim.fs.find({ "sgconfig.yml", ".git" }, { upward = true, path = vim.fs.dirname(fname) })[1]
-							)
-						end,
-						capabilities = capabilities,
-					},
-				}
-				vim.lsp.enable("ast_grep")
-			end
-
-			--------------------------------------------------------
-			-- HTML
-			--------------------------------------------------------
-			if has_exe("vscode-html-language-server") then
-				vim.lsp.config.html = { default_config = { capabilities = capabilities } }
-				vim.lsp.enable("html")
-			end
-
-			--------------------------------------------------------
-			-- CSS
-			--------------------------------------------------------
-			if has_exe("vscode-css-language-server") then
-				vim.lsp.config.cssls = { default_config = { capabilities = capabilities } }
-				vim.lsp.enable("cssls")
-			end
-
-			--------------------------------------------------------
-			-- JSON
-			--------------------------------------------------------
-			if has_exe("vscode-json-language-server") then
-				vim.lsp.config.jsonls = { default_config = { capabilities = capabilities } }
-				vim.lsp.enable("jsonls")
-			end
-
-			--------------------------------------------------------
-			-- Bash / Shell
-			--------------------------------------------------------
-			if has_exe("bash-language-server") then
-				vim.lsp.config.bashls = { default_config = { capabilities = capabilities } }
-				vim.lsp.enable("bashls")
-			end
-
-			--------------------------------------------------------
-			-- YAML
-			--------------------------------------------------------
-			if has_exe("yaml-language-server") then
-				vim.lsp.config.yamlls = { default_config = { capabilities = capabilities } }
-				vim.lsp.enable("yamlls")
-			end
-
-			--------------------------------------------------------
-			-- Markdown
-			--------------------------------------------------------
-			if has_exe("marksman") then
-				vim.lsp.config.marksman = { default_config = { capabilities = capabilities } }
-				vim.lsp.enable("marksman")
-			end
-
-			--------------------------------------------------------
-			-- clangd (Optimizado para Neovim 0.12+ Nativo y Windows)
-			--------------------------------------------------------
-
-			-- 1. VALIDACIÓN: Solo se ejecuta si 'clangd' está instalado en el sistema
-			if vim.fn.executable("clangd") == 1 then
-				-- Detectamos el sistema operativo actual
-				local is_windows = vim.fn.has("win32") == 1
-
-				-- Argumentos base comunes para ambos sistemas
-				local cmd = {
-					"clangd",
-					"--background-index",
-					"--clang-tidy",
-					"--header-insertion=never",
-					-- El doble asterisco soluciona el problema de las rutas absolutas en Windows
-					"--query-driver=**\\bin\\*g++*,**\\bin\\*gcc*",
-				}
-				local fallbackFlags = {}
-
-				if is_windows then
-					-- ==========================================
-					-- CONFIGURACIÓN PARA WINDOWS (Scoop / MinGW)
-					-- ==========================================
-					local home = (vim.env.USERPROFILE or vim.uv.os_homedir()):gsub("\\", "/")
-					local mingw_include = home .. "/scoop/apps/mingw/current/x86_64-w64-mingw32/include"
-
-					-- CAMBIO 1: El comodín universal '*' permite que clangd ejecute de forma segura
-					-- tanto el compilador de MinGW como los de PlatformIO sin importar las barras de Windows.
-					table.insert(cmd, "--query-driver=*")
-
-					fallbackFlags = {
-						"--target=x86_64-w64-mingw32",
-						"-I" .. mingw_include,
-					}
-				else
-					-- ==========================================
-					-- CONFIGURACIÓN PARA LINUX / MACOS
-					-- ==========================================
-					table.insert(cmd, "--query-driver=/usr/bin/gcc,/usr/bin/g++,/usr/bin/clang")
-				end
-
-				-- 2. Aplicamos la configuración en la API moderna de Neovim 0.12
-				vim.lsp.config.clangd = vim.tbl_deep_extend("force", vim.lsp.config.clangd or {}, {
-					cmd = cmd,
-
-					-- CAMBIO 2: Obligatorio en Neovim 0.12 nativo para que 'vim.lsp.enable'
-					-- sepa exactamente en qué buffers debe auto-iniciar el servidor.
-					filetypes = { "c", "cpp", "objc", "objcpp", "h", "hpp" },
-
-					init_options = {
-						fallbackFlags = fallbackFlags,
-					},
-					root_markers = {
-						"compile_commands.json",
-						"compile_flags.txt",
-						"platformio.ini",
-						".git",
-					},
-
-					on_attach = function(client, bufnr)
-						client.server_capabilities.documentFormattingProvider = false
-						client.server_capabilities.documentRangeFormattingProvider = false
-					end,
-				})
-
-				-- 3. Activamos el servidor de forma segura usando el gestor nativo
-				vim.lsp.enable("clangd")
-			end
-
-			--------------------------------------------------------
-			-- asm_lsp
-			--------------------------------------------------------
-			if has_exe("asm-lsp") then
-				vim.lsp.config.asm_lsp = {
-					default_config = {
-						cmd = { "asm-lsp" },
-						filetypes = { "asm", "nasm", "gas", "armasm", "avr" },
-						root_dir = function(fname)
-							local path = vim.fs.dirname(fname)
-							local git = vim.fs.find({ ".git" }, { upward = true, path = path })[1]
-							if git then
-								return vim.fs.dirname(git)
-							end
-							local toml = vim.fs.find({ "asm_lsp.toml" }, { upward = true, path = path })[1]
-							if toml then
-								return vim.fs.dirname(toml)
-							end
-							return path
-						end,
-						on_attach = function(_, bufnr)
-							vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = bufnr })
-						end,
-					},
-				}
-				vim.lsp.enable("asm_lsp")
-			else
-				notify_missing("asm-lsp")
-			end
-
-			--------------------------------------------------------
-			-- pylsp
-			--------------------------------------------------------
-			if has_exe("pylsp") then
-				vim.lsp.config.pylsp = {
-					default_config = {
-						cmd = { "pylsp" },
-						settings = {
-							pylsp = {
-								plugins = {
-									rope_rename = { enabled = false },
-									jedi_rename = { enabled = false },
-									pylsp_rope = { rename = true },
-								},
-							},
-						},
-						capabilities = capabilities,
-					},
-				}
-				vim.lsp.enable("pylsp")
-			else
-				notify_missing("pylsp")
-			end
-
-			--------------------------------------------------------
-			-- lua_ls (Neovim 0.12+ moderno)
-			--------------------------------------------------------
-
-			if has_exe("lua-language-server") then
-				vim.lsp.config.lua_ls = {
-
-					------------------------------------------------
-					-- Capabilities (cmp_nvim_lsp)
-					------------------------------------------------
-					capabilities = capabilities,
-
-					------------------------------------------------
-					-- Ejecutable
-					------------------------------------------------
-					cmd = { "lua-language-server" },
-
-					------------------------------------------------
-					-- Filetypes
-					------------------------------------------------
-					filetypes = { "lua" },
-
-					------------------------------------------------
-					-- Root markers
-					------------------------------------------------
-					root_markers = {
-						{ ".luarc.json", ".luarc.jsonc" },
-						".git",
-					},
-
-					------------------------------------------------
-					-- on_attach
-					------------------------------------------------
-					on_attach = function(client, bufnr)
-						------------------------------------------------
-						-- stylua será el formatter real
-						------------------------------------------------
-						client.server_capabilities.documentFormattingProvider = false
-						client.server_capabilities.documentRangeFormattingProvider = false
-
-						------------------------------------------------
-						-- Keymaps buffer-local opcionales
-						------------------------------------------------
-						local opts = { buffer = bufnr }
-
-						vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
-
-						vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
-
-						vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
-					end,
-
-					------------------------------------------------
-					-- Settings de lua-language-server
-					------------------------------------------------
-					settings = {
-						Lua = {
-
-							--------------------------------------------
-							-- Runtime
-							--------------------------------------------
-							runtime = {
-								version = "LuaJIT",
-							},
-
-							--------------------------------------------
-							-- Completion
-							--------------------------------------------
-							completion = {
-								callSnippet = "Replace",
-							},
-
-							--------------------------------------------
-							-- Diagnostics
-							--------------------------------------------
-							diagnostics = {
-
-								----------------------------------------
-								-- lazydev.nvim maneja esto
-								----------------------------------------
-								globals = {},
-
-								----------------------------------------
-								-- Reduce ruido
-								----------------------------------------
-								disable = {
-									"missing-fields",
-								},
-							},
-
-							--------------------------------------------
-							-- Workspace
-							--------------------------------------------
-							workspace = {
-
-								----------------------------------------
-								-- Evita prompts molestos
-								----------------------------------------
-								checkThirdParty = false,
-
-								----------------------------------------
-								-- Runtime files de Neovim
-								----------------------------------------
-								library = vim.api.nvim_get_runtime_file("", true),
-							},
-
-							--------------------------------------------
-							-- Hinting
-							--------------------------------------------
-							hint = {
-								enable = true,
-							},
-
-							--------------------------------------------
-							-- Telemetry
-							--------------------------------------------
-							telemetry = {
-								enable = false,
-							},
-
-							--------------------------------------------
-							-- Format
-							--------------------------------------------
-							format = {
-								enable = false,
-							},
-						},
-					},
-				}
-
-				--------------------------------------------------------
-				-- Activar servidor
-				--------------------------------------------------------
-				vim.lsp.enable("lua_ls")
-			else
-				notify_missing("lua-language-server")
-			end
-			--------------------------------------------------------
-			-- ts_ls
-			--------------------------------------------------------
-			if has_exe("typescript-language-server") then
-				-- Utilizamos get_mason_binary para asegurar la ruta correcta (especialmente útil en Windows/JS)
-				local ts_binary = get_mason_binary("typescript-language-server", "typescript-language-server")
-
-				vim.lsp.config.ts_ls = {
-					default_config = {
-						cmd = { ts_binary, "--stdio" },
-						filetypes = {
-							"javascript",
-							"javascript.jsx",
-							"typescript",
-							"typescript.tsx",
-						},
-						init_options = {
-							hostInfo = "neovim",
-						},
-						capabilities = capabilities,
-					},
-				}
-				vim.lsp.enable("ts_ls")
-			else
-				notify_missing("typescript-language-server")
-			end
-
-			--------------------------------------------------------
-			-- vimls
-			--------------------------------------------------------
-			if has_exe("vim-language-server") then
-				vim.lsp.config.vimls = {
-					default_config = {
-						cmd = { "vim-language-server" },
-						capabilities = capabilities,
-					},
-				}
-				vim.lsp.enable("vimls")
-			end
-
-			--------------------------------------------------------
-			-- PowerShell LSP (Neovim 0.11+)
-			--------------------------------------------------------
-			local ps_bundle_path = vim.fn.stdpath("data") .. "/mason/packages/powershell-editor-services"
-			local ps_cmd = has_exe("pwsh") and "pwsh" or "powershell.exe"
-
-			if has_exe(ps_cmd) then
-				vim.lsp.config("powershell_es", {
-					cmd = {
-						ps_cmd,
-						"-NoLogo",
-						"-NoProfile",
-						"-ExecutionPolicy",
-						"Bypass",
-						"-Command",
-						string.format(
-							"& '%s/PowerShellEditorServices/Start-EditorServices.ps1' -HostName 'nvim' -HostProfileId '0' -HostVersion '1.0.0' -Stdio -BundledModulesPath '%s' -LogLevel Normal",
-							ps_bundle_path,
-							ps_bundle_path
-						),
-					},
-					root_dir = vim.fs.root(0, { ".git", "PSScriptAnalyzerSettings.psd1" }) or vim.fn.getcwd(),
-					settings = {
-						powershell = {
-							codeFormatting = {
-								Preset = "OTBS",
-							},
-						},
-					},
-					init_options = {
-						enableProfileLoading = false,
-					},
-					capabilities = capabilities,
-				})
-				vim.lsp.enable("powershell_es")
-			else
-				notify_missing(ps_cmd)
-			end
-
-			---------------------------------
-			-- PlatformIO AUTOSETUP para clangd (Optimizado Neovim 0.12)
-			---------------------------------
-
-			local function read_file(path)
-				if vim.fn.filereadable(path) ~= 1 then
-					return ""
-				end
-				return table.concat(vim.fn.readfile(path), "\n")
-			end
-
-			local function platformio_root(bufnr)
-				return vim.fs.root(bufnr, { "platformio.ini" })
-			end
-
-			-- Plantilla con espacios ASCII estándar válidos para el parser YAML de clangd
-			local function build_clangd_template(platformio_ini_text)
-				local text = (platformio_ini_text or ""):lower()
-				local lines = {
-					"CompileFlags:",
-				}
-
-				-- Solo agregamos la sección 'Add' si es AVR
-				if text:find("atmelavr") then
-					table.insert(lines, "  Add:")
-					table.insert(lines, "    - --target=avr")
-				end
-
-				-- La sección Remove y Diagnostics siempre se aplica
-				vim.list_extend(lines, {
-					"  Remove:",
-					"    - -mlongcalls",
-					"    - -fstrict-volatile-bitfields",
-					"    - -fno-tree-switch-conversion",
-					"    - -free",
-					"    - -fipa-pta",
-					"",
-					"Diagnostics:",
-					"  Suppress:",
-					"    - type_unsupported",
-					"    - machine_mode",
-				})
-				return lines
-			end
-
-			local function write_clangd(root)
-				local ini_path = root .. "/platformio.ini"
-				local clangd_file = root .. "/.clangd"
-				local ini_text = read_file(ini_path)
-
-				-- Pasamos solo ini_text ya que compile_commands.json se encarga de los includes
-				local new_lines = build_clangd_template(ini_text)
-				vim.fn.writefile(new_lines, clangd_file)
-			end
-
-			local function safe_lsp_restart(client_name)
-				-- Comando nativo core de Neovim 0.12
-				vim.cmd("lsp restart " .. (client_name or ""))
-			end
-
-			local function ensure_platformio_setup(bufnr, force)
-				local root = platformio_root(bufnr)
-				if not root then
-					return
-				end
-
-				local pio_cmd = type(find_pio) == "function" and find_pio() or "pio"
-				if not pio_cmd then
-					vim.notify("PlatformIO no encontrado", vim.log.levels.ERROR)
-					return
-				end
-
-				local function ensure_gitignore_entry(entry)
-					local gitignore = root .. "/.gitignore"
-					local lines = {}
-					if vim.fn.filereadable(gitignore) == 1 then
-						lines = vim.fn.readfile(gitignore)
-						for _, line in ipairs(lines) do
-							if vim.trim(line) == entry then
-								return
-							end
-						end
-					end
-					table.insert(lines, entry)
-					vim.fn.writefile(lines, gitignore)
-					vim.notify(".gitignore actualizado: " .. entry, vim.log.levels.INFO)
-				end
-
-				ensure_gitignore_entry("compile_commands.json")
-				ensure_gitignore_entry(".clangd")
-
-				local ini_path = root .. "/platformio.ini"
-				local compiledb = root .. "/compile_commands.json"
-				local clangd_file = root .. "/.clangd"
-
-				local ini_time = vim.fn.getftime(ini_path)
-				local db_time = vim.fn.filereadable(compiledb) == 1 and vim.fn.getftime(compiledb) or -1
-				local clangd_time = vim.fn.filereadable(clangd_file) == 1 and vim.fn.getftime(clangd_file) or -1
-
-				-- Evaluamos qué archivos necesitan actualizarse REALMENTE
-				local need_clangd = force or vim.fn.filereadable(clangd_file) == 0 or ini_time > clangd_time
-				local need_compiledb = force or vim.fn.filereadable(compiledb) == 0 or ini_time > db_time
-
-				-- 1. Regenerar .clangd si es necesario
-				if need_clangd then
-					write_clangd(root)
-					vim.notify("PlatformIO: .clangd actualizado", vim.log.levels.INFO)
-
-					-- ¡AQUÍ ESTÁ EL TRUCO!
-					-- Solo reiniciamos el LSP si NO se va a generar el compile_commands.json.
-					-- Si se va a generar el archivo pesado, nos quedamos quietos y esperamos.
-					if not need_compiledb then
-						safe_lsp_restart("clangd")
-					end
-				end
-
-				-- 2. Regenerar compile_commands.json de forma asíncrona
-				if need_compiledb then
-					vim.notify("PlatformIO: generando compile_commands.json...", vim.log.levels.INFO)
-
-					-- Detectamos si estamos en Windows para activar el modo shell
-					local is_windows = vim.fn.has("win32") == 1
-
-					vim.fn.jobstart({ pio_cmd, "run", "-t", "compiledb" }, {
-						cwd = root,
-						shell = is_windows, -- <--- ¡ESTO ES CRUCIAL PARA WINDOWS!
-						on_exit = function(_, code)
-							if code == 0 then
-								vim.schedule(function()
-									vim.notify("PlatformIO: compile_commands.json listo")
-									safe_lsp_restart("clangd")
-								end)
-							end
-						end,
-					})
-				end
-			end
-			-- Configuración de Autocomandos
-			local pio_group = vim.api.nvim_create_augroup("PlatformIOAutoSetup", { clear = true })
-
-			vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
-				group = pio_group,
-				pattern = { "*.c", "*.cpp", "*.h", "*.hpp", "*.ino" },
-				callback = function(args)
-					ensure_platformio_setup(args.buf, false)
-				end,
-			})
-
-			vim.api.nvim_create_user_command("PioRefresh", function()
-				ensure_platformio_setup(vim.api.nvim_get_current_buf(), true)
-			end, {})
-
-			-->local function read_file(path)
-			-->	if vim.fn.filereadable(path) ~= 1 then
-			-->		return ""
-			-->	end
-			-->	return table.concat(vim.fn.readfile(path), "\n")
-			-->end
-
-			-->local function platformio_root(bufnr)
-			-->	return vim.fs.root(bufnr, { "platformio.ini" })
-			-->end
-
-			-->-- 1. Función para extraer las rutas de sistema dinámicamente (VERSIÓN CORREGIDA)
-			-->local function get_pio_includes(platformio_ini_text)
-			-->	local pio_packages = os_home() .. "/.platformio/packages"
-			-->	local text = (platformio_ini_text or ""):lower()
-
-			-->	-- Determinar qué binario buscar según el proyecto
-			-->	local compiler_name = "xtensa-esp32s3-elf-g++" -- default
-			-->	if text:find("atmelavr") or text:find("uno") then
-			-->		compiler_name = "avr-g++"
-			-->	elseif text:find("esp32") and not text:find("s3") then
-			-->		compiler_name = "xtensa-esp32-elf-g++"
-			-->	end
-
-			-->	local find_cmd
-			-->	if is_windows then
-			-->		find_cmd = 'dir /s /b "' .. pio_packages .. "\\*" .. compiler_name .. '.exe" 2>nul'
-			-->	else
-			-->		find_cmd = 'find "'
-			-->			.. pio_packages
-			-->			.. '" -iname "'
-			-->			.. compiler_name
-			-->			.. '" -type f 2>/dev/null | head -n 1'
-			-->	end
-
-			-->	local handle = io.popen(find_cmd)
-			-->	if not handle then
-			-->		return {}
-			-->	end
-			-->	local compiler_path = handle:read("*l")
-			-->	handle:close()
-
-			-->	if not compiler_path or compiler_path == "" then
-			-->		return {}
-			-->	end
-
-			-->	local echo_cmd = is_windows and "echo." or 'echo ""'
-			-->	local shell_cmd = echo_cmd .. ' | "' .. compiler_path .. '" -v -E -x c++ - 2>&1'
-			-->	local dump = io.popen(shell_cmd)
-			-->	if not dump then
-			-->		return {}
-			-->	end
-
-			-->	local includes = {}
-			-->	local found_start = false
-			-->	for line in dump:lines() do
-			-->		local clean_line = line:gsub("\r", ""):gsub("^%s+", "")
-			-->		if clean_line:find("#include <...> search starts here:") then
-			-->			found_start = true
-			-->		elseif clean_line:find("End of search list%.") then
-			-->			found_start = false
-			-->		elseif found_start then
-			-->			local path = clean_line:gsub("\\", "/")
-			-->			if path ~= "" and vim.fn.isdirectory(path) == 1 then
-			-->				table.insert(includes, path)
-			-->			end
-			-->		end
-			-->	end
-			-->	dump:close()
-			-->	return includes
-			-->end
-
-			-->-- 2. Plantilla con el formato exacto que pediste
-			-->local function build_clangd_template(platformio_ini_text, pio_includes)
-			-->	local text = (platformio_ini_text or ""):lower()
-			-->	local lines = {
-			-->		"CompileFlags:",
-			-->		"  Add:",
-			-->	}
-
-			-->	if text:find("esp32") then
-			-->		table.insert(lines, "    - --target=xtensa-esp32-elf")
-			-->	elseif text:find("atmelavr") then
-			-->		table.insert(lines, "    - --target=avr")
-			-->	end
-
-			-->	-- Insertar rutas con el formato: - "-isystem" \n - "ruta"
-			-->	for _, path in ipairs(pio_includes or {}) do
-			-->		table.insert(lines, '    - "-isystem"')
-			-->		table.insert(lines, '    - "' .. path .. '"')
-			-->	end
-
-			-->	vim.list_extend(lines, {
-			-->		"  Remove:",
-			-->		"    - -mlongcalls",
-			-->		"    - -fstrict-volatile-bitfields",
-			-->		"    - -fno-tree-switch-conversion",
-			-->		"    - -free",
-			-->		"    - -fipa-pta",
-			-->		"",
-			-->		"Diagnostics:",
-			-->		"  Suppress:",
-			-->		"    - pp_file_not_found",
-			-->		"    - type_unsupported",
-			-->		"    - machine_mode",
-			-->	})
-			-->	return lines
-			-->end
-
-			-->-- 3. Escritura del archivo
-			-->local function write_clangd(root)
-			-->	local ini_path = root .. "/platformio.ini"
-			-->	local clangd_file = root .. "/.clangd"
-			-->	local ini_text = read_file(ini_path)
-
-			-->	--local pio_includes = get_pio_includes(ini_text) -- CAMBIO AQUÍ: añadir ini_text
-			-->	--local new_lines = build_clangd_template(ini_text, pio_includes)
-			-->	local new_lines = build_clangd_template(ini_text, {})
-
-			-->	vim.fn.writefile(new_lines, clangd_file)
-			-->end
-
-			-->local function safe_lsp_restart(client_name)
-			-->	-- El comando nativo de Neovim 0.12 es estrictamente en minúsculas: 'lsp'
-			-->	vim.cmd("lsp restart " .. (client_name or ""))
-			-->end
-
-			-->--local function safe_lsp_restart(client_name)
-			-->--	local status = pcall(vim.cmd, "LspRestart " .. client_name)
-
-			-->--	if not status or vim.fn.has("nvim-0.12") == 1 then
-			-->--		-- Si el archivo tiene cambios sin guardar (ej. el snippet expandido), lo guardamos silenciosamente
-			-->--		if vim.api.nvim_get_option_value("modified", { buf = 0 }) then
-			-->--			vim.cmd("silent! write")
-			-->--		end
-			-->--		-- Ahora sí recargamos sin riesgo de error E37
-			-->--		vim.cmd("edit")
-			-->--	end
-			-->--end
-
-			-->-- 4. Función principal (Restaurada con ensure_gitignore_entry)
-			-->local function ensure_platformio_setup(bufnr, force)
-			-->	local root = platformio_root(bufnr)
-			-->	if not root then
-			-->		return
-			-->	end
-
-			-->	local pio_cmd = find_pio()
-			-->	if not pio_cmd then
-			-->		vim.notify("PlatformIO no encontrado", vim.log.levels.ERROR)
-			-->		return
-			-->	end
-
-			-->	-- AQUÍ ESTÁ TU FUNCIÓN ORIGINAL
-			-->	local function ensure_gitignore_entry(entry)
-			-->		local gitignore = root .. "/.gitignore"
-			-->		local lines = {}
-			-->		if vim.fn.filereadable(gitignore) == 1 then
-			-->			lines = vim.fn.readfile(gitignore)
-			-->			for _, line in ipairs(lines) do
-			-->				if vim.trim(line) == entry then
-			-->					return
-			-->				end
-			-->			end
-			-->		end
-			-->		table.insert(lines, entry)
-			-->		vim.fn.writefile(lines, gitignore)
-			-->		vim.notify(".gitignore actualizado: " .. entry, vim.log.levels.INFO)
-			-->	end
-
-			-->	ensure_gitignore_entry("compile_commands.json")
-			-->	ensure_gitignore_entry(".clangd")
-
-			-->	local ini_path = root .. "/platformio.ini"
-			-->	local compiledb = root .. "/compile_commands.json"
-			-->	local clangd_file = root .. "/.clangd"
-
-			-->	local ini_time = vim.fn.getftime(ini_path)
-			-->	local db_time = vim.fn.filereadable(compiledb) == 1 and vim.fn.getftime(compiledb) or -1
-			-->	local clangd_time = vim.fn.filereadable(clangd_file) == 1 and vim.fn.getftime(clangd_file) or -1
-
-			-->	-- Regenerar .clangd si es necesario
-			-->	if force or vim.fn.filereadable(clangd_file) == 0 or ini_time > clangd_time then
-			-->		write_clangd(root)
-			-->		vim.notify("PlatformIO: .clangd actualizado", vim.log.levels.INFO)
-			-->		-- REINICIAR LSP AQUÍ
-			-->		safe_lsp_restart("clangd")
-			-->	end
-
-			-->	-- Regenerar compile_commands.json si es necesario
-			-->	if force or vim.fn.filereadable(compiledb) == 0 or ini_time > db_time then
-			-->		vim.notify("PlatformIO: generando compile_commands.json...", vim.log.levels.INFO)
-			-->		vim.fn.jobstart({ pio_cmd, "run", "-t", "compiledb" }, {
-			-->			cwd = root,
-			-->			on_exit = function(_, code)
-			-->				if code == 0 then
-			-->					vim.schedule(function()
-			-->						vim.notify("PlatformIO: compile_commands.json listo")
-			-->						-- REINICIAR LSP AQUÍ
-			-->						safe_lsp_restart("clangd")
-			-->					end)
-			-->				end
-			-->			end,
-			-->		})
-			-->	end
-			-->end
-
-			-->local pio_group = vim.api.nvim_create_augroup("PlatformIOAutoSetup", { clear = true })
-
-			-->------------------------------------------------------------
-			-->-- 1. Autocomando Pasivo (Al abrir archivos)
-			-->------------------------------------------------------------
-			-->vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
-			-->	group = pio_group,
-			-->	pattern = { "*.c", "*.cpp", "*.h", "*.hpp", "*.ino" },
-			-->	callback = function(args)
-			-->		-- Solo revisa silenciosamente si falta el compile_commands.json
-			-->		ensure_platformio_setup(args.buf, false)
-			-->	end,
-			-->})
-
-			-->------------------------------------------------------------
-			-->-- 2. Comando manual :PioRefresh
-			-->------------------------------------------------------------
-			-->vim.api.nvim_create_user_command("PioRefresh", function()
-			-->	ensure_platformio_setup(vim.api.nvim_get_current_buf(), true)
-			-->end, {})
-
-			------------------------------------------------------------
-			-- 3. Intercepción del Menú de Autocompletado (nvim-cmp)
-			------------------------------------------------------------
-			local cmp_ok, cmp = pcall(require, "cmp")
-
-			if cmp_ok then
-				-- Escuchamos exactamente cuando presionas 'Enter' en el menú
-				cmp.event:on("confirm_done", function(evt)
-					-- Obtenemos el nombre exacto de la opción que elegiste en el menú
-					local item = evt.entry:get_completion_item()
-					local trigger = item.label
-
-					if not trigger then
-						return
-					end
-
-					-- ==============================================================
-					-- 🎯 LISTA DE TUS SNIPPETS
-					-- ==============================================================
-					local pio_snippets = {
-						["espwifi"] = true,
-						["piomain"] = true,
-						["uno_setup"] = true,
-					}
-
-					-- Si presionaste Enter sobre uno de nuestros snippets...
-					if pio_snippets[trigger] then
-						vim.schedule(function()
-							local bufnr = vim.api.nvim_get_current_buf()
-
-							if not platformio_root(bufnr) then
-								return
-							end
-
-							-- Guardamos el archivo para que PlatformIO lea las nuevas librerías
-							vim.api.nvim_buf_call(bufnr, function()
-								if vim.api.nvim_get_option_value("modified", { buf = bufnr }) then
-									vim.cmd("silent! write")
-								end
-							end)
-
-							vim.notify(
-								"PlatformIO: Plantilla '" .. trigger .. "' confirmada. Generando mapa...",
-								vim.log.levels.INFO
-							)
-							ensure_platformio_setup(bufnr, true)
-						end)
-					end
-				end)
-			else
-				vim.notify(
-					"No se encontró nvim-cmp. La automatización de snippets requiere nvim-cmp.",
-					vim.log.levels.WARN
-				)
-			end
-
-			---------------------------------
-			-- Arduino LSP  (usa clangd + arduino-cli)
-			---------------------------------
-
-			-- ============================================================
-			-- 1. HERRAMIENTAS AUXILIARES
-			-- ============================================================
-
-			local function normalize_path(path)
-				return (path or ""):gsub("\\", "/")
-			end
-
-			local function resolve_program(package, binary)
-				if has_exe(binary) then
-					return binary
-				end
-
-				local mason_path = get_mason_binary(package, binary)
-				if mason_path and vim.fn.filereadable(mason_path) == 1 then
-					return mason_path
-				end
-
-				return nil
-			end
-
-			local function get_default_arduino_cli_config()
-				if is_windows then
-					return normalize_path(vim.fn.expand("$LOCALAPPDATA/Arduino15/arduino-cli.yaml"))
-				end
-
-				return normalize_path(vim.fn.expand("~/.arduino15/arduino-cli.yaml"))
-			end
-
-			-- Cuenta cuántos espacios de indentación tiene una línea
-			local function obtener_indentacion(linea)
-				local espacios = linea:match("^(%s*)")
-				return #espacios, espacios
-			end
-
-			-- Verifica si una línea es el inicio de una clave YAML
-			local function es_clave(linea, clave)
-				return linea:match("^%s*" .. clave .. ":") ~= nil
-			end
-
-			-- ============================================================
-			-- 2. LÓGICA YAML
-			-- ============================================================
-
-			local function inyectar_yaml(lineas, jerarquia, campo, valor)
-				local cambio_realizado = false
-				local indent_actual = -1
-				local linea_insertar_idx = #lineas + 1
-				local indent_str_padre = ""
-
-				for _, padre in ipairs(jerarquia) do
-					local encontrado = false
-
-					for i, linea in ipairs(lineas) do
-						local nivel, str_espacios = obtener_indentacion(linea)
-
-						if es_clave(linea, padre) and nivel > indent_actual then
-							indent_actual = nivel
-							indent_str_padre = str_espacios
-							linea_insertar_idx = i + 1
-							encontrado = true
-							break
-						end
-					end
-
-					if not encontrado then
-						local nueva_indent = indent_str_padre .. "  "
-						if indent_actual == -1 then
-							nueva_indent = ""
-						end
-
-						local nueva_linea = nueva_indent .. padre .. ":"
-
-						if linea_insertar_idx > #lineas then
-							table.insert(lineas, nueva_linea)
-							linea_insertar_idx = #lineas + 1
-						else
-							table.insert(lineas, linea_insertar_idx, nueva_linea)
-							linea_insertar_idx = linea_insertar_idx + 1
-						end
-
-						cambio_realizado = true
-						indent_actual = #nueva_indent
-						indent_str_padre = nueva_indent
-					end
-				end
-
-				local indent_final = indent_str_padre .. "  "
-				if #jerarquia == 0 then
-					indent_final = ""
-				end
-
-				local encontrado_campo = false
-
-				for i, linea in ipairs(lineas) do
-					local nivel, _ = obtener_indentacion(linea)
-
-					if es_clave(linea, campo) and nivel == #indent_final then
-						local valor_actual = linea:match(":%s*(.+)$")
-						if valor_actual then
-							valor_actual = vim.trim(valor_actual)
-						end
-
-						if valor_actual ~= valor then
-							lineas[i] = indent_final .. campo .. ": " .. valor
-							cambio_realizado = true
-						end
-
-						encontrado_campo = true
-						break
-					end
-				end
-
-				if not encontrado_campo then
-					local nueva_linea = indent_final .. campo .. ": " .. valor
-					if linea_insertar_idx > #lineas then
-						table.insert(lineas, nueva_linea)
-					else
-						table.insert(lineas, linea_insertar_idx, nueva_linea)
-					end
-					cambio_realizado = true
-				end
-
-				return cambio_realizado
-			end
-
-			local function gestionar_archivo_config(ruta_archivo, configuraciones)
-				local lineas = {}
-				if vim.fn.filereadable(ruta_archivo) == 1 then
-					lineas = vim.fn.readfile(ruta_archivo)
-				end
-
-				local hubo_algun_cambio = false
-
-				for _, config in ipairs(configuraciones) do
-					local cambiado = inyectar_yaml(lineas, config.padres, config.clave, config.valor)
-					if cambiado then
-						hubo_algun_cambio = true
-					end
-				end
-
-				if hubo_algun_cambio then
-					local dir = vim.fn.fnamemodify(ruta_archivo, ":p:h")
-					if vim.fn.isdirectory(dir) == 0 then
-						vim.fn.mkdir(dir, "p")
-					end
-
-					vim.fn.writefile(lineas, ruta_archivo)
-					vim.notify(
-						"Configuración actualizada: " .. vim.fn.fnamemodify(ruta_archivo, ":t"),
-						vim.log.levels.INFO
-					)
-					vim.cmd("checktime")
-				end
-			end
-
-			local function build_arduino_receta(base_dir)
-				local ruta_win = normalize_path(base_dir)
-				if is_windows then
-					ruta_win = ruta_win:gsub("/", "\\")
-				end
-
-				return {
-					{
-						padres = { "directories" },
-						clave = "user",
-						valor = ruta_win,
-					},
-					{
-						padres = { "logging" },
-						clave = "level",
-						valor = "info",
-					},
-				}
-			end
-
-			function GestionarEntornoArduino(base_dir)
-				local dir_actual = normalize_path(base_dir or vim.fn.expand("%:p:h"))
-				local archivo_yaml = dir_actual .. "/arduino-cli.yaml"
-				local receta = build_arduino_receta(dir_actual)
-				gestionar_archivo_config(archivo_yaml, receta)
-			end
-
-			local function get_fqbn(root_dir)
-				local default_fqbn = "arduino:avr:uno"
-				local sketch_yaml = normalize_path(root_dir) .. "/sketch.yaml"
-
-				local file = io.open(sketch_yaml, "r")
-				if not file then
-					return default_fqbn
-				end
-
-				local fqbn = default_fqbn
-				for line in file:lines() do
-					local match = line:match("fqbn:%s*([%w%p%-:_]+)")
-					if match then
-						fqbn = match
-						break
-					end
-				end
-				file:close()
-
-				return fqbn
-			end
-
-			local function get_arduino_cli_config(root_dir)
-				local local_config = normalize_path(root_dir) .. "/arduino-cli.yaml"
-				if vim.fn.filereadable(local_config) == 1 then
-					return local_config
-				end
-
-				return get_default_arduino_cli_config()
-			end
-
-			-- ============================================================
-			-- 3. RESOLVER BINARIOS NECESARIOS
-			-- ============================================================
-
-			local cmd_server = resolve_program("arduino-language-server", "arduino-language-server")
-			local cmd_cli = resolve_program("arduino-cli", "arduino-cli")
-			local cmd_clangd = resolve_program("clangd", "clangd")
-
-			-- ============================================================
-			-- 4. ARDUINO LSP
-			-- ============================================================
-
-			vim.api.nvim_create_autocmd("FileType", {
-				pattern = "arduino",
-				callback = function(ev)
-					if not cmd_server or not cmd_cli or not cmd_clangd then
-						return
-					end
-
-					local root_dir = vim.fs.root(ev.buf, { "sketch.yaml", "arduino-cli.yaml", ".git", "*.ino" })
-						or vim.fn.getcwd()
-
-					root_dir = normalize_path(root_dir)
-
-					GestionarEntornoArduino(root_dir)
-
-					local fqbn = get_fqbn(root_dir)
-					local config_path = get_arduino_cli_config(root_dir)
-
-					local capabilities_arduino = vim.lsp.protocol.make_client_capabilities()
-					capabilities_arduino.textDocument.completion.completionItem.snippetSupport = true
-					capabilities_arduino.workspace.semanticTokens = { refreshSupport = false }
-					capabilities_arduino.textDocument.semanticTokens = { dynamicRegistration = false }
-
-					vim.lsp.start({
-						name = "arduino_language_server",
-						cmd = {
-							cmd_server,
-							"-cli",
-							cmd_cli,
-							"-clangd",
-							cmd_clangd,
-							"-cli-config",
-							config_path,
-							"-fqbn",
-							fqbn,
-						},
-						root_dir = root_dir,
-						capabilities = capabilities_arduino,
-						on_attach = function(client)
-							client.server_capabilities.semanticTokensProvider = nil
-							vim.notify("Arduino LSP: Conectando con Clangd en " .. cmd_clangd, vim.log.levels.INFO)
-						end,
-					})
-				end,
-			})
-
-			-- ============================================================
-			-- 5. PLANTILLA AUTOMÁTICA PARA ARDUINO (.ino)
-			-- ============================================================
-
-			vim.api.nvim_create_autocmd("BufNewFile", {
-				pattern = "*.ino",
-				callback = function()
-					local lines = {
-						"#define LED 13",
-						"#define BAUDRATE 9600",
-						"",
-						"void setup() {",
-						"  Serial.begin(BAUDRATE);",
-						"  delay(10);",
-						"  pinMode(LED, OUTPUT);",
-						"}",
-						"",
-						"void loop() {",
-						'  Serial.println("LED ON");',
-						"  digitalWrite(LED, 1);",
-						"  delay(500);",
-						'  Serial.println("LED OFF");',
-						"  digitalWrite(LED, 0);",
-						"  delay(500);",
-						"}",
-					}
-
-					vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
-
-					vim.schedule(function()
-						vim.cmd("write")
-					end)
-				end,
-			})
-
-			---------------------------------
-			-- Matlab LSP
-			---------------------------------
-			if has_exe("matlab-ls") then
-				vim.lsp.config.matlab_ls = {
-					default_config = {
-						cmd = { "matlab-ls" },
-						filetypes = { "matlab" },
-						root_dir = function(fname)
-							local path = vim.fs.dirname(fname)
-							local git = vim.fs.find({ ".git" }, { upward = true, path = path })[1]
-							if git then
-								return vim.fs.dirname(git)
-							end
-							local startup = vim.fs.find({ "startup.m" }, { upward = true, path = path })[1]
-							if startup then
-								return vim.fs.dirname(startup)
-							end
-							return path
-						end,
-						capabilities = capabilities,
-					},
-				}
-				vim.lsp.enable("matlab_ls")
-			end
-
-			------------------------------------------------------------
-			-- Atajos de Teclado del LSP (Con descripciones)
-			------------------------------------------------------------
-
-			------------------------------------------------------------
-			-- Atajos de Teclado del LSP (Solo los necesarios)
-			------------------------------------------------------------
-
-			-- [1] ATAJOS QUE NEOVIM NO INCLUYE POR DEFECTO:
-			vim.keymap.set("n", "gd", vim.lsp.buf.definition, { desc = "LSP: Ir a Definición" })
-			vim.keymap.set("n", "gD", vim.lsp.buf.declaration, { desc = "LSP: Ir a Declaración (Cabecera)" })
-			vim.keymap.set("n", "gl", vim.diagnostic.open_float, { desc = "Mostrar diagnostic flotante" })
-
-			-- [2] TUS SOBREESCRITURAS (Porque prefieres usar tu <leader> en lugar de los nativos 'gra' y 'grn'):
-			vim.keymap.set({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, { desc = "LSP: Acciones de Código" })
-
-			-- =========================================================
-			-- Smart Rename para LSP
-			-- =========================================================
-			--
-			-- Problema:
-			-- ---------------------------------------------------------
-			-- El rename nativo:
-			--
-			--     vim.lsp.buf.rename()
-			--
-			-- funciona perfectamente en la mayoría de LSPs modernos
-			-- (Pyright, LuaLS, Rust Analyzer, etc.).
-			--
-			-- Sin embargo, con clangd puede ocurrir un problema de
-			-- sincronización:
-			--
-			--   1. El rename se aplica correctamente en memoria.
-			--   2. Pero clangd NO refresca inmediatamente el AST.
-			--   3. Aparecen diagnostics falsos temporales.
-			--
-			-- Ejemplo:
-			--
-			--   "Call to undeclared function"
-			--
-			-- El error desaparece al ejecutar:
-			--
-			--     :wa
-			--
-			-- porque clangd depende mucho de:
-			--
-			--   - didSave
-			--   - reparseo desde disco
-			--   - background indexing
-			--   - include graph
-			--
-			-- especialmente en proyectos grandes de C/C++.
-			--
-			--
-			-- Solución:
-			-- ---------------------------------------------------------
-			-- Implementar manualmente el request:
-			--
-			--     textDocument/rename
-			--
-			-- y guardar TODOS los buffers únicamente cuando el
-			-- WorkspaceEdit haya terminado de aplicarse.
-			--
-			-- Esto evita:
-			--
-			--   - race conditions
-			--   - timers arbitrarios
-			--   - delays dependientes del tamaño del proyecto
-			--
-			--
-			-- NOTA IMPORTANTE:
-			-- ---------------------------------------------------------
-			-- Este workaround SOLO se aplica a clangd.
-			--
-			-- Los demás LSPs usan:
-			--
-			--     vim.lsp.buf.rename()
-			--
-			-- directamente.
-			--
-			--
-			-- Referencias:
-			-- ---------------------------------------------------------
-			-- LSP Spec:
-			--   textDocument/rename
-			--
-			-- Neovim:
-			--   :help vim.lsp.Client.request()
-			--   :help vim.lsp.util.apply_workspace_edit()
-			--
-			-- =========================================================
-
-			-- ---------------------------------------------------------
-			-- Rename especializado para clangd
-			-- ---------------------------------------------------------
-			local function clangd_rename()
-				-- Obtener la palabra bajo el cursor.
-				--
-				-- <cword> = "current word"
-				local curr_name = vim.fn.expand("<cword>")
-
-				-- Mostrar prompt interactivo.
-				vim.ui.input({
-					prompt = "Nuevo nombre: ",
-					default = curr_name,
-				}, function(new_name)
-					-- Cancelar si:
-					--   - el usuario presiona ESC
-					--   - el nombre es vacío
-					--   - el nombre no cambió
-					if not new_name or new_name == curr_name then
-						return
-					end
-
-					-- Buscar el cliente clangd asociado
-					-- al buffer actual.
-					--
-					-- [1] porque get_clients() devuelve una lista.
-					local client = vim.lsp.get_clients({
-						bufnr = 0,
-						name = "clangd",
-					})[1]
-
-					-- Validar existencia del cliente.
-					if not client then
-						vim.notify("clangd no encontrado", vim.log.levels.ERROR)
-						return
-					end
-
-					-- Construir parámetros LSP para:
-					--
-					--   textDocument/rename
-					--
-					-- IMPORTANTE:
-					-- Se usa client.offset_encoding para evitar:
-					--
-					--   "multiple different client offset_encodings detected"
-					--
-					-- y:
-					--
-					--   "position_encoding param is required"
-					local params = vim.lsp.util.make_position_params(0, client.offset_encoding)
-
-					-- Nuevo nombre solicitado.
-					params.newName = new_name
-
-					-- =====================================================
-					-- Request manual al servidor LSP
-					-- =====================================================
-					--
-					-- En vez de usar:
-					--
-					--     vim.lsp.buf.rename()
-					--
-					-- usamos directamente:
-					--
-					--     client:request(...)
-					--
-					-- para poder saber EXACTAMENTE cuándo termina
-					-- el rename.
-					--
-					-- Esto permite ejecutar:
-					--
-					--     :wall
-					--
-					-- únicamente después de aplicar el WorkspaceEdit.
-					-- =====================================================
-
-					client:request(
-						"textDocument/rename",
-						params,
-
-						-- Callback ejecutado cuando clangd responde.
-						function(err, result)
-							-- Manejo de errores LSP.
-							if err then
-								vim.notify(err.message, vim.log.levels.ERROR)
-								return
-							end
-
-							-- Aplicar WorkspaceEdit recibido.
-							--
-							-- Esto modifica:
-							--   - buffers
-							--   - referencias
-							--   - headers
-							--   - múltiples archivos
-							if result then
-								vim.lsp.util.apply_workspace_edit(result, client.offset_encoding)
-							end
-
-							-- =================================================
-							-- clangd necesita didSave
-							-- =================================================
-							--
-							-- Guardar TODOS los buffers modificados para
-							-- forzar:
-							--
-							--   - reparseo
-							--   - refresh del AST
-							--   - actualización de diagnostics
-							--
-							-- silent! evita mensajes molestos.
-							-- =================================================
-							vim.cmd("silent! wall")
-
-							vim.notify("Rename completado y guardado", vim.log.levels.INFO)
-						end,
-
-						-- Buffer actual
-						0
-					)
-				end)
-			end
-
-			-- ---------------------------------------------------------
-			-- Filetypes relacionados con clangd
-			-- ---------------------------------------------------------
-			--
-			-- Incluye:
-			--   - C
-			--   - C++
-			--   - Objective-C
-			--   - headers
-			--
-			-- porque el problema también ocurre en:
-			--   .h
-			--   .hpp
-			--   .hh
-			--   etc.
-			-- ---------------------------------------------------------
-			local clang_filetypes = {
-				c = true,
-				cpp = true,
-				cc = true,
-				cxx = true,
-				h = true,
-				hpp = true,
-				hh = true,
-				hxx = true,
-				objc = true,
-				objcpp = true,
-			}
-
-			-- ---------------------------------------------------------
-			-- Smart Rename
-			-- ---------------------------------------------------------
-			--
-			-- Selecciona automáticamente:
-			--
-			--   - clangd_rename() para C/C++
-			--   - vim.lsp.buf.rename() para el resto
-			--
-			-- Esto evita aplicar workarounds innecesarios
-			-- a otros LSPs que ya funcionan correctamente.
-			-- ---------------------------------------------------------
-			local function smart_rename()
-				if clang_filetypes[vim.bo.filetype] then
-					-- Workaround especializado para clangd
-					clangd_rename()
-				else
-					-- Rename estándar para cualquier otro LSP
-					vim.lsp.buf.rename()
-				end
-			end
-
-			-- ---------------------------------------------------------
-			-- Keymap
-			-- ---------------------------------------------------------
-			vim.keymap.set("n", "<leader>rn", smart_rename, {
-				desc = "Smart LSP Rename",
-			})
-
-			-- =========================================================
-			-- NOTA SOBRE LOS KEYMAPS LSP EN NEOVIM 0.11+
-			-- =========================================================
-			--
-			-- Neovim moderno ya incluye MUCHOS keymaps LSP por
-			-- defecto, por lo que NO necesitas configurarlos manualmente.
-			--
-			-- Incluidos automáticamente:
-			--
-			--   K     -> hover
-			--   grr   -> references
-			--   gri   -> implementation
-			--   grn   -> rename
-			--   gra   -> code action
-			--   grt   -> type definition
-			--   [d    -> previous diagnostic
-			--   ]d    -> next diagnostic
-			--
-			-- Documentación oficial:
-			--   :help lsp-defaults
-			--
-			-- Referencias:
-			--   https://neovim.io/doc/user/lsp/
-			--   https://neovim.io/doc/user/news-0.11/
-			--
-			-- Por eso este archivo solo define mappings
-			-- personalizados realmente necesarios.
-			--
-			-- =========================================================
-		end,
-	},
+    ---------------------------------
+    -- Install "Mason"
+    ---------------------------------
+    {
+        "williamboman/mason.nvim",
+        lazy = false,
+        config = function()
+            require("mason").setup()
+        end,
+    },
+
+    ---------------------------------
+    -- Install "Mason LSP"
+    ---------------------------------
+    {
+        "williamboman/mason-lspconfig.nvim",
+        lazy = false,
+        opts = {
+            auto_install = true,
+        },
+        config = function()
+            require("mason-lspconfig").setup({
+                ensure_installed = {
+                    -- 🔧 Tus LSPs actuales (Intactos)
+                    "lua_ls",
+                    "pylsp",
+                    "clangd",
+                    "ts_ls",
+                    "powershell_es",
+                    "arduino_language_server",
+                    "asm_lsp",
+                    "vimls",
+                    "emmet_ls",
+
+                    -- 🌐 Desarrollo Web y Datos
+                    "html",
+                    "cssls",
+                    "jsonls",
+
+                    -- 🛠️ Scripting y Configuración
+                    "bashls",
+                    "yamlls",
+                    "marksman",
+
+                    -- 🚀 Herramientas Avanzadas
+                    "ast_grep",
+                },
+            })
+        end,
+    },
+
+    ---------------------------------
+    -- Auto-install Formatters (Mason + None-LS)
+    ---------------------------------
+    {
+        "jay-babu/mason-null-ls.nvim",
+        lazy = false,
+        dependencies = { "williamboman/mason.nvim", "nvimtools/none-ls.nvim" },
+        config = function()
+            local is_windows = vim.loop.os_uname().sysname:match("Windows")
+
+            require("mason-null-ls").setup({
+                ensure_installed = {
+                    "clang-format", -- Mason lo descargará automáticamente
+                },
+                automatic_setup = false,
+                handlers = {
+                    -- ¡ESTA ES LA MAGIA!: Se ejecuta EN CUANTO MASON INSTALA LA HERRAMIENTA (o si ya existe)
+                    clang_format = function(source_name, methods)
+                        local null_ls = require("null-ls")
+                        local clang_cmd = "clang-format"
+
+                        if is_windows then
+                            clang_cmd = vim.fn.stdpath("data")
+                                .. "/mason/packages/clang-format/venv/Scripts/clang-format.exe"
+                        end
+
+                        -- Registramos el formateador de forma dinámica en caliente
+                        null_ls.register(null_ls.builtins.formatting.clang_format.with({
+                            command = clang_cmd,
+                            extra_args = {
+                                "-style={BasedOnStyle: LLVM, IndentWidth: 4, TabWidth: 4, UseTab: Never}",
+                            },
+                        }))
+                    end,
+                },
+            })
+        end,
+    },
+
+    ---------------------------------
+    -- Install "nvim-lspconfig"
+    ---------------------------------
+    {
+        "neovim/nvim-lspconfig",
+        dependencies = {
+            "williamboman/mason.nvim",
+            "folke/neodev.nvim",
+        },
+        lazy = false,
+        config = function()
+            local uv = vim.uv or vim.loop
+
+            -- FIX 1: Agregar Mason al PATH usando el separador correcto para cada SO
+            local mason_bin = vim.fn.stdpath("data") .. "/mason/bin"
+            local is_windows = vim.fn.has("win32") == 1
+            local separator = is_windows and ";" or ":"
+
+            if not string.find(vim.env.PATH, mason_bin, 1, true) then
+                vim.env.PATH = mason_bin .. separator .. vim.env.PATH
+            end
+
+            local capabilities = require("cmp_nvim_lsp").default_capabilities()
+
+            local function notify_missing(name)
+                vim.notify(name .. " no está instalado o no está en PATH", vim.log.levels.WARN)
+            end
+
+            -- FIX 2: Función multiplataforma para detectar ejecutables (.cmd / .exe en Windows)
+            local function has_exe(name)
+                if is_windows then
+                    return vim.fn.executable(name) == 1
+                        or vim.fn.executable(name .. ".cmd") == 1
+                        or vim.fn.executable(name .. ".exe") == 1
+                end
+                return vim.fn.executable(name) == 1
+            end
+
+            local function os_home()
+                return (uv.os_homedir() or vim.fn.expand("~")):gsub("\\", "/")
+            end
+
+            local function find_pio()
+                if has_exe("pio") then
+                    return "pio"
+                end
+
+                local home = os_home()
+                local candidates = {
+                    home .. "/.platformio/penv/bin/pio",
+                    home .. "/.platformio/penv/Scripts/pio.exe",
+                    home .. "/.local/bin/pio",
+                    home .. "/AppData/Roaming/Python/Python311/Scripts/pio.exe",
+                    home .. "/AppData/Roaming/Python/Python312/Scripts/pio.exe",
+                }
+
+                for _, path in ipairs(candidates) do
+                    if vim.fn.filereadable(path) == 1 then
+                        return path:gsub("\\", "/")
+                    end
+                end
+
+                return nil
+            end
+
+            local function get_mason_binary(package, binary)
+                local mason_path = vim.fn.stdpath("data") .. "/mason"
+                local ext = is_windows and ".exe" or ""
+
+                local path = mason_path .. "/bin/" .. binary .. ext
+                if vim.fn.filereadable(path) == 0 then
+                    path = mason_path .. "/packages/" .. package .. "/" .. binary .. ext
+                end
+
+                if vim.fn.filereadable(path) == 1 then
+                    return path:gsub("\\", "/")
+                end
+
+                return binary
+            end
+
+            ---------------------------------
+            -- Emmet LSP (Abreviaciones ultra rápidas de HTML/CSS)
+            ---------------------------------
+            if has_exe("emmet-language-server") then
+                vim.lsp.config.emmet_ls = {
+                    default_config = {
+                        capabilities = capabilities,
+                        filetypes = {
+                            "html",
+                            "css",
+                            "scss",
+                            "sass",
+                            "less",
+                            "javascript",
+                            "typescript",
+                            "javascriptreact",
+                            "typescriptreact",
+                        },
+                    },
+                }
+                vim.lsp.enable("emmet_ls")
+            end
+
+            ---------------------------------
+            -- AST-Grep LSP
+            ---------------------------------
+            -- Nota: ast_grep usa el comando "sg" en la terminal
+            if has_exe("sg") then
+                vim.lsp.config.ast_grep = {
+                    default_config = {
+                        cmd = { "sg", "lsp" },
+                        filetypes = {
+                            "c",
+                            "cpp",
+                            "rust",
+                            "go",
+                            "java",
+                            "python",
+                            "javascript",
+                            "typescript",
+                            "html",
+                            "css",
+                            "json",
+                        },
+                        root_dir = function(fname)
+                            return vim.fs.dirname(
+                                vim.fs.find({ "sgconfig.yml", ".git" }, { upward = true, path = vim.fs.dirname(fname) })[1]
+                            )
+                        end,
+                        capabilities = capabilities,
+                    },
+                }
+                vim.lsp.enable("ast_grep")
+            end
+
+            --------------------------------------------------------
+            -- HTML
+            --------------------------------------------------------
+            if has_exe("vscode-html-language-server") then
+                vim.lsp.config.html = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("html")
+            end
+
+            --------------------------------------------------------
+            -- CSS
+            --------------------------------------------------------
+            if has_exe("vscode-css-language-server") then
+                vim.lsp.config.cssls = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("cssls")
+            end
+
+            --------------------------------------------------------
+            -- JSON
+            --------------------------------------------------------
+            if has_exe("vscode-json-language-server") then
+                vim.lsp.config.jsonls = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("jsonls")
+            end
+
+            --------------------------------------------------------
+            -- Bash / Shell
+            --------------------------------------------------------
+            if has_exe("bash-language-server") then
+                vim.lsp.config.bashls = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("bashls")
+            end
+
+            --------------------------------------------------------
+            -- YAML
+            --------------------------------------------------------
+            if has_exe("yaml-language-server") then
+                vim.lsp.config.yamlls = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("yamlls")
+            end
+
+            --------------------------------------------------------
+            -- Markdown
+            --------------------------------------------------------
+            if has_exe("marksman") then
+                vim.lsp.config.marksman = { default_config = { capabilities = capabilities } }
+                vim.lsp.enable("marksman")
+            end
+
+            --------------------------------------------------------
+            -- clangd (Optimizado para Neovim 0.12+ Nativo y Windows)
+            --------------------------------------------------------
+
+            -- 1. VALIDACIÓN: Solo se ejecuta si 'clangd' está instalado en el sistema
+            if vim.fn.executable("clangd") == 1 then
+                -- Detectamos el sistema operativo actual
+                local is_windows = vim.fn.has("win32") == 1
+
+                -- Argumentos base comunes para ambos sistemas
+                local cmd = {
+                    "clangd",
+                    "--background-index",
+                    "--clang-tidy",
+                    "--header-insertion=never",
+                    -- El doble asterisco soluciona el problema de las rutas absolutas en Windows
+                    "--query-driver=**\\bin\\*g++*,**\\bin\\*gcc*",
+                }
+                local fallbackFlags = {}
+
+                if is_windows then
+                    -- ==========================================
+                    -- CONFIGURACIÓN PARA WINDOWS (Scoop / MinGW)
+                    -- ==========================================
+                    local home = (vim.env.USERPROFILE or vim.uv.os_homedir()):gsub("\\", "/")
+                    local mingw_include = home .. "/scoop/apps/mingw/current/x86_64-w64-mingw32/include"
+
+                    -- CAMBIO 1: El comodín universal '*' permite que clangd ejecute de forma segura
+                    -- tanto el compilador de MinGW como los de PlatformIO sin importar las barras de Windows.
+                    table.insert(cmd, "--query-driver=*")
+
+                    fallbackFlags = {
+                        "--target=x86_64-w64-mingw32",
+                        "-I" .. mingw_include,
+                    }
+                else
+                    -- ==========================================
+                    -- CONFIGURACIÓN PARA LINUX / MACOS
+                    -- ==========================================
+                    table.insert(cmd, "--query-driver=/usr/bin/gcc,/usr/bin/g++,/usr/bin/clang")
+                end
+
+                -- 2. Aplicamos la configuración en la API moderna de Neovim 0.12
+                vim.lsp.config.clangd = vim.tbl_deep_extend("force", vim.lsp.config.clangd or {}, {
+                    cmd = cmd,
+
+                    -- CAMBIO 2: Obligatorio en Neovim 0.12 nativo para que 'vim.lsp.enable'
+                    -- sepa exactamente en qué buffers debe auto-iniciar el servidor.
+                    filetypes = { "c", "cpp", "objc", "objcpp", "h", "hpp" },
+
+                    init_options = {
+                        fallbackFlags = fallbackFlags,
+                    },
+                    root_markers = {
+                        "compile_commands.json",
+                        "compile_flags.txt",
+                        "platformio.ini",
+                        ".git",
+                    },
+
+                    on_attach = function(client, bufnr)
+                        client.server_capabilities.documentFormattingProvider = false
+                        client.server_capabilities.documentRangeFormattingProvider = false
+                    end,
+                })
+
+                -- 3. Activamos el servidor de forma segura usando el gestor nativo
+                vim.lsp.enable("clangd")
+            end
+
+            --------------------------------------------------------
+            -- asm_lsp
+            --------------------------------------------------------
+            if has_exe("asm-lsp") then
+                vim.lsp.config.asm_lsp = {
+                    default_config = {
+                        cmd = { "asm-lsp" },
+                        filetypes = { "asm", "nasm", "gas", "armasm", "avr" },
+                        root_dir = function(fname)
+                            local path = vim.fs.dirname(fname)
+                            local git = vim.fs.find({ ".git" }, { upward = true, path = path })[1]
+                            if git then
+                                return vim.fs.dirname(git)
+                            end
+                            local toml = vim.fs.find({ "asm_lsp.toml" }, { upward = true, path = path })[1]
+                            if toml then
+                                return vim.fs.dirname(toml)
+                            end
+                            return path
+                        end,
+                        on_attach = function(_, bufnr)
+                            vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = bufnr })
+                        end,
+                    },
+                }
+                vim.lsp.enable("asm_lsp")
+            else
+                notify_missing("asm-lsp")
+            end
+
+            --------------------------------------------------------
+            -- pylsp
+            --------------------------------------------------------
+            if has_exe("pylsp") then
+                vim.lsp.config.pylsp = {
+                    default_config = {
+                        cmd = { "pylsp" },
+                        settings = {
+                            pylsp = {
+                                plugins = {
+                                    rope_rename = { enabled = false },
+                                    jedi_rename = { enabled = false },
+                                    pylsp_rope = { rename = true },
+                                },
+                            },
+                        },
+                        capabilities = capabilities,
+                    },
+                }
+                vim.lsp.enable("pylsp")
+            else
+                notify_missing("pylsp")
+            end
+
+            --------------------------------------------------------
+            -- lua_ls (Neovim 0.12+ moderno)
+            --------------------------------------------------------
+
+            if has_exe("lua-language-server") then
+                vim.lsp.config.lua_ls = {
+
+                    ------------------------------------------------
+                    -- Capabilities (cmp_nvim_lsp)
+                    ------------------------------------------------
+                    capabilities = capabilities,
+
+                    ------------------------------------------------
+                    -- Ejecutable
+                    ------------------------------------------------
+                    cmd = { "lua-language-server" },
+
+                    ------------------------------------------------
+                    -- Filetypes
+                    ------------------------------------------------
+                    filetypes = { "lua" },
+
+                    ------------------------------------------------
+                    -- Root markers
+                    ------------------------------------------------
+                    root_markers = {
+                        { ".luarc.json", ".luarc.jsonc" },
+                        ".git",
+                    },
+
+                    ------------------------------------------------
+                    -- on_attach
+                    ------------------------------------------------
+                    on_attach = function(client, bufnr)
+                        ------------------------------------------------
+                        -- stylua será el formatter real
+                        ------------------------------------------------
+                        client.server_capabilities.documentFormattingProvider = false
+                        client.server_capabilities.documentRangeFormattingProvider = false
+
+                        ------------------------------------------------
+                        -- Keymaps buffer-local opcionales
+                        ------------------------------------------------
+                        local opts = { buffer = bufnr }
+
+                        vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+
+                        vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+
+                        vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
+                    end,
+
+                    ------------------------------------------------
+                    -- Settings de lua-language-server
+                    ------------------------------------------------
+                    settings = {
+                        Lua = {
+
+                            --------------------------------------------
+                            -- Runtime
+                            --------------------------------------------
+                            runtime = {
+                                version = "LuaJIT",
+                            },
+
+                            --------------------------------------------
+                            -- Completion
+                            --------------------------------------------
+                            completion = {
+                                callSnippet = "Replace",
+                            },
+
+                            --------------------------------------------
+                            -- Diagnostics
+                            --------------------------------------------
+                            diagnostics = {
+
+                                ----------------------------------------
+                                -- lazydev.nvim maneja esto
+                                ----------------------------------------
+                                globals = {},
+
+                                ----------------------------------------
+                                -- Reduce ruido
+                                ----------------------------------------
+                                disable = {
+                                    "missing-fields",
+                                },
+                            },
+
+                            --------------------------------------------
+                            -- Workspace
+                            --------------------------------------------
+                            workspace = {
+
+                                ----------------------------------------
+                                -- Evita prompts molestos
+                                ----------------------------------------
+                                checkThirdParty = false,
+
+                                ----------------------------------------
+                                -- Runtime files de Neovim
+                                ----------------------------------------
+                                library = vim.api.nvim_get_runtime_file("", true),
+                            },
+
+                            --------------------------------------------
+                            -- Hinting
+                            --------------------------------------------
+                            hint = {
+                                enable = true,
+                            },
+
+                            --------------------------------------------
+                            -- Telemetry
+                            --------------------------------------------
+                            telemetry = {
+                                enable = false,
+                            },
+
+                            --------------------------------------------
+                            -- Format
+                            --------------------------------------------
+                            format = {
+                                enable = false,
+                            },
+                        },
+                    },
+                }
+
+                --------------------------------------------------------
+                -- Activar servidor
+                --------------------------------------------------------
+                vim.lsp.enable("lua_ls")
+            else
+                notify_missing("lua-language-server")
+            end
+            --------------------------------------------------------
+            -- ts_ls
+            --------------------------------------------------------
+            if has_exe("typescript-language-server") then
+                -- Utilizamos get_mason_binary para asegurar la ruta correcta (especialmente útil en Windows/JS)
+                local ts_binary = get_mason_binary("typescript-language-server", "typescript-language-server")
+
+                vim.lsp.config.ts_ls = {
+                    default_config = {
+                        cmd = { ts_binary, "--stdio" },
+                        filetypes = {
+                            "javascript",
+                            "javascript.jsx",
+                            "typescript",
+                            "typescript.tsx",
+                        },
+                        init_options = {
+                            hostInfo = "neovim",
+                        },
+                        capabilities = capabilities,
+                    },
+                }
+                vim.lsp.enable("ts_ls")
+            else
+                notify_missing("typescript-language-server")
+            end
+
+            --------------------------------------------------------
+            -- vimls
+            --------------------------------------------------------
+            if has_exe("vim-language-server") then
+                vim.lsp.config.vimls = {
+                    default_config = {
+                        cmd = { "vim-language-server" },
+                        capabilities = capabilities,
+                    },
+                }
+                vim.lsp.enable("vimls")
+            end
+
+            --------------------------------------------------------
+            -- PowerShell LSP (Neovim 0.11+)
+            --------------------------------------------------------
+            local ps_bundle_path = vim.fn.stdpath("data") .. "/mason/packages/powershell-editor-services"
+            local ps_cmd = has_exe("pwsh") and "pwsh" or "powershell.exe"
+
+            if has_exe(ps_cmd) then
+                vim.lsp.config("powershell_es", {
+                    cmd = {
+                        ps_cmd,
+                        "-NoLogo",
+                        "-NoProfile",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-Command",
+                        string.format(
+                            "& '%s/PowerShellEditorServices/Start-EditorServices.ps1' -HostName 'nvim' -HostProfileId '0' -HostVersion '1.0.0' -Stdio -BundledModulesPath '%s' -LogLevel Normal",
+                            ps_bundle_path,
+                            ps_bundle_path
+                        ),
+                    },
+                    root_dir = vim.fs.root(0, { ".git", "PSScriptAnalyzerSettings.psd1" }) or vim.fn.getcwd(),
+                    settings = {
+                        powershell = {
+                            codeFormatting = {
+                                Preset = "OTBS",
+                            },
+                        },
+                    },
+                    init_options = {
+                        enableProfileLoading = false,
+                    },
+                    capabilities = capabilities,
+                })
+                vim.lsp.enable("powershell_es")
+            else
+                notify_missing(ps_cmd)
+            end
+
+            ---------------------------------
+            -- PlatformIO AUTOSETUP para clangd (Optimizado Neovim 0.12)
+            ---------------------------------
+
+            local function read_file(path)
+                if vim.fn.filereadable(path) ~= 1 then
+                    return ""
+                end
+                return table.concat(vim.fn.readfile(path), "\n")
+            end
+
+            local function platformio_root(bufnr)
+                return vim.fs.root(bufnr, { "platformio.ini" })
+            end
+
+            -- Plantilla con espacios ASCII estándar válidos para el parser YAML de clangd
+            local function build_clangd_template(platformio_ini_text)
+                local text = (platformio_ini_text or ""):lower()
+                local lines = {
+                    "CompileFlags:",
+                }
+
+                -- Solo agregamos la sección 'Add' si es AVR
+                if text:find("atmelavr") then
+                    table.insert(lines, "  Add:")
+                    table.insert(lines, "    - --target=avr")
+                end
+
+                -- La sección Remove y Diagnostics siempre se aplica
+                vim.list_extend(lines, {
+                    "  Remove:",
+                    "    - -mlongcalls",
+                    "    - -fstrict-volatile-bitfields",
+                    "    - -fno-tree-switch-conversion",
+                    "    - -free",
+                    "    - -fipa-pta",
+                    "",
+                    "Diagnostics:",
+                    "  Suppress:",
+                    "    - type_unsupported",
+                    "    - machine_mode",
+                })
+                return lines
+            end
+
+            local function write_clangd(root)
+                local ini_path = root .. "/platformio.ini"
+                local clangd_file = root .. "/.clangd"
+                local ini_text = read_file(ini_path)
+
+                -- Pasamos solo ini_text ya que compile_commands.json se encarga de los includes
+                local new_lines = build_clangd_template(ini_text)
+                vim.fn.writefile(new_lines, clangd_file)
+            end
+
+            local function safe_lsp_restart(client_name)
+                -- Comando nativo core de Neovim 0.12
+                vim.cmd("lsp restart " .. (client_name or ""))
+            end
+
+            local function ensure_platformio_setup(bufnr, force)
+                local root = platformio_root(bufnr)
+                if not root then
+                    return
+                end
+
+                local pio_cmd = type(find_pio) == "function" and find_pio() or "pio"
+                if not pio_cmd then
+                    vim.notify("PlatformIO no encontrado", vim.log.levels.ERROR)
+                    return
+                end
+
+                local function ensure_gitignore_entry(entry)
+                    local gitignore = root .. "/.gitignore"
+                    local lines = {}
+                    if vim.fn.filereadable(gitignore) == 1 then
+                        lines = vim.fn.readfile(gitignore)
+                        for _, line in ipairs(lines) do
+                            if vim.trim(line) == entry then
+                                return
+                            end
+                        end
+                    end
+                    table.insert(lines, entry)
+                    vim.fn.writefile(lines, gitignore)
+                    vim.notify(".gitignore actualizado: " .. entry, vim.log.levels.INFO)
+                end
+
+                ensure_gitignore_entry("compile_commands.json")
+                ensure_gitignore_entry(".clangd")
+
+                local ini_path = root .. "/platformio.ini"
+                local compiledb = root .. "/compile_commands.json"
+                local clangd_file = root .. "/.clangd"
+
+                local ini_time = vim.fn.getftime(ini_path)
+                local db_time = vim.fn.filereadable(compiledb) == 1 and vim.fn.getftime(compiledb) or -1
+                local clangd_time = vim.fn.filereadable(clangd_file) == 1 and vim.fn.getftime(clangd_file) or -1
+
+                -- Evaluamos qué archivos necesitan actualizarse REALMENTE
+                local need_clangd = force or vim.fn.filereadable(clangd_file) == 0 or ini_time > clangd_time
+                local need_compiledb = force or vim.fn.filereadable(compiledb) == 0 or ini_time > db_time
+
+                -- 1. Regenerar .clangd si es necesario
+                if need_clangd then
+                    write_clangd(root)
+                    vim.notify("PlatformIO: .clangd actualizado", vim.log.levels.INFO)
+
+                    -- ¡AQUÍ ESTÁ EL TRUCO!
+                    -- Solo reiniciamos el LSP si NO se va a generar el compile_commands.json.
+                    -- Si se va a generar el archivo pesado, nos quedamos quietos y esperamos.
+                    if not need_compiledb then
+                        safe_lsp_restart("clangd")
+                    end
+                end
+
+                -- 2. Regenerar compile_commands.json de forma asíncrona
+                if need_compiledb then
+                    vim.notify("PlatformIO: generando compile_commands.json...", vim.log.levels.INFO)
+
+                    -- Detectamos si estamos en Windows para activar el modo shell
+                    local is_windows = vim.fn.has("win32") == 1
+
+                    vim.fn.jobstart({ pio_cmd, "run", "-t", "compiledb" }, {
+                        cwd = root,
+                        shell = is_windows, -- <--- ¡ESTO ES CRUCIAL PARA WINDOWS!
+                        on_exit = function(_, code)
+                            if code == 0 then
+                                vim.schedule(function()
+                                    vim.notify("PlatformIO: compile_commands.json listo")
+                                    safe_lsp_restart("clangd")
+                                end)
+                            end
+                        end,
+                    })
+                end
+            end
+            -- Configuración de Autocomandos
+            local pio_group = vim.api.nvim_create_augroup("PlatformIOAutoSetup", { clear = true })
+
+            vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
+                group = pio_group,
+                pattern = { "*.c", "*.cpp", "*.h", "*.hpp", "*.ino" },
+                callback = function(args)
+                    ensure_platformio_setup(args.buf, false)
+                end,
+            })
+
+            vim.api.nvim_create_user_command("PioRefresh", function()
+                ensure_platformio_setup(vim.api.nvim_get_current_buf(), true)
+            end, {})
+
+            -->local function read_file(path)
+            -->	if vim.fn.filereadable(path) ~= 1 then
+            -->		return ""
+            -->	end
+            -->	return table.concat(vim.fn.readfile(path), "\n")
+            -->end
+
+            -->local function platformio_root(bufnr)
+            -->	return vim.fs.root(bufnr, { "platformio.ini" })
+            -->end
+
+            -->-- 1. Función para extraer las rutas de sistema dinámicamente (VERSIÓN CORREGIDA)
+            -->local function get_pio_includes(platformio_ini_text)
+            -->	local pio_packages = os_home() .. "/.platformio/packages"
+            -->	local text = (platformio_ini_text or ""):lower()
+
+            -->	-- Determinar qué binario buscar según el proyecto
+            -->	local compiler_name = "xtensa-esp32s3-elf-g++" -- default
+            -->	if text:find("atmelavr") or text:find("uno") then
+            -->		compiler_name = "avr-g++"
+            -->	elseif text:find("esp32") and not text:find("s3") then
+            -->		compiler_name = "xtensa-esp32-elf-g++"
+            -->	end
+
+            -->	local find_cmd
+            -->	if is_windows then
+            -->		find_cmd = 'dir /s /b "' .. pio_packages .. "\\*" .. compiler_name .. '.exe" 2>nul'
+            -->	else
+            -->		find_cmd = 'find "'
+            -->			.. pio_packages
+            -->			.. '" -iname "'
+            -->			.. compiler_name
+            -->			.. '" -type f 2>/dev/null | head -n 1'
+            -->	end
+
+            -->	local handle = io.popen(find_cmd)
+            -->	if not handle then
+            -->		return {}
+            -->	end
+            -->	local compiler_path = handle:read("*l")
+            -->	handle:close()
+
+            -->	if not compiler_path or compiler_path == "" then
+            -->		return {}
+            -->	end
+
+            -->	local echo_cmd = is_windows and "echo." or 'echo ""'
+            -->	local shell_cmd = echo_cmd .. ' | "' .. compiler_path .. '" -v -E -x c++ - 2>&1'
+            -->	local dump = io.popen(shell_cmd)
+            -->	if not dump then
+            -->		return {}
+            -->	end
+
+            -->	local includes = {}
+            -->	local found_start = false
+            -->	for line in dump:lines() do
+            -->		local clean_line = line:gsub("\r", ""):gsub("^%s+", "")
+            -->		if clean_line:find("#include <...> search starts here:") then
+            -->			found_start = true
+            -->		elseif clean_line:find("End of search list%.") then
+            -->			found_start = false
+            -->		elseif found_start then
+            -->			local path = clean_line:gsub("\\", "/")
+            -->			if path ~= "" and vim.fn.isdirectory(path) == 1 then
+            -->				table.insert(includes, path)
+            -->			end
+            -->		end
+            -->	end
+            -->	dump:close()
+            -->	return includes
+            -->end
+
+            -->-- 2. Plantilla con el formato exacto que pediste
+            -->local function build_clangd_template(platformio_ini_text, pio_includes)
+            -->	local text = (platformio_ini_text or ""):lower()
+            -->	local lines = {
+            -->		"CompileFlags:",
+            -->		"  Add:",
+            -->	}
+
+            -->	if text:find("esp32") then
+            -->		table.insert(lines, "    - --target=xtensa-esp32-elf")
+            -->	elseif text:find("atmelavr") then
+            -->		table.insert(lines, "    - --target=avr")
+            -->	end
+
+            -->	-- Insertar rutas con el formato: - "-isystem" \n - "ruta"
+            -->	for _, path in ipairs(pio_includes or {}) do
+            -->		table.insert(lines, '    - "-isystem"')
+            -->		table.insert(lines, '    - "' .. path .. '"')
+            -->	end
+
+            -->	vim.list_extend(lines, {
+            -->		"  Remove:",
+            -->		"    - -mlongcalls",
+            -->		"    - -fstrict-volatile-bitfields",
+            -->		"    - -fno-tree-switch-conversion",
+            -->		"    - -free",
+            -->		"    - -fipa-pta",
+            -->		"",
+            -->		"Diagnostics:",
+            -->		"  Suppress:",
+            -->		"    - pp_file_not_found",
+            -->		"    - type_unsupported",
+            -->		"    - machine_mode",
+            -->	})
+            -->	return lines
+            -->end
+
+            -->-- 3. Escritura del archivo
+            -->local function write_clangd(root)
+            -->	local ini_path = root .. "/platformio.ini"
+            -->	local clangd_file = root .. "/.clangd"
+            -->	local ini_text = read_file(ini_path)
+
+            -->	--local pio_includes = get_pio_includes(ini_text) -- CAMBIO AQUÍ: añadir ini_text
+            -->	--local new_lines = build_clangd_template(ini_text, pio_includes)
+            -->	local new_lines = build_clangd_template(ini_text, {})
+
+            -->	vim.fn.writefile(new_lines, clangd_file)
+            -->end
+
+            -->local function safe_lsp_restart(client_name)
+            -->	-- El comando nativo de Neovim 0.12 es estrictamente en minúsculas: 'lsp'
+            -->	vim.cmd("lsp restart " .. (client_name or ""))
+            -->end
+
+            -->--local function safe_lsp_restart(client_name)
+            -->--	local status = pcall(vim.cmd, "LspRestart " .. client_name)
+
+            -->--	if not status or vim.fn.has("nvim-0.12") == 1 then
+            -->--		-- Si el archivo tiene cambios sin guardar (ej. el snippet expandido), lo guardamos silenciosamente
+            -->--		if vim.api.nvim_get_option_value("modified", { buf = 0 }) then
+            -->--			vim.cmd("silent! write")
+            -->--		end
+            -->--		-- Ahora sí recargamos sin riesgo de error E37
+            -->--		vim.cmd("edit")
+            -->--	end
+            -->--end
+
+            -->-- 4. Función principal (Restaurada con ensure_gitignore_entry)
+            -->local function ensure_platformio_setup(bufnr, force)
+            -->	local root = platformio_root(bufnr)
+            -->	if not root then
+            -->		return
+            -->	end
+
+            -->	local pio_cmd = find_pio()
+            -->	if not pio_cmd then
+            -->		vim.notify("PlatformIO no encontrado", vim.log.levels.ERROR)
+            -->		return
+            -->	end
+
+            -->	-- AQUÍ ESTÁ TU FUNCIÓN ORIGINAL
+            -->	local function ensure_gitignore_entry(entry)
+            -->		local gitignore = root .. "/.gitignore"
+            -->		local lines = {}
+            -->		if vim.fn.filereadable(gitignore) == 1 then
+            -->			lines = vim.fn.readfile(gitignore)
+            -->			for _, line in ipairs(lines) do
+            -->				if vim.trim(line) == entry then
+            -->					return
+            -->				end
+            -->			end
+            -->		end
+            -->		table.insert(lines, entry)
+            -->		vim.fn.writefile(lines, gitignore)
+            -->		vim.notify(".gitignore actualizado: " .. entry, vim.log.levels.INFO)
+            -->	end
+
+            -->	ensure_gitignore_entry("compile_commands.json")
+            -->	ensure_gitignore_entry(".clangd")
+
+            -->	local ini_path = root .. "/platformio.ini"
+            -->	local compiledb = root .. "/compile_commands.json"
+            -->	local clangd_file = root .. "/.clangd"
+
+            -->	local ini_time = vim.fn.getftime(ini_path)
+            -->	local db_time = vim.fn.filereadable(compiledb) == 1 and vim.fn.getftime(compiledb) or -1
+            -->	local clangd_time = vim.fn.filereadable(clangd_file) == 1 and vim.fn.getftime(clangd_file) or -1
+
+            -->	-- Regenerar .clangd si es necesario
+            -->	if force or vim.fn.filereadable(clangd_file) == 0 or ini_time > clangd_time then
+            -->		write_clangd(root)
+            -->		vim.notify("PlatformIO: .clangd actualizado", vim.log.levels.INFO)
+            -->		-- REINICIAR LSP AQUÍ
+            -->		safe_lsp_restart("clangd")
+            -->	end
+
+            -->	-- Regenerar compile_commands.json si es necesario
+            -->	if force or vim.fn.filereadable(compiledb) == 0 or ini_time > db_time then
+            -->		vim.notify("PlatformIO: generando compile_commands.json...", vim.log.levels.INFO)
+            -->		vim.fn.jobstart({ pio_cmd, "run", "-t", "compiledb" }, {
+            -->			cwd = root,
+            -->			on_exit = function(_, code)
+            -->				if code == 0 then
+            -->					vim.schedule(function()
+            -->						vim.notify("PlatformIO: compile_commands.json listo")
+            -->						-- REINICIAR LSP AQUÍ
+            -->						safe_lsp_restart("clangd")
+            -->					end)
+            -->				end
+            -->			end,
+            -->		})
+            -->	end
+            -->end
+
+            -->local pio_group = vim.api.nvim_create_augroup("PlatformIOAutoSetup", { clear = true })
+
+            -->------------------------------------------------------------
+            -->-- 1. Autocomando Pasivo (Al abrir archivos)
+            -->------------------------------------------------------------
+            -->vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
+            -->	group = pio_group,
+            -->	pattern = { "*.c", "*.cpp", "*.h", "*.hpp", "*.ino" },
+            -->	callback = function(args)
+            -->		-- Solo revisa silenciosamente si falta el compile_commands.json
+            -->		ensure_platformio_setup(args.buf, false)
+            -->	end,
+            -->})
+
+            -->------------------------------------------------------------
+            -->-- 2. Comando manual :PioRefresh
+            -->------------------------------------------------------------
+            -->vim.api.nvim_create_user_command("PioRefresh", function()
+            -->	ensure_platformio_setup(vim.api.nvim_get_current_buf(), true)
+            -->end, {})
+
+            ------------------------------------------------------------
+            -- 3. Intercepción del Menú de Autocompletado (nvim-cmp)
+            ------------------------------------------------------------
+            local cmp_ok, cmp = pcall(require, "cmp")
+
+            if cmp_ok then
+                -- Escuchamos exactamente cuando presionas 'Enter' en el menú
+                cmp.event:on("confirm_done", function(evt)
+                    -- Obtenemos el nombre exacto de la opción que elegiste en el menú
+                    local item = evt.entry:get_completion_item()
+                    local trigger = item.label
+
+                    if not trigger then
+                        return
+                    end
+
+                    -- ==============================================================
+                    -- 🎯 LISTA DE TUS SNIPPETS
+                    -- ==============================================================
+                    local pio_snippets = {
+                        ["espwifi"] = true,
+                        ["piomain"] = true,
+                        ["uno_setup"] = true,
+                    }
+
+                    -- Si presionaste Enter sobre uno de nuestros snippets...
+                    if pio_snippets[trigger] then
+                        vim.schedule(function()
+                            local bufnr = vim.api.nvim_get_current_buf()
+
+                            if not platformio_root(bufnr) then
+                                return
+                            end
+
+                            -- Guardamos el archivo para que PlatformIO lea las nuevas librerías
+                            vim.api.nvim_buf_call(bufnr, function()
+                                if vim.api.nvim_get_option_value("modified", { buf = bufnr }) then
+                                    vim.cmd("silent! write")
+                                end
+                            end)
+
+                            vim.notify(
+                                "PlatformIO: Plantilla '" .. trigger .. "' confirmada. Generando mapa...",
+                                vim.log.levels.INFO
+                            )
+                            ensure_platformio_setup(bufnr, true)
+                        end)
+                    end
+                end)
+            else
+                vim.notify(
+                    "No se encontró nvim-cmp. La automatización de snippets requiere nvim-cmp.",
+                    vim.log.levels.WARN
+                )
+            end
+
+            ---------------------------------
+            -- Arduino LSP  (usa clangd + arduino-cli)
+            ---------------------------------
+
+            -- ============================================================
+            -- 1. HERRAMIENTAS AUXILIARES
+            -- ============================================================
+
+            local function normalize_path(path)
+                return (path or ""):gsub("\\", "/")
+            end
+
+            local function resolve_program(package, binary)
+                if has_exe(binary) then
+                    return binary
+                end
+
+                local mason_path = get_mason_binary(package, binary)
+                if mason_path and vim.fn.filereadable(mason_path) == 1 then
+                    return mason_path
+                end
+
+                return nil
+            end
+
+            local function get_default_arduino_cli_config()
+                if is_windows then
+                    return normalize_path(vim.fn.expand("$LOCALAPPDATA/Arduino15/arduino-cli.yaml"))
+                end
+
+                return normalize_path(vim.fn.expand("~/.arduino15/arduino-cli.yaml"))
+            end
+
+            -- Cuenta cuántos espacios de indentación tiene una línea
+            local function obtener_indentacion(linea)
+                local espacios = linea:match("^(%s*)")
+                return #espacios, espacios
+            end
+
+            -- Verifica si una línea es el inicio de una clave YAML
+            local function es_clave(linea, clave)
+                return linea:match("^%s*" .. clave .. ":") ~= nil
+            end
+
+            -- ============================================================
+            -- 2. LÓGICA YAML
+            -- ============================================================
+
+            local function inyectar_yaml(lineas, jerarquia, campo, valor)
+                local cambio_realizado = false
+                local indent_actual = -1
+                local linea_insertar_idx = #lineas + 1
+                local indent_str_padre = ""
+
+                for _, padre in ipairs(jerarquia) do
+                    local encontrado = false
+
+                    for i, linea in ipairs(lineas) do
+                        local nivel, str_espacios = obtener_indentacion(linea)
+
+                        if es_clave(linea, padre) and nivel > indent_actual then
+                            indent_actual = nivel
+                            indent_str_padre = str_espacios
+                            linea_insertar_idx = i + 1
+                            encontrado = true
+                            break
+                        end
+                    end
+
+                    if not encontrado then
+                        local nueva_indent = indent_str_padre .. "  "
+                        if indent_actual == -1 then
+                            nueva_indent = ""
+                        end
+
+                        local nueva_linea = nueva_indent .. padre .. ":"
+
+                        if linea_insertar_idx > #lineas then
+                            table.insert(lineas, nueva_linea)
+                            linea_insertar_idx = #lineas + 1
+                        else
+                            table.insert(lineas, linea_insertar_idx, nueva_linea)
+                            linea_insertar_idx = linea_insertar_idx + 1
+                        end
+
+                        cambio_realizado = true
+                        indent_actual = #nueva_indent
+                        indent_str_padre = nueva_indent
+                    end
+                end
+
+                local indent_final = indent_str_padre .. "  "
+                if #jerarquia == 0 then
+                    indent_final = ""
+                end
+
+                local encontrado_campo = false
+
+                for i, linea in ipairs(lineas) do
+                    local nivel, _ = obtener_indentacion(linea)
+
+                    if es_clave(linea, campo) and nivel == #indent_final then
+                        local valor_actual = linea:match(":%s*(.+)$")
+                        if valor_actual then
+                            valor_actual = vim.trim(valor_actual)
+                        end
+
+                        if valor_actual ~= valor then
+                            lineas[i] = indent_final .. campo .. ": " .. valor
+                            cambio_realizado = true
+                        end
+
+                        encontrado_campo = true
+                        break
+                    end
+                end
+
+                if not encontrado_campo then
+                    local nueva_linea = indent_final .. campo .. ": " .. valor
+                    if linea_insertar_idx > #lineas then
+                        table.insert(lineas, nueva_linea)
+                    else
+                        table.insert(lineas, linea_insertar_idx, nueva_linea)
+                    end
+                    cambio_realizado = true
+                end
+
+                return cambio_realizado
+            end
+
+            local function gestionar_archivo_config(ruta_archivo, configuraciones)
+                local lineas = {}
+                if vim.fn.filereadable(ruta_archivo) == 1 then
+                    lineas = vim.fn.readfile(ruta_archivo)
+                end
+
+                local hubo_algun_cambio = false
+
+                for _, config in ipairs(configuraciones) do
+                    local cambiado = inyectar_yaml(lineas, config.padres, config.clave, config.valor)
+                    if cambiado then
+                        hubo_algun_cambio = true
+                    end
+                end
+
+                if hubo_algun_cambio then
+                    local dir = vim.fn.fnamemodify(ruta_archivo, ":p:h")
+                    if vim.fn.isdirectory(dir) == 0 then
+                        vim.fn.mkdir(dir, "p")
+                    end
+
+                    vim.fn.writefile(lineas, ruta_archivo)
+                    vim.notify(
+                        "Configuración actualizada: " .. vim.fn.fnamemodify(ruta_archivo, ":t"),
+                        vim.log.levels.INFO
+                    )
+                    vim.cmd("checktime")
+                end
+            end
+
+            local function build_arduino_receta(base_dir)
+                local ruta_win = normalize_path(base_dir)
+                if is_windows then
+                    ruta_win = ruta_win:gsub("/", "\\")
+                end
+
+                return {
+                    {
+                        padres = { "directories" },
+                        clave = "user",
+                        valor = ruta_win,
+                    },
+                    {
+                        padres = { "logging" },
+                        clave = "level",
+                        valor = "info",
+                    },
+                }
+            end
+
+            function GestionarEntornoArduino(base_dir)
+                local dir_actual = normalize_path(base_dir or vim.fn.expand("%:p:h"))
+                local archivo_yaml = dir_actual .. "/arduino-cli.yaml"
+                local receta = build_arduino_receta(dir_actual)
+                gestionar_archivo_config(archivo_yaml, receta)
+            end
+
+            local function get_fqbn(root_dir)
+                local default_fqbn = "arduino:avr:uno"
+                local sketch_yaml = normalize_path(root_dir) .. "/sketch.yaml"
+
+                local file = io.open(sketch_yaml, "r")
+                if not file then
+                    return default_fqbn
+                end
+
+                local fqbn = default_fqbn
+                for line in file:lines() do
+                    local match = line:match("fqbn:%s*([%w%p%-:_]+)")
+                    if match then
+                        fqbn = match
+                        break
+                    end
+                end
+                file:close()
+
+                return fqbn
+            end
+
+            local function get_arduino_cli_config(root_dir)
+                local local_config = normalize_path(root_dir) .. "/arduino-cli.yaml"
+                if vim.fn.filereadable(local_config) == 1 then
+                    return local_config
+                end
+
+                return get_default_arduino_cli_config()
+            end
+
+            -- ============================================================
+            -- 3. RESOLVER BINARIOS NECESARIOS
+            -- ============================================================
+
+            local cmd_server = resolve_program("arduino-language-server", "arduino-language-server")
+            local cmd_cli = resolve_program("arduino-cli", "arduino-cli")
+            local cmd_clangd = resolve_program("clangd", "clangd")
+
+            -- ============================================================
+            -- 4. ARDUINO LSP
+            -- ============================================================
+
+            vim.api.nvim_create_autocmd("FileType", {
+                pattern = "arduino",
+                callback = function(ev)
+                    if not cmd_server or not cmd_cli or not cmd_clangd then
+                        return
+                    end
+
+                    local root_dir = vim.fs.root(ev.buf, { "sketch.yaml", "arduino-cli.yaml", ".git", "*.ino" })
+                        or vim.fn.getcwd()
+
+                    root_dir = normalize_path(root_dir)
+
+                    GestionarEntornoArduino(root_dir)
+
+                    local fqbn = get_fqbn(root_dir)
+                    local config_path = get_arduino_cli_config(root_dir)
+
+                    local capabilities_arduino = vim.lsp.protocol.make_client_capabilities()
+                    capabilities_arduino.textDocument.completion.completionItem.snippetSupport = true
+                    capabilities_arduino.workspace.semanticTokens = { refreshSupport = false }
+                    capabilities_arduino.textDocument.semanticTokens = { dynamicRegistration = false }
+
+                    vim.lsp.start({
+                        name = "arduino_language_server",
+                        cmd = {
+                            cmd_server,
+                            "-cli",
+                            cmd_cli,
+                            "-clangd",
+                            cmd_clangd,
+                            "-cli-config",
+                            config_path,
+                            "-fqbn",
+                            fqbn,
+                        },
+                        root_dir = root_dir,
+                        capabilities = capabilities_arduino,
+                        on_attach = function(client)
+                            client.server_capabilities.semanticTokensProvider = nil
+                            vim.notify("Arduino LSP: Conectando con Clangd en " .. cmd_clangd, vim.log.levels.INFO)
+                        end,
+                    })
+                end,
+            })
+
+            -- ============================================================
+            -- 5. PLANTILLA AUTOMÁTICA PARA ARDUINO (.ino)
+            -- ============================================================
+
+            vim.api.nvim_create_autocmd("BufNewFile", {
+                pattern = "*.ino",
+                callback = function()
+                    local lines = {
+                        "#define LED 13",
+                        "#define BAUDRATE 9600",
+                        "",
+                        "void setup() {",
+                        "  Serial.begin(BAUDRATE);",
+                        "  delay(10);",
+                        "  pinMode(LED, OUTPUT);",
+                        "}",
+                        "",
+                        "void loop() {",
+                        '  Serial.println("LED ON");',
+                        "  digitalWrite(LED, 1);",
+                        "  delay(500);",
+                        '  Serial.println("LED OFF");',
+                        "  digitalWrite(LED, 0);",
+                        "  delay(500);",
+                        "}",
+                    }
+
+                    vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+
+                    vim.schedule(function()
+                        vim.cmd("write")
+                    end)
+                end,
+            })
+
+            ---------------------------------
+            -- Matlab LSP
+            ---------------------------------
+            if has_exe("matlab-ls") then
+                vim.lsp.config.matlab_ls = {
+                    default_config = {
+                        cmd = { "matlab-ls" },
+                        filetypes = { "matlab" },
+                        root_dir = function(fname)
+                            local path = vim.fs.dirname(fname)
+                            local git = vim.fs.find({ ".git" }, { upward = true, path = path })[1]
+                            if git then
+                                return vim.fs.dirname(git)
+                            end
+                            local startup = vim.fs.find({ "startup.m" }, { upward = true, path = path })[1]
+                            if startup then
+                                return vim.fs.dirname(startup)
+                            end
+                            return path
+                        end,
+                        capabilities = capabilities,
+                    },
+                }
+                vim.lsp.enable("matlab_ls")
+            end
+
+            ------------------------------------------------------------
+            -- Atajos de Teclado del LSP (Con descripciones)
+            ------------------------------------------------------------
+
+            ------------------------------------------------------------
+            -- Atajos de Teclado del LSP (Solo los necesarios)
+            ------------------------------------------------------------
+
+            -- [1] ATAJOS QUE NEOVIM NO INCLUYE POR DEFECTO:
+            vim.keymap.set("n", "gd", vim.lsp.buf.definition, { desc = "LSP: Ir a Definición" })
+            vim.keymap.set("n", "gD", vim.lsp.buf.declaration, { desc = "LSP: Ir a Declaración (Cabecera)" })
+            vim.keymap.set("n", "gl", vim.diagnostic.open_float, { desc = "Mostrar diagnostic flotante" })
+
+            -- [2] TUS SOBREESCRITURAS (Porque prefieres usar tu <leader> en lugar de los nativos 'gra' y 'grn'):
+            vim.keymap.set({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, { desc = "LSP: Acciones de Código" })
+
+            -- =========================================================
+            -- Smart Rename para LSP
+            -- =========================================================
+            --
+            -- Problema:
+            -- ---------------------------------------------------------
+            -- El rename nativo:
+            --
+            --     vim.lsp.buf.rename()
+            --
+            -- funciona perfectamente en la mayoría de LSPs modernos
+            -- (Pyright, LuaLS, Rust Analyzer, etc.).
+            --
+            -- Sin embargo, con clangd puede ocurrir un problema de
+            -- sincronización:
+            --
+            --   1. El rename se aplica correctamente en memoria.
+            --   2. Pero clangd NO refresca inmediatamente el AST.
+            --   3. Aparecen diagnostics falsos temporales.
+            --
+            -- Ejemplo:
+            --
+            --   "Call to undeclared function"
+            --
+            -- El error desaparece al ejecutar:
+            --
+            --     :wa
+            --
+            -- porque clangd depende mucho de:
+            --
+            --   - didSave
+            --   - reparseo desde disco
+            --   - background indexing
+            --   - include graph
+            --
+            -- especialmente en proyectos grandes de C/C++.
+            --
+            --
+            -- Solución:
+            -- ---------------------------------------------------------
+            -- Implementar manualmente el request:
+            --
+            --     textDocument/rename
+            --
+            -- y guardar TODOS los buffers únicamente cuando el
+            -- WorkspaceEdit haya terminado de aplicarse.
+            --
+            -- Esto evita:
+            --
+            --   - race conditions
+            --   - timers arbitrarios
+            --   - delays dependientes del tamaño del proyecto
+            --
+            --
+            -- NOTA IMPORTANTE:
+            -- ---------------------------------------------------------
+            -- Este workaround SOLO se aplica a clangd.
+            --
+            -- Los demás LSPs usan:
+            --
+            --     vim.lsp.buf.rename()
+            --
+            -- directamente.
+            --
+            --
+            -- Referencias:
+            -- ---------------------------------------------------------
+            -- LSP Spec:
+            --   textDocument/rename
+            --
+            -- Neovim:
+            --   :help vim.lsp.Client.request()
+            --   :help vim.lsp.util.apply_workspace_edit()
+            --
+            -- =========================================================
+
+            -- ---------------------------------------------------------
+            -- Rename especializado para clangd
+            -- ---------------------------------------------------------
+            local function clangd_rename()
+                -- Obtener la palabra bajo el cursor.
+                --
+                -- <cword> = "current word"
+                local curr_name = vim.fn.expand("<cword>")
+
+                -- Mostrar prompt interactivo.
+                vim.ui.input({
+                    prompt = "Nuevo nombre: ",
+                    default = curr_name,
+                }, function(new_name)
+                    -- Cancelar si:
+                    --   - el usuario presiona ESC
+                    --   - el nombre es vacío
+                    --   - el nombre no cambió
+                    if not new_name or new_name == curr_name then
+                        return
+                    end
+
+                    -- Buscar el cliente clangd asociado
+                    -- al buffer actual.
+                    --
+                    -- [1] porque get_clients() devuelve una lista.
+                    local client = vim.lsp.get_clients({
+                        bufnr = 0,
+                        name = "clangd",
+                    })[1]
+
+                    -- Validar existencia del cliente.
+                    if not client then
+                        vim.notify("clangd no encontrado", vim.log.levels.ERROR)
+                        return
+                    end
+
+                    -- Construir parámetros LSP para:
+                    --
+                    --   textDocument/rename
+                    --
+                    -- IMPORTANTE:
+                    -- Se usa client.offset_encoding para evitar:
+                    --
+                    --   "multiple different client offset_encodings detected"
+                    --
+                    -- y:
+                    --
+                    --   "position_encoding param is required"
+                    local params = vim.lsp.util.make_position_params(0, client.offset_encoding)
+
+                    -- Nuevo nombre solicitado.
+                    params.newName = new_name
+
+                    -- =====================================================
+                    -- Request manual al servidor LSP
+                    -- =====================================================
+                    --
+                    -- En vez de usar:
+                    --
+                    --     vim.lsp.buf.rename()
+                    --
+                    -- usamos directamente:
+                    --
+                    --     client:request(...)
+                    --
+                    -- para poder saber EXACTAMENTE cuándo termina
+                    -- el rename.
+                    --
+                    -- Esto permite ejecutar:
+                    --
+                    --     :wall
+                    --
+                    -- únicamente después de aplicar el WorkspaceEdit.
+                    -- =====================================================
+
+                    client:request(
+                        "textDocument/rename",
+                        params,
+
+                        -- Callback ejecutado cuando clangd responde.
+                        function(err, result)
+                            -- Manejo de errores LSP.
+                            if err then
+                                vim.notify(err.message, vim.log.levels.ERROR)
+                                return
+                            end
+
+                            -- Aplicar WorkspaceEdit recibido.
+                            --
+                            -- Esto modifica:
+                            --   - buffers
+                            --   - referencias
+                            --   - headers
+                            --   - múltiples archivos
+                            if result then
+                                vim.lsp.util.apply_workspace_edit(result, client.offset_encoding)
+                            end
+
+                            -- =================================================
+                            -- clangd necesita didSave
+                            -- =================================================
+                            --
+                            -- Guardar TODOS los buffers modificados para
+                            -- forzar:
+                            --
+                            --   - reparseo
+                            --   - refresh del AST
+                            --   - actualización de diagnostics
+                            --
+                            -- silent! evita mensajes molestos.
+                            -- =================================================
+                            vim.cmd("silent! wall")
+
+                            vim.notify("Rename completado y guardado", vim.log.levels.INFO)
+                        end,
+
+                        -- Buffer actual
+                        0
+                    )
+                end)
+            end
+
+            -- ---------------------------------------------------------
+            -- Filetypes relacionados con clangd
+            -- ---------------------------------------------------------
+            --
+            -- Incluye:
+            --   - C
+            --   - C++
+            --   - Objective-C
+            --   - headers
+            --
+            -- porque el problema también ocurre en:
+            --   .h
+            --   .hpp
+            --   .hh
+            --   etc.
+            -- ---------------------------------------------------------
+            local clang_filetypes = {
+                c = true,
+                cpp = true,
+                cc = true,
+                cxx = true,
+                h = true,
+                hpp = true,
+                hh = true,
+                hxx = true,
+                objc = true,
+                objcpp = true,
+            }
+
+            -- ---------------------------------------------------------
+            -- Smart Rename
+            -- ---------------------------------------------------------
+            --
+            -- Selecciona automáticamente:
+            --
+            --   - clangd_rename() para C/C++
+            --   - vim.lsp.buf.rename() para el resto
+            --
+            -- Esto evita aplicar workarounds innecesarios
+            -- a otros LSPs que ya funcionan correctamente.
+            -- ---------------------------------------------------------
+            local function smart_rename()
+                if clang_filetypes[vim.bo.filetype] then
+                    -- Workaround especializado para clangd
+                    clangd_rename()
+                else
+                    -- Rename estándar para cualquier otro LSP
+                    vim.lsp.buf.rename()
+                end
+            end
+
+            -- ---------------------------------------------------------
+            -- Keymap
+            -- ---------------------------------------------------------
+            vim.keymap.set("n", "<leader>rn", smart_rename, {
+                desc = "Smart LSP Rename",
+            })
+
+            -- =========================================================
+            -- NOTA SOBRE LOS KEYMAPS LSP EN NEOVIM 0.11+
+            -- =========================================================
+            --
+            -- Neovim moderno ya incluye MUCHOS keymaps LSP por
+            -- defecto, por lo que NO necesitas configurarlos manualmente.
+            --
+            -- Incluidos automáticamente:
+            --
+            --   K     -> hover
+            --   grr   -> references
+            --   gri   -> implementation
+            --   grn   -> rename
+            --   gra   -> code action
+            --   grt   -> type definition
+            --   [d    -> previous diagnostic
+            --   ]d    -> next diagnostic
+            --
+            -- Documentación oficial:
+            --   :help lsp-defaults
+            --
+            -- Referencias:
+            --   https://neovim.io/doc/user/lsp/
+            --   https://neovim.io/doc/user/news-0.11/
+            --
+            -- Por eso este archivo solo define mappings
+            -- personalizados realmente necesarios.
+            --
+            -- =========================================================
+        end,
+    },
 }
