@@ -146,58 +146,64 @@ function Add-LibDep {
     baudios, placas, configuraciones de memoria de la serie ESP32, y la lista de lib_deps.
 #>
 function Load-Config {
-    if (Test-Path $Global:Context.IniPath) {
-        $content = (Get-Content $Global:Context.IniPath)
-        $inLibDeps = $false
-        $firstEnvFound = $false
-        $Global:Context.Config.Libraries = @()
+    if (-not (Test-Path $Global:Context.IniPath)) { return }
 
-        foreach ($line in $content) {
-            $clean = $line.Trim()
-            
-            # Ignorar comentarios o líneas en blanco
-            if ($clean.StartsWith(";") -or $clean -eq "") { continue }
-            
-            # Detectar encabezados de entorno (ej: [env:esp32])
-            if ($clean -match "^\[.*\]") { 
-                if ($clean -match "^\[env") {
-                    # Freno de seguridad: Solo leemos el primer entorno del archivo
-                    if ($firstEnvFound) { break }
-                    $firstEnvFound = $true
-                }
-                $inLibDeps = $false # Reiniciamos el bloque de dependencias
+    $content = (Get-Content $Global:Context.IniPath)
+    $inLibDeps = $false
+    $targetEnv = $null
+    $Global:Context.Config.Libraries = @()
+
+    foreach ($line in $content) {
+        $clean = $line.Trim()
+        
+        if ($clean.StartsWith(";") -or $clean.StartsWith("#") -or $clean -eq "") { continue }
+        
+        if ($clean -match "^\[([^\]]+)\]") { 
+            $section = $Matches[1].Trim()
+
+            # Capturar el primer entorno real y memorizar su nombre personalizado
+            if ($section.StartsWith("env:") -and $null -eq $targetEnv) {
+                $targetEnv = $section
+                # Guardamos el nombre exacto (ej: "esp32s3")
+                $Global:Context.Config.EnvName = $section -replace "^env:", ""
+            }
+
+            if ($section -ne $targetEnv -and $section -ne "platformio") {
+                $inLibDeps = $false
                 continue 
             }
             
-            # Parsear pares clave-valor (ej: framework = arduino)
-            if ($clean -match "^([a-zA-Z0-9_\-\.]+)\s*=(.*)") {
-                $key = $matches[1].ToLower().Trim()
-                $val = $matches[2].Trim()
+            $inLibDeps = $false
+            continue 
+        }
+        
+        if ($clean -match "^([a-zA-Z0-9_\-\.]+)\s*=(.*)") {
+            $key = $Matches[1].ToLower().Trim()
+            $rawVal = $Matches[2].Trim()
 
-                # Si es la clave lib_deps, activamos la bandera para leer las siguientes líneas
-                if ($key -eq "lib_deps") {
-                    $inLibDeps = $true
-                    # Las dependencias en la misma línea separadas por comas también son procesadas
-                    if ($val) { foreach($item in $val -split ",") { Add-LibDep -Raw $item } }
-                    continue
-                } else { 
-                    $inLibDeps = $false 
-                }
-                
-                # Asignar variables al contexto global si coinciden con los ajustes esperados
-                if ($key -eq "platform")  { $Global:Context.Config.Platform = $val }
-                if ($key -eq "board")     { $Global:Context.Config.Board = $val }
-                if ($key -eq "framework") { $Global:Context.Config.Framework = $val }
-                if ($key -eq "monitor_speed") { $Global:Context.Config.Baud = [int]$val }
-                if ($key -eq "upload_port") { $Global:Context.Config.Port = $val }
-                
-                # Capturar ajustes avanzados de memoria si es un ESP32
-                if ($key -eq "board_upload.flash_size") { $Global:Context.Config.FlashSize = $val }
-                if ($key -eq "board_build.arduino.memory_type" -and $val -eq "qio_qspi") { $Global:Context.Config.PSRAMType = "2MB (QSPI)" }
-                if ($key -eq "board_build.arduino.memory_type" -and $val -eq "qio_opi") { $Global:Context.Config.PSRAMType = "8MB (OPI)" } 
-            } else {
-                # Si estamos dentro del bloque lib_deps y no es clave=valor, es una librería instalada
-                if ($inLibDeps) { Add-LibDep -Raw $clean }
+            $val = ($rawVal -split '\s+[;#]')[0].Trim()
+
+            if ($key -eq "lib_deps") {
+                $inLibDeps = $true
+                if ($val) { foreach($item in $val -split ",") { Add-LibDep -Raw $item.Trim() } }
+                continue
+            } else { 
+                $inLibDeps = $false 
+            }
+            
+            if ($key -eq "platform")  { $Global:Context.Config.Platform = $val }
+            if ($key -eq "board")     { $Global:Context.Config.Board = $val }
+            if ($key -eq "framework") { $Global:Context.Config.Framework = $val }
+            if ($key -eq "monitor_speed" -and $val -match "^\d+$") { $Global:Context.Config.Baud = [int]$val }
+            if ($key -eq "upload_port") { $Global:Context.Config.Port = $val }
+            
+            if ($key -eq "board_upload.flash_size") { $Global:Context.Config.FlashSize = $val }
+            if ($key -eq "board_build.arduino.memory_type" -and $val -eq "qio_qspi") { $Global:Context.Config.PSRAMType = "2MB (QSPI)" }
+            if ($key -eq "board_build.arduino.memory_type" -and $val -eq "qio_opi") { $Global:Context.Config.PSRAMType = "8MB (OPI)" } 
+        } else {
+            if ($inLibDeps) { 
+                $cleanLib = ($clean -split '\s+[;#]')[0].Trim()
+                if ($cleanLib) { Add-LibDep -Raw $cleanLib }
             }
         }
     }
@@ -1215,13 +1221,75 @@ function Invoke-StateLibVersion {
 #>
 function Invoke-StateSave {
     Clear-Host
-    Write-Host "`n [1/3] Operando platformio.ini (Modo Cirujano Experto)..." -ForegroundColor Yellow
+    Write-Host "`n [1/3] Operando platformio.ini (Modo Quirúrgico Aditivo V1.3 - PS 5.1)..." -ForegroundColor Yellow
     
     # 1. Cargamos el archivo en la memoria.
     $lines = if (Test-Path $Global:Context.IniPath) { (Get-Content $Global:Context.IniPath) } else { @() }
     $newLines = @(); $envFound = $false
     $flashMap = @{ "4MB" = "4194304"; "8MB" = "8388608"; "16MB" = "16777216"; "32MB" = "33554432" }
     
+    # Determinar el entorno objetivo real
+    $targetEnvName = $Global:Context.Config.EnvName
+    if ([string]::IsNullOrEmpty($targetEnvName)) {
+        $targetEnvName = $Global:Context.Config.Board
+    }
+
+    # --- ESCANEO ADITIVO PREVIO (Compatible con PowerShell 5.1) ---
+    # Rescatamos las flags preexistentes escritas a mano por el usuario
+    $existingFlags = @()
+    $inTargetEnvScan = $false
+    $collectingFlags = $false
+
+    foreach ($line in $lines) {
+        $trimmed = $line.Trim()
+        
+        # Detectar el inicio y fin de las secciones durante el escaneo
+        if ($trimmed -match "^\[env:([^\]]+)\]") {
+            if ($Matches[1].Trim() -eq $targetEnvName) { $inTargetEnvScan = $true } else { $inTargetEnvScan = $false }
+            $collectingFlags = $false
+            continue
+        } elseif ($trimmed -match "^\[([^\]]+)\]") {
+            $inTargetEnvScan = $false
+            $collectingFlags = $false
+            continue
+        }
+
+        if ($inTargetEnvScan) {
+            # Si encontramos la clave build_flags
+            if ($trimmed -match "^build_flags\s*=\s*(.*)") {
+                $collectingFlags = $true
+                $initialVal = ($Matches[1].Trim() -split '\s+[;#]')[0].Trim()
+                if ($initialVal) { $existingFlags += $initialVal }
+                continue
+            }
+            
+            # Recolectar líneas hijas indentadas (flags multilínea)
+            if ($collectingFlags) {
+                if ($trimmed -match "^[a-zA-Z0-9_\-\.]+\s*=") {
+                    $collectingFlags = $false # Otra clave detiene la recolección
+                } elseif ($trimmed -ne "") {
+                    $flagClean = ($trimmed -split '\s+[;#]')[0].Trim()
+                    if ($flagClean) { $existingFlags += $flagClean }
+                }
+            }
+        }
+    }
+
+    # Inyección o remoción inteligente de la flag de hardware según la UI
+    if ($Global:Context.Config.Board -match "s3" -and $Global:Context.Config.PSRAMType -ne "None") {
+        $hasPsramFlag = $false
+        foreach ($flag in $existingFlags) {
+            if ($flag -match "-DBOARD_HAS_PSRAM") { $hasPsramFlag = $true; break }
+        }
+        if (-not $hasPsramFlag) { $existingFlags += "-DBOARD_HAS_PSRAM" }
+    } else {
+        # Si el usuario configuró "None" (Sin PSRAM) en la TUI, limpiamos la flag del array si existía
+        if ($existingFlags.Count -gt 0) {
+            $existingFlags = $existingFlags | Where-Object { $_ -notmatch "-DBOARD_HAS_PSRAM" }
+        }
+    }
+    # ---------------------------------------------------------------
+
     # 2. Preparamos el bloque de código injertable para nuestra placa y settings.
     $configBlock = @(
         "platform = $($Global:Context.Config.Platform)",
@@ -1235,7 +1303,6 @@ function Invoke-StateSave {
         $configBlock += "monitor_port = $($Global:Context.Config.Port)"
     }
 
-    # Bloque exclusivo de configuraciones para placas S3
     if ($Global:Context.Config.Board -match "s3") {
         $configBlock += "board_upload.flash_size = $($Global:Context.Config.FlashSize)"
         $configBlock += "board_upload.maximum_size = $($flashMap[$Global:Context.Config.FlashSize])"
@@ -1244,13 +1311,19 @@ function Invoke-StateSave {
         elseif ($Global:Context.Config.FlashSize -eq "8MB") { $configBlock += "board_build.partitions = default_8MB.csv" }
 
         if ($Global:Context.Config.PSRAMType -ne "None") {
-            $configBlock += "build_flags = -DBOARD_HAS_PSRAM"
             if ($Global:Context.Config.PSRAMType -match "OPI") { $configBlock += "board_build.arduino.memory_type = qio_opi" } 
             else { $configBlock += "board_build.arduino.memory_type = qio_qspi" }
         }
     }
 
-    # Adjuntamos el bloque dinámico de lib_deps a los ajustes
+    # Inyectamos de vuelta las build_flags reconstruidas de forma aditiva y ordenada
+    if ($existingFlags.Count -gt 0) {
+        $configBlock += "build_flags ="
+        foreach ($flag in $existingFlags) {
+            $configBlock += "    $flag"
+        }
+    }
+
     if ($Global:Context.Config.Libraries.Count -gt 0) {
         $configBlock += "lib_deps ="
         foreach ($lib in $Global:Context.Config.Libraries) {
@@ -1259,83 +1332,80 @@ function Invoke-StateSave {
         }
     }
 
-    $inTargetEnv = $false; $inLibDepsOld = $false
-    # Estas son las claves maestras. El bisturí borrará cualquier cosa que comience con ellas en tu entorno.
+    $inTargetEnv = $false; $inMultilineOld = $false
     $keysToFilter = @("platform", "board", "framework", "monitor_speed", "upload_port", "monitor_port", "board_upload", "board_build", "build_flags", "lib_deps")
 
-    # 3. Aplicamos el reemplazo (Iteramos sobre las líneas previas del ini)
+    # 3. Aplicamos el reemplazo quirúrgico basado en el archivo original
     foreach ($line in $lines) {
         $trimmed = $line.Trim()
         
-        # Encontramos la declaración de nuestro entorno
-        if ($trimmed -match "^\[env") {
-            if (-not $envFound) {
-                $envFound = $true; $inTargetEnv = $true; $inLibDepsOld = $false
-                $newLines += "[env:$($Global:Context.Config.Board)]"
+        if ($trimmed -match "^\[env:([^\]]+)\]") {
+            $foundEnvName = $Matches[1].Trim()
+            if ($foundEnvName -eq $targetEnvName) {
+                $envFound = $true
+                $inTargetEnv = $true
+                $inMultilineOld = $false
+                $newLines += "[env:$targetEnvName]"
                 $newLines += $configBlock
-                continue
+                continue 
             } else { 
-                # Si hay más entornos abajo, dejamos de cortarlos
-                $inTargetEnv = $false; $inLibDepsOld = $false 
+                $inTargetEnv = $false
+                $inMultilineOld = $false 
             }
+        }
+        elseif ($trimmed -match "^\[([^\]]+)\]") {
+            $inTargetEnv = $false
+            $inMultilineOld = $false
         }
         
         if ($inTargetEnv) {
             $match = $false
             foreach($k in $keysToFilter){ 
-                # BISTURÍ: Si coincide (ej. "board_upload.flash_size="), lo marca como coincidencia
-                # para 'Omitirlo' (borrarlo) de las nuevas líneas de archivo.
                 if($trimmed -match "^$k([\.a-zA-Z0-9_-]*)\s*=") { 
                     $match = $true
-                    if ($k -eq "lib_deps") { $inLibDepsOld = $true } else { $inLibDepsOld = $false }
+                    if ($k -eq "lib_deps" -or $k -eq "build_flags") { $inMultilineOld = $true } else { $inMultilineOld = $false }
                     break 
                 } 
             }
-            if($match){ continue } # Línea borrada exitosamente
+            if($match){ continue } 
             
-            # Borrado masivo interior de las librerías antiguas que estaban abajo de lib_deps=
-            if ($inLibDepsOld) {
-                if ($trimmed -match "^[a-zA-Z0-9_\-\.]+\s*=") { 
-                    $inLibDepsOld = $false # Fin de bloque: otra propiedad ha empezado
-                } elseif ($trimmed.StartsWith("[")) { 
-                    $inLibDepsOld = $false # Fin de bloque: otro env ha empezado
-                } else { 
-                    continue # Borramos línea interior silenciosamente
-                }
+            # Absorbedor/Limpiador de líneas hijas antiguas (Multilínea de compilación antiguos)
+            if ($inMultilineOld) {
+                if ($trimmed -match "^[a-zA-Z0-9_\-\.]+\s*=") { $inMultilineOld = $false } 
+                elseif ($trimmed.StartsWith("[")) { $inMultilineOld = $false } 
+                else { continue }
             }
         }
-        # Las líneas que sobrevivieron a la cirugía, se reescriben
+        
         $newLines += $line
     }
 
-    # 4. Fallback si el archivo ini no existía o estaba en blanco
+    # 4. Fallback si el entorno no existía originalmente
     if (-not $envFound) {
-        if ($newLines.Count -eq 0) { $newLines += "; Generado por TUI CLI V8.0 (The Fully Documented Edition)" }
-        $newLines += "`n[env:$($Global:Context.Config.Board)]"
+        if ($newLines.Count -eq 0) { $newLines += "; Generado por TUI CLI V8.0" }
+        if ($newLines.Count -gt 1) { $newLines += "" }
+        $newLines += "[env:$targetEnvName]"
         $newLines += $configBlock
     }
 
-    # Imprimimos finalmente el archivo destruyendo el viejo
     Set-Content -Path $Global:Context.IniPath -Value $newLines -Encoding UTF8 -Force
 
-    # 5. Generación Boilerplate C++ (Inicialización Rápida)
+    # 5. Generación Boilerplate C++ (Arduino / ESP-IDF)
     Write-Host " [2/3] Verificando carpetas y generando plantilla Hola Mundo..." -ForegroundColor Yellow
     foreach ($f in @("src", "lib", "include", "test")) { if (-not (Test-Path $f)) { New-Item -ItemType Directory $f -Force | Out-Null } }
 
     $mainCpp = Join-Path "src" "main.cpp"; $mainC = Join-Path "src" "main.c"
 
     if (-not (Test-Path $mainCpp) -and -not (Test-Path $mainC)) {
-        # Si src está vacío, proveemos un código testeable pre-armado
         if ($Global:Context.Config.Framework -eq "arduino") {
             $code = @"
 #include <Arduino.h>
 
 void setup() {
     Serial.begin($($Global:Context.Config.Baud));
-    delay(1000); // Pequeña pausa para asegurar que el puerto serie se estabilice
+    delay(1000);
     Serial.println("\n--- INICIO ---");
     Serial.println("¡Hola Mundo desde PlatformIO!");
-    Serial.println("¡Sistema inicializado correctamente!");
 }
 
 void loop() {
@@ -1353,9 +1423,6 @@ void loop() {
 
 void app_main() {
     printf("\n--- INICIO ---\n");
-    printf("¡Hola Mundo desde PlatformIO (ESP-IDF)!\n");
-    printf("¡Sistema inicializado correctamente!\n");
-    
     while(1) {
         printf("Funcionando correctamente...\n");
         vTaskDelay(2000 / portTICK_PERIOD_MS);
@@ -1364,7 +1431,7 @@ void app_main() {
 "@
             $code | Out-File $mainC -Encoding UTF8
         }
-    } else { Write-Host "       -> Se detecto código existente en src/. No se realizaran cambios en tu código." -ForegroundColor Cyan }
+    } else { Write-Host "        -> Se detecto código existente en src/. No se realizaran cambios en tu código." -ForegroundColor Cyan }
 
     # 6. Sincronización oficial y salida
     Write-Host " [3/3] Sincronizando VS Code con PlatformIO..." -ForegroundColor Yellow
@@ -1376,6 +1443,7 @@ void app_main() {
     [Console]::ResetColor(); Start-Sleep 2
     $Global:Context.CurrentState = "ExitApp"
 }
+
 
 # =============================================================================
 # 6. MOTOR PRINCIPAL (Bucle de Eventos y Manejador de Máquina de Estado)
