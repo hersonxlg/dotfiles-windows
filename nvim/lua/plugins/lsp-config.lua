@@ -274,7 +274,7 @@ return {
 			end
 
 			--------------------------------------------------------
-			-- clangd (Optimizado para Neovim 0.12+ y Windows)
+			-- clangd (Optimizado para Neovim 0.12+ Nativo y Windows)
 			--------------------------------------------------------
 
 			-- 1. VALIDACIÓN: Solo se ejecuta si 'clangd' está instalado en el sistema
@@ -288,6 +288,8 @@ return {
 					"--background-index",
 					"--clang-tidy",
 					"--header-insertion=never",
+					-- El doble asterisco soluciona el problema de las rutas absolutas en Windows
+					"--query-driver=**\\bin\\*g++*,**\\bin\\*gcc*",
 				}
 				local fallbackFlags = {}
 
@@ -296,12 +298,12 @@ return {
 					-- CONFIGURACIÓN PARA WINDOWS (Scoop / MinGW)
 					-- ==========================================
 					local home = (vim.env.USERPROFILE or vim.uv.os_homedir()):gsub("\\", "/")
-					local pio_driver = home .. "/.platformio/packages/toolchain-*/bin/*"
-					local scoop_driver = home .. "/scoop/apps/mingw/current/bin/*"
-					local query_driver = pio_driver .. "," .. scoop_driver
 					local mingw_include = home .. "/scoop/apps/mingw/current/x86_64-w64-mingw32/include"
 
-					table.insert(cmd, "--query-driver=" .. query_driver)
+					-- CAMBIO 1: El comodín universal '*' permite que clangd ejecute de forma segura
+					-- tanto el compilador de MinGW como los de PlatformIO sin importar las barras de Windows.
+					table.insert(cmd, "--query-driver=*")
+
 					fallbackFlags = {
 						"--target=x86_64-w64-mingw32",
 						"-I" .. mingw_include,
@@ -310,17 +312,17 @@ return {
 					-- ==========================================
 					-- CONFIGURACIÓN PARA LINUX / MACOS
 					-- ==========================================
-					-- En Linux los compiladores están en rutas estándar, así que
-					-- solo le indicamos a clangd que confíe en los binarios del sistema.
 					table.insert(cmd, "--query-driver=/usr/bin/gcc,/usr/bin/g++,/usr/bin/clang")
-
-					-- Nota: Linux no necesita 'fallbackFlags' para encontrar <pthread.h>
-					-- o <unistd.h> porque ya viven en el directorio raíz nativo (/usr/include).
 				end
 
 				-- 2. Aplicamos la configuración en la API moderna de Neovim 0.12
 				vim.lsp.config.clangd = vim.tbl_deep_extend("force", vim.lsp.config.clangd or {}, {
 					cmd = cmd,
+
+					-- CAMBIO 2: Obligatorio en Neovim 0.12 nativo para que 'vim.lsp.enable'
+					-- sepa exactamente en qué buffers debe auto-iniciar el servidor.
+					filetypes = { "c", "cpp", "objc", "objcpp", "h", "hpp" },
+
 					init_options = {
 						fallbackFlags = fallbackFlags,
 					},
@@ -330,9 +332,14 @@ return {
 						"platformio.ini",
 						".git",
 					},
+
+					on_attach = function(client, bufnr)
+						client.server_capabilities.documentFormattingProvider = false
+						client.server_capabilities.documentRangeFormattingProvider = false
+					end,
 				})
 
-				-- 3. Activamos el servidor de forma segura
+				-- 3. Activamos el servidor de forma segura usando el gestor nativo
 				vim.lsp.enable("clangd")
 			end
 
@@ -391,49 +398,142 @@ return {
 			end
 
 			--------------------------------------------------------
-			-- lua_ls
+			-- lua_ls (Neovim 0.12+ moderno)
 			--------------------------------------------------------
+
 			if has_exe("lua-language-server") then
 				vim.lsp.config.lua_ls = {
+
+					------------------------------------------------
+					-- Capabilities (cmp_nvim_lsp)
+					------------------------------------------------
 					capabilities = capabilities,
 
+					------------------------------------------------
+					-- Ejecutable
+					------------------------------------------------
 					cmd = { "lua-language-server" },
 
+					------------------------------------------------
+					-- Filetypes
+					------------------------------------------------
+					filetypes = { "lua" },
+
+					------------------------------------------------
+					-- Root markers
+					------------------------------------------------
+					root_markers = {
+						{ ".luarc.json", ".luarc.jsonc" },
+						".git",
+					},
+
+					------------------------------------------------
+					-- on_attach
+					------------------------------------------------
+					on_attach = function(client, bufnr)
+						------------------------------------------------
+						-- stylua será el formatter real
+						------------------------------------------------
+						client.server_capabilities.documentFormattingProvider = false
+						client.server_capabilities.documentRangeFormattingProvider = false
+
+						------------------------------------------------
+						-- Keymaps buffer-local opcionales
+						------------------------------------------------
+						local opts = { buffer = bufnr }
+
+						vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+
+						vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+
+						vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
+					end,
+
+					------------------------------------------------
+					-- Settings de lua-language-server
+					------------------------------------------------
 					settings = {
 						Lua = {
 
+							--------------------------------------------
+							-- Runtime
+							--------------------------------------------
 							runtime = {
 								version = "LuaJIT",
 							},
 
-							-- SÉ EXTRAÍDO: Ya no necesitas 'diagnostics.globals = {"vim"}'
-							-- porque lazydev lo maneja automáticamente y solo donde se requiere.
-							diagnostics = {},
+							--------------------------------------------
+							-- Completion
+							--------------------------------------------
+							completion = {
+								callSnippet = "Replace",
+							},
 
-							workspace = {
-								checkThirdParty = false,
+							--------------------------------------------
+							-- Diagnostics
+							--------------------------------------------
+							diagnostics = {
 
-								library = {
-									-- SÉ EXTRAÍDO: VIMRUNTIME y stdpath("config") (lo hace lazydev).
+								----------------------------------------
+								-- lazydev.nvim maneja esto
+								----------------------------------------
+								globals = {},
 
-									-- Multiplataforma: Usamos 'vim.fs.joinpath' en lugar de usar ".." con "/"
-									-- Esto asegura compatibilidad nativa entre Windows (backslash) y Unix.
-									vim.fs.joinpath(vim.fn.getcwd(), "types"),
+								----------------------------------------
+								-- Reduce ruido
+								----------------------------------------
+								disable = {
+									"missing-fields",
 								},
 							},
 
+							--------------------------------------------
+							-- Workspace
+							--------------------------------------------
+							workspace = {
+
+								----------------------------------------
+								-- Evita prompts molestos
+								----------------------------------------
+								checkThirdParty = false,
+
+								----------------------------------------
+								-- Runtime files de Neovim
+								----------------------------------------
+								library = vim.api.nvim_get_runtime_file("", true),
+							},
+
+							--------------------------------------------
+							-- Hinting
+							--------------------------------------------
+							hint = {
+								enable = true,
+							},
+
+							--------------------------------------------
+							-- Telemetry
+							--------------------------------------------
 							telemetry = {
+								enable = false,
+							},
+
+							--------------------------------------------
+							-- Format
+							--------------------------------------------
+							format = {
 								enable = false,
 							},
 						},
 					},
 				}
 
+				--------------------------------------------------------
+				-- Activar servidor
+				--------------------------------------------------------
 				vim.lsp.enable("lua_ls")
 			else
 				notify_missing("lua-language-server")
 			end
-
 			--------------------------------------------------------
 			-- ts_ls
 			--------------------------------------------------------
@@ -514,161 +614,156 @@ return {
 			end
 
 			---------------------------------
-			-- PlatformIO AUTOSETUP para clangd
+			-- PlatformIO AUTOSETUP para clangd (Optimizado Neovim 0.12)
 			---------------------------------
 
----------------------------------
--- PlatformIO AUTOSETUP para clangd (Optimizado Neovim 0.12)
----------------------------------
+			local function read_file(path)
+				if vim.fn.filereadable(path) ~= 1 then
+					return ""
+				end
+				return table.concat(vim.fn.readfile(path), "\n")
+			end
 
-local function read_file(path)
-    if vim.fn.filereadable(path) ~= 1 then
-        return ""
-    end
-    return table.concat(vim.fn.readfile(path), "\n")
-end
+			local function platformio_root(bufnr)
+				return vim.fs.root(bufnr, { "platformio.ini" })
+			end
 
-local function platformio_root(bufnr)
-    return vim.fs.root(bufnr, { "platformio.ini" })
-end
+			-- Plantilla con espacios ASCII estándar válidos para el parser YAML de clangd
+			local function build_clangd_template(platformio_ini_text)
+				local text = (platformio_ini_text or ""):lower()
+				local lines = {
+					"CompileFlags:",
+				}
 
--- Plantilla con espacios ASCII estándar válidos para el parser YAML de clangd
-local function build_clangd_template(platformio_ini_text)
-    local text = (platformio_ini_text or ""):lower()
-    local lines = {
-        "CompileFlags:",
-        "  Add:",
-    }
+				-- Solo agregamos la sección 'Add' si es AVR
+				if text:find("atmelavr") then
+					table.insert(lines, "  Add:")
+					table.insert(lines, "    - --target=avr")
+				end
 
-    if text:find("esp32") then
-        table.insert(lines, "    - --target=xtensa-esp32-elf")
-    elseif text:find("atmelavr") then
-        table.insert(lines, "    - --target=avr")
-    end
+				-- La sección Remove y Diagnostics siempre se aplica
+				vim.list_extend(lines, {
+					"  Remove:",
+					"    - -mlongcalls",
+					"    - -fstrict-volatile-bitfields",
+					"    - -fno-tree-switch-conversion",
+					"    - -free",
+					"    - -fipa-pta",
+					"",
+					"Diagnostics:",
+					"  Suppress:",
+					"    - type_unsupported",
+					"    - machine_mode",
+				})
+				return lines
+			end
 
-    vim.list_extend(lines, {
-        "  Remove:",
-        "    - -mlongcalls",
-        "    - -fstrict-volatile-bitfields",
-        "    - -fno-tree-switch-conversion",
-        "    - -free",
-        "    - -fipa-pta",
-        "",
-        "Diagnostics:",
-        "  Suppress:",
-        "    - pp_file_not_found",
-        "    - type_unsupported",
-        "    - machine_mode",
-    })
-    return lines
-end
+			local function write_clangd(root)
+				local ini_path = root .. "/platformio.ini"
+				local clangd_file = root .. "/.clangd"
+				local ini_text = read_file(ini_path)
 
-local function write_clangd(root)
-    local ini_path = root .. "/platformio.ini"
-    local clangd_file = root .. "/.clangd"
-    local ini_text = read_file(ini_path)
+				-- Pasamos solo ini_text ya que compile_commands.json se encarga de los includes
+				local new_lines = build_clangd_template(ini_text)
+				vim.fn.writefile(new_lines, clangd_file)
+			end
 
-    -- Pasamos solo ini_text ya que compile_commands.json se encarga de los includes
-    local new_lines = build_clangd_template(ini_text)
-    vim.fn.writefile(new_lines, clangd_file)
-end
+			local function safe_lsp_restart(client_name)
+				-- Comando nativo core de Neovim 0.12
+				vim.cmd("lsp restart " .. (client_name or ""))
+			end
 
-local function safe_lsp_restart(client_name)
-    -- Comando nativo core de Neovim 0.12
-    vim.cmd("lsp restart " .. (client_name or ""))
-end
+			local function ensure_platformio_setup(bufnr, force)
+				local root = platformio_root(bufnr)
+				if not root then
+					return
+				end
 
-local function ensure_platformio_setup(bufnr, force)
-    local root = platformio_root(bufnr)
-    if not root then
-        return
-    end
+				local pio_cmd = type(find_pio) == "function" and find_pio() or "pio"
+				if not pio_cmd then
+					vim.notify("PlatformIO no encontrado", vim.log.levels.ERROR)
+					return
+				end
 
-    local pio_cmd = type(find_pio) == "function" and find_pio() or "pio" 
-    if not pio_cmd then
-        vim.notify("PlatformIO no encontrado", vim.log.levels.ERROR)
-        return
-    end
+				local function ensure_gitignore_entry(entry)
+					local gitignore = root .. "/.gitignore"
+					local lines = {}
+					if vim.fn.filereadable(gitignore) == 1 then
+						lines = vim.fn.readfile(gitignore)
+						for _, line in ipairs(lines) do
+							if vim.trim(line) == entry then
+								return
+							end
+						end
+					end
+					table.insert(lines, entry)
+					vim.fn.writefile(lines, gitignore)
+					vim.notify(".gitignore actualizado: " .. entry, vim.log.levels.INFO)
+				end
 
-    local function ensure_gitignore_entry(entry)
-        local gitignore = root .. "/.gitignore"
-        local lines = {}
-        if vim.fn.filereadable(gitignore) == 1 then
-            lines = vim.fn.readfile(gitignore)
-            for _, line in ipairs(lines) do
-                if vim.trim(line) == entry then
-                    return
-                end
-            end
-        end
-        table.insert(lines, entry)
-        vim.fn.writefile(lines, gitignore)
-        vim.notify(".gitignore actualizado: " .. entry, vim.log.levels.INFO)
-    end
+				ensure_gitignore_entry("compile_commands.json")
+				ensure_gitignore_entry(".clangd")
 
-    ensure_gitignore_entry("compile_commands.json")
-    ensure_gitignore_entry(".clangd")
+				local ini_path = root .. "/platformio.ini"
+				local compiledb = root .. "/compile_commands.json"
+				local clangd_file = root .. "/.clangd"
 
-    local ini_path = root .. "/platformio.ini"
-    local compiledb = root .. "/compile_commands.json"
-    local clangd_file = root .. "/.clangd"
+				local ini_time = vim.fn.getftime(ini_path)
+				local db_time = vim.fn.filereadable(compiledb) == 1 and vim.fn.getftime(compiledb) or -1
+				local clangd_time = vim.fn.filereadable(clangd_file) == 1 and vim.fn.getftime(clangd_file) or -1
 
-    local ini_time = vim.fn.getftime(ini_path)
-    local db_time = vim.fn.filereadable(compiledb) == 1 and vim.fn.getftime(compiledb) or -1
-    local clangd_time = vim.fn.filereadable(clangd_file) == 1 and vim.fn.getftime(clangd_file) or -1
+				-- Evaluamos qué archivos necesitan actualizarse REALMENTE
+				local need_clangd = force or vim.fn.filereadable(clangd_file) == 0 or ini_time > clangd_time
+				local need_compiledb = force or vim.fn.filereadable(compiledb) == 0 or ini_time > db_time
 
-    -- Evaluamos qué archivos necesitan actualizarse REALMENTE
-    local need_clangd = force or vim.fn.filereadable(clangd_file) == 0 or ini_time > clangd_time
-    local need_compiledb = force or vim.fn.filereadable(compiledb) == 0 or ini_time > db_time
+				-- 1. Regenerar .clangd si es necesario
+				if need_clangd then
+					write_clangd(root)
+					vim.notify("PlatformIO: .clangd actualizado", vim.log.levels.INFO)
 
-    -- 1. Regenerar .clangd si es necesario
-    if need_clangd then
-        write_clangd(root)
-        vim.notify("PlatformIO: .clangd actualizado", vim.log.levels.INFO)
-        
-        -- ¡AQUÍ ESTÁ EL TRUCO!
-        -- Solo reiniciamos el LSP si NO se va a generar el compile_commands.json.
-        -- Si se va a generar el archivo pesado, nos quedamos quietos y esperamos.
-        if not need_compiledb then
-            safe_lsp_restart("clangd")
-        end
-    end
+					-- ¡AQUÍ ESTÁ EL TRUCO!
+					-- Solo reiniciamos el LSP si NO se va a generar el compile_commands.json.
+					-- Si se va a generar el archivo pesado, nos quedamos quietos y esperamos.
+					if not need_compiledb then
+						safe_lsp_restart("clangd")
+					end
+				end
 
-    -- 2. Regenerar compile_commands.json de forma asíncrona
-    if need_compiledb then
-        vim.notify("PlatformIO: generando compile_commands.json...", vim.log.levels.INFO)
-        
-        -- Detectamos si estamos en Windows para activar el modo shell
-        local is_windows = vim.fn.has("win32") == 1
+				-- 2. Regenerar compile_commands.json de forma asíncrona
+				if need_compiledb then
+					vim.notify("PlatformIO: generando compile_commands.json...", vim.log.levels.INFO)
 
-        vim.fn.jobstart({ pio_cmd, "run", "-t", "compiledb" }, {
-            cwd = root,
-            shell = is_windows, -- <--- ¡ESTO ES CRUCIAL PARA WINDOWS!
-            on_exit = function(_, code)
-                if code == 0 then
-                    vim.schedule(function()
-                        vim.notify("PlatformIO: compile_commands.json listo")
-                        safe_lsp_restart("clangd")
-                    end)
-                end
-            end,
-        })
-    end
-end
--- Configuración de Autocomandos
-local pio_group = vim.api.nvim_create_augroup("PlatformIOAutoSetup", { clear = true })
+					-- Detectamos si estamos en Windows para activar el modo shell
+					local is_windows = vim.fn.has("win32") == 1
 
-vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
-    group = pio_group,
-    pattern = { "*.c", "*.cpp", "*.h", "*.hpp", "*.ino" },
-    callback = function(args)
-        ensure_platformio_setup(args.buf, false)
-    end,
-})
+					vim.fn.jobstart({ pio_cmd, "run", "-t", "compiledb" }, {
+						cwd = root,
+						shell = is_windows, -- <--- ¡ESTO ES CRUCIAL PARA WINDOWS!
+						on_exit = function(_, code)
+							if code == 0 then
+								vim.schedule(function()
+									vim.notify("PlatformIO: compile_commands.json listo")
+									safe_lsp_restart("clangd")
+								end)
+							end
+						end,
+					})
+				end
+			end
+			-- Configuración de Autocomandos
+			local pio_group = vim.api.nvim_create_augroup("PlatformIOAutoSetup", { clear = true })
 
-vim.api.nvim_create_user_command("PioRefresh", function()
-    ensure_platformio_setup(vim.api.nvim_get_current_buf(), true)
-end, {})
+			vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
+				group = pio_group,
+				pattern = { "*.c", "*.cpp", "*.h", "*.hpp", "*.ino" },
+				callback = function(args)
+					ensure_platformio_setup(args.buf, false)
+				end,
+			})
+
+			vim.api.nvim_create_user_command("PioRefresh", function()
+				ensure_platformio_setup(vim.api.nvim_get_current_buf(), true)
+			end, {})
 
 			-->local function read_file(path)
 			-->	if vim.fn.filereadable(path) ~= 1 then
@@ -1301,10 +1396,7 @@ end, {})
 			-- [1] ATAJOS QUE NEOVIM NO INCLUYE POR DEFECTO:
 			vim.keymap.set("n", "gd", vim.lsp.buf.definition, { desc = "LSP: Ir a Definición" })
 			vim.keymap.set("n", "gD", vim.lsp.buf.declaration, { desc = "LSP: Ir a Declaración (Cabecera)" })
-			--vim.keymap.set("n", "<leader>f", function() vim.lsp.buf.format({ async = true }) end, { desc = "LSP: Formatear archivo" })
-			--vim.keymap.set("n", "<leader>e", vim.diagnostic.open_float, { desc = "LSP: Mostrar error en flotante" })
 			vim.keymap.set("n", "gl", vim.diagnostic.open_float, { desc = "Mostrar diagnostic flotante" })
-			--vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "LSP: Lista de errores" })
 
 			-- [2] TUS SOBREESCRITURAS (Porque prefieres usar tu <leader> en lugar de los nativos 'gra' y 'grn'):
 			vim.keymap.set({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, { desc = "LSP: Acciones de Código" })
