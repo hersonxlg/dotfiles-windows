@@ -360,11 +360,40 @@ return {
 			--------------------------------------------------------
 			if has_exe("lua-language-server") then
 				vim.lsp.config.lua_ls = {
-					default_config = {
-						cmd = { "lua-language-server" },
-						capabilities = capabilities,
+					capabilities = capabilities,
+
+					cmd = { "lua-language-server" },
+
+					settings = {
+						Lua = {
+
+							runtime = {
+								version = "LuaJIT",
+							},
+
+							-- SÉ EXTRAÍDO: Ya no necesitas 'diagnostics.globals = {"vim"}'
+							-- porque lazydev lo maneja automáticamente y solo donde se requiere.
+							diagnostics = {},
+
+							workspace = {
+								checkThirdParty = false,
+
+								library = {
+									-- SÉ EXTRAÍDO: VIMRUNTIME y stdpath("config") (lo hace lazydev).
+
+									-- Multiplataforma: Usamos 'vim.fs.joinpath' en lugar de usar ".." con "/"
+									-- Esto asegura compatibilidad nativa entre Windows (backslash) y Unix.
+									vim.fs.joinpath(vim.fn.getcwd(), "types"),
+								},
+							},
+
+							telemetry = {
+								enable = false,
+							},
+						},
 					},
 				}
+
 				vim.lsp.enable("lua_ls")
 			else
 				notify_missing("lua-language-server")
