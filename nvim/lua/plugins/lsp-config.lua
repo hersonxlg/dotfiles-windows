@@ -631,15 +631,53 @@ return {
                 local text = (platformio_ini_text or ""):lower()
                 local lines = {
                     "CompileFlags:",
+                    "  Add:",
                 }
 
-                -- Solo agregamos la sección 'Add' si es AVR
+                -- 1. Detectamos el HOME del sistema para ubicar los paquetes de PlatformIO
+                local is_windows = vim.fn.has("win32") == 1
+                local home = is_windows and (vim.env.USERPROFILE or vim.uv.os_homedir()):gsub("\\", "/") or vim.env.HOME
+
+                -- 2. SOLUCIÓN ESTILO VSCODE: Forzar la indexación de todas las librerías nativas del Framework
+                if text:find("espressif32") then
+                    local esp32_lib_path = home .. "/.platformio/packages/framework-arduinoespressif32/libraries"
+
+                    -- Escaneamos de forma segura las subcarpetas dentro del framework de Espressif
+                    local handle = vim.uv.fs_scandir(esp32_lib_path)
+                    if handle then
+                        while true do
+                            local name, type = vim.uv.fs_scandir_next(handle)
+                            if not name then
+                                break
+                            end
+
+                            if type == "directory" then
+                                local lib_dir = esp32_lib_path .. "/" .. name
+                                local src_dir = lib_dir .. "/src"
+
+                                -- Si la librería tiene una carpeta '/src' (como Wire, SPI, WiFi), incluimos esa.
+                                -- De lo contrario, incluimos la raíz de la librería.
+                                if vim.fn.isdirectory(src_dir) == 1 then
+                                    table.insert(lines, "    - -I" .. src_dir)
+                                else
+                                    table.insert(lines, "    - -I" .. lib_dir)
+                                end
+                            end
+                        end
+                    end
+                end
+
+                -- 3. Mantenemos el soporte nativo de AVR si es necesario
                 if text:find("atmelavr") then
-                    table.insert(lines, "  Add:")
                     table.insert(lines, "    - --target=avr")
                 end
 
-                -- La sección Remove y Diagnostics siempre se aplica
+                -- Si la sección 'Add:' quedó completamente vacía, limpiamos para mantener el YAML perfecto
+                if #lines == 2 then
+                    lines = { "CompileFlags:" }
+                end
+
+                -- 4. La sección Remove y Diagnostics que ya tenías optimizada
                 vim.list_extend(lines, {
                     "  Remove:",
                     "    - -mlongcalls",
