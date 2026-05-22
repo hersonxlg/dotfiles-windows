@@ -16,3 +16,4 @@ Vifm/vifminfo.json
 
 # Ignorar todo menos un archivo
 #!important.txt
+nvim/PowerShellEditorServices.json
