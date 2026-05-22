@@ -465,13 +465,18 @@ function Show-LibDetails {
     Pantalla de selección de puerto COM.
 .DESCRIPTION
     Detecta en tiempo real (Polling) los puertos COM del sistema.
+    Incluye la opción AUTO para delegar la selección a PlatformIO.
     Si conectas o desconectas un dispositivo, la UI se actualiza inmediatamente
     y alerta en verde el dispositivo recién conectado para fácil selección.
 #>
 function Invoke-StatePort {
+    $autoOption = "AUTO (Dejar que PlatformIO decida)"
     $cursor = 0; $lastKnownPorts = @(); $detectedPortName = "" 
-    $currentPorts = @([System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object -Unique)
-    $lastKnownPorts = $currentPorts; $done = $false
+    
+    # Obtener puertos iniciales y construir la lista visual
+    $rawPorts = @([System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object -Unique)
+    $currentPorts = @($autoOption) + $rawPorts
+    $lastKnownPorts = $rawPorts; $done = $false
     
     # Auto-Selecciona el puerto guardado en config si es que aún está conectado
     if ($Global:Context.Config.Port) { 
@@ -480,12 +485,14 @@ function Invoke-StatePort {
     }
 
     while (-not $done) {
-        $currentPorts = @([System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object -Unique)
+        $rawPorts = @([System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object -Unique)
         
-        # Lógica de detección de cambios (Hot-plug USB)
-        $diff = Compare-Object -ReferenceObject $lastKnownPorts -DifferenceObject $currentPorts
+        # Lógica de detección de cambios (Hot-plug USB) evaluada solo en puertos físicos
+        $diff = Compare-Object -ReferenceObject $lastKnownPorts -DifferenceObject $rawPorts
         if ($diff) {
             $added = $diff | Where-Object { $_.SideIndicator -eq "=>" } | Select-Object -ExpandProperty InputObject -First 1
+            $currentPorts = @($autoOption) + $rawPorts # Reconstruimos la lista a mostrar
+            
             if ($added) {
                 # Mueve automáticamente el cursor al dispositivo recién conectado
                 $detectedPortName = $added; $newIdx = $currentPorts.IndexOf($added)
@@ -494,7 +501,9 @@ function Invoke-StatePort {
                 # Si se desconectó algo, evitamos que el cursor se quede fuera de límites
                 if ($cursor -ge $currentPorts.Count) { $cursor = [Math]::Max(0, $currentPorts.Count - 1) } 
             }
-            $lastKnownPorts = $currentPorts
+            $lastKnownPorts = $rawPorts
+        } else {
+            $currentPorts = @($autoOption) + $rawPorts
         }
 
         [Console]::SetCursorPosition(0,0)
@@ -504,24 +513,25 @@ function Invoke-StatePort {
 
         $winH = $Host.UI.RawUI.WindowSize.Height; $listSpace = $winH - 5 
         
-        if ($currentPorts.Count -eq 0) {
-            Out-BufferLine "   [ ESPERANDO CONEXION USB... ]" -Fore $Theme.Error -NewLine
-            for($k=0; $k -lt ($listSpace - 1); $k++){ Out-BufferLine "" -NewLine }
-        } else {
-            for ($i = 0; $i -lt $listSpace; $i++) {
-                if ($i -lt $currentPorts.Count) {
-                    $p = $currentPorts[$i]
-                    $prefix = "   "; $fg = $Theme.Text; $bg = "Black"; $suffix = ""
-                    
+        for ($i = 0; $i -lt $listSpace; $i++) {
+            if ($i -lt $currentPorts.Count) {
+                $p = $currentPorts[$i]
+                $prefix = "   "; $fg = $Theme.Text; $bg = "Black"; $suffix = ""
+                
+                # Resaltado específico para la opción AUTO
+                if ($p -eq $autoOption) {
+                    $fg = "Cyan"
+                } else {
                     if ($p -eq $Global:Context.Config.Port) { $suffix += " (Guardado)"; $fg = $Theme.Faint }
                     if ($p -eq $detectedPortName) { 
                         $suffix += " [ ! NUEVO ! ]"
                         if ($i -ne $cursor) { $fg = $Theme.Detected } 
                     }
-                    if ($i -eq $cursor) { $prefix = " > "; $fg = $Theme.Selected; $bg = $Theme.SelBack }
-                    Out-BufferLine "$prefix$p$suffix" -Fore $fg -Back $bg -NewLine
-                } else { Out-BufferLine "" -NewLine }
-            }
+                }
+
+                if ($i -eq $cursor) { $prefix = " > "; $fg = $Theme.Selected; $bg = $Theme.SelBack }
+                Out-BufferLine "$prefix$p$suffix" -Fore $fg -Back $bg -NewLine
+            } else { Out-BufferLine "" -NewLine }
         }
         
         [Console]::SetCursorPosition(0, $winH - 2)
@@ -537,7 +547,12 @@ function Invoke-StatePort {
             if ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') { $Global:Context.CurrentState = "ExitApp"; $done = $true }
             elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l' -or $K.Key -eq [ConsoleKey]::RightArrow) {
                 if ($currentPorts.Count -gt 0) { 
-                    $Global:Context.Config.Port = $currentPorts[$cursor]
+                    # Lógica para inyectar Nulo si el usuario elige AUTO
+                    if ($currentPorts[$cursor] -eq $autoOption) {
+                        $Global:Context.Config.Port = $null
+                    } else {
+                        $Global:Context.Config.Port = $currentPorts[$cursor]
+                    }
                     $Global:Context.CurrentState = "State-Board"; $done = $true
                 }
             }
@@ -547,6 +562,7 @@ function Invoke-StatePort {
         Start-Sleep -Milliseconds 40
     }
 }
+
 
 <#
 .SYNOPSIS
