@@ -274,7 +274,7 @@ return {
             end
 
             --------------------------------------------------------
-            -- clangd (Optimizado para Neovim 0.12+ Nativo y Windows)
+            -- clangd (Optimizado para Neovim 0.12+ Nativo Multiplataforma)
             --------------------------------------------------------
 
             -- 1. VALIDACIÓN: Solo se ejecuta si 'clangd' está instalado en el sistema
@@ -282,14 +282,12 @@ return {
                 -- Detectamos el sistema operativo actual
                 local is_windows = vim.fn.has("win32") == 1
 
-                -- Argumentos base comunes para ambos sistemas
+                -- Argumentos base comunes (SIN el query-driver, lo asignaremos después)
                 local cmd = {
                     "clangd",
                     "--background-index",
                     "--clang-tidy",
                     "--header-insertion=never",
-                    -- El doble asterisco soluciona el problema de las rutas absolutas en Windows
-                    "--query-driver=**\\bin\\*g++*,**\\bin\\*gcc*",
                 }
                 local fallbackFlags = {}
 
@@ -300,9 +298,8 @@ return {
                     local home = (vim.env.USERPROFILE or vim.uv.os_homedir()):gsub("\\", "/")
                     local mingw_include = home .. "/scoop/apps/mingw/current/x86_64-w64-mingw32/include"
 
-                    -- CAMBIO 1: El comodín universal '*' permite que clangd ejecute de forma segura
-                    -- tanto el compilador de MinGW como los de PlatformIO sin importar las barras de Windows.
-                    table.insert(cmd, "--query-driver=*")
+                    -- Patrón con barras invertidas dobles para rutas de Windows
+                    table.insert(cmd, "--query-driver=**\\bin\\*g++*,**\\bin\\*gcc*")
 
                     fallbackFlags = {
                         "--target=x86_64-w64-mingw32",
@@ -312,15 +309,17 @@ return {
                     -- ==========================================
                     -- CONFIGURACIÓN PARA LINUX / MACOS
                     -- ==========================================
-                    table.insert(cmd, "--query-driver=/usr/bin/gcc,/usr/bin/g++,/usr/bin/clang")
+
+                    -- Patrón universal con barras normales. Esto permite que clangd
+                    -- ejecute de forma segura los compiladores ocultos en ~/.platformio/...
+                    table.insert(cmd, "--query-driver=**/*g++*,**/*gcc*,**/*clang*")
                 end
 
                 -- 2. Aplicamos la configuración en la API moderna de Neovim 0.12
                 vim.lsp.config.clangd = vim.tbl_deep_extend("force", vim.lsp.config.clangd or {}, {
                     cmd = cmd,
 
-                    -- CAMBIO 2: Obligatorio en Neovim 0.12 nativo para que 'vim.lsp.enable'
-                    -- sepa exactamente en qué buffers debe auto-iniciar el servidor.
+                    -- Obligatorio en Neovim 0.12 nativo
                     filetypes = { "c", "cpp", "objc", "objcpp", "h", "hpp" },
 
                     init_options = {
@@ -342,7 +341,6 @@ return {
                 -- 3. Activamos el servidor de forma segura usando el gestor nativo
                 vim.lsp.enable("clangd")
             end
-
             --------------------------------------------------------
             -- asm_lsp
             --------------------------------------------------------
