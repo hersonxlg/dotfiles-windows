@@ -70,10 +70,10 @@ return {
                 -- Formateador para C / C++ (clang-format)
                 ----------------------------------------------
                 null_ls.builtins.formatting.clang_format.with({
-                        extra_args = {
-                                -- Definimos las reglas inline en una sola línea de configuración
-                                "--style={BasedOnStyle: LLVM, IndentWidth: 4, UseTab: Never, ColumnLimit: 120}"
-                        },
+                    extra_args = {
+                        -- Definimos las reglas inline en una sola línea de configuración
+                        "--style={BasedOnStyle: LLVM, IndentWidth: 4, UseTab: Never, ColumnLimit: 120}",
+                    },
                 }),
 
                 asm_formatter,
@@ -92,6 +92,8 @@ return {
                 c = "null-ls",
                 matlab = "null-ls",
                 asm = "null-ls",
+                ps1 = "powershell_es",
+                psm1 = "powershell_es",
             }
 
             local wanted = preferred[ft]

@@ -113,6 +113,11 @@ return {
 
             local capabilities = require("cmp_nvim_lsp").default_capabilities()
 
+            capabilities.textDocument.foldingRange = {
+                dynamicRegistration = false,
+                lineFoldingOnly = true,
+            }
+
             local function notify_missing(name)
                 vim.notify(name .. " no está instalado o no está en PATH", vim.log.levels.WARN)
             end
@@ -317,6 +322,7 @@ return {
 
                 -- 2. Aplicamos la configuración en la API moderna de Neovim 0.12
                 vim.lsp.config.clangd = vim.tbl_deep_extend("force", vim.lsp.config.clangd or {}, {
+                    default_config = { capabilities = capabilities },
                     cmd = cmd,
 
                     -- Obligatorio en Neovim 0.12 nativo
