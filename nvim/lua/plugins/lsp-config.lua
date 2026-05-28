@@ -63,6 +63,7 @@ return {
             require("mason-null-ls").setup({
                 ensure_installed = {
                     "clang-format", -- Mason lo descargará automáticamente
+                    "stylua",
                 },
                 automatic_setup = false,
                 handlers = {
