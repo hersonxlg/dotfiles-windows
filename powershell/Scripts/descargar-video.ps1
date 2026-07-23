@@ -49,7 +49,7 @@ param (
 
 # 0. Validación de dependencias requeridas en el PATH del sistema operativo
 $dependencias = @('yt-dlp', 'ffmpeg', 'node')
-foreach ($app en $dependencias) {
+foreach ($app in $dependencias) {
     if (-not (Get-Command $app -ErrorAction SilentlyContinue)) {
         Write-Host "Error crítico: La herramienta requerida '$app' no está instalada o no se encuentra configurada en la variable PATH del sistema." -ForegroundColor Red
         exit 1
@@ -78,7 +78,7 @@ $videoInfo = $jsonOutput | ConvertFrom-Json
 # 3. Detección avanzada de idiomas (Incluyendo doblajes IA sin etiqueta oficial)
 $idiomasAudio = @()
 
-foreach ($pista en $videoInfo.formats) {
+foreach ($pista in $videoInfo.formats) {
     # Verificar si es una pista exclusiva de audio
     if (($pista.vcodec -eq 'none' -or $null -eq $pista.vcodec) -and ($pista.acodec -ne 'none' -and $null -ne $pista.acodec)) {
         
