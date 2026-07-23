@@ -203,3 +203,16 @@ if (Get-Command zoxide -ErrorAction SilentlyContinue) {
 if (Get-Command mise -ErrorAction SilentlyContinue) {
     (&mise activate pwsh) | Out-String | Invoke-Expression
 }
+
+# Validación multiplataforma para Yazi
+if (Get-Command yazi -ErrorAction SilentlyContinue) {
+    function y {
+        $tmp = (New-TemporaryFile).FullName
+        yazi @args --cwd-file="$tmp"
+        $cwd = Get-Content -Path $tmp -Encoding UTF8
+        if ($cwd -and $cwd -ne $PWD.Path -and (Test-Path -LiteralPath $cwd -PathType Container)) {
+            Set-Location -LiteralPath (Resolve-Path -LiteralPath $cwd).Path
+        }
+        Remove-Item -Path $tmp
+    }
+}
