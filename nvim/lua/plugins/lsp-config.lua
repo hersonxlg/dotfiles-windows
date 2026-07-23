@@ -378,29 +378,38 @@ return {
             end
 
             --------------------------------------------------------
-            -- pylsp
+            -- pylsp (Corregido para Neovim 0.12 Nativo)
             --------------------------------------------------------
             if has_exe("pylsp") then
-                vim.lsp.config.pylsp = {
-                    default_config = {
-                        cmd = { "pylsp" },
-                        settings = {
-                            pylsp = {
-                                plugins = {
-                                    rope_rename = { enabled = false },
-                                    jedi_rename = { enabled = false },
-                                    pylsp_rope = { rename = true },
-                                },
+                -- Usamos tbl_deep_extend para no sobreescribir la configuración base de Neovim
+                vim.lsp.config.pylsp = vim.tbl_deep_extend("force", vim.lsp.config.pylsp or {}, {
+                    cmd = { "pylsp" },
+
+                    -- CRÍTICO en Neovim 0.12 nativo: Define cuándo se activa
+                    filetypes = { "python" },
+
+                    capabilities = capabilities,
+                    settings = {
+                        pylsp = {
+                            plugins = {
+                                -- Tus configuraciones de renombrado
+                                rope_rename = { enabled = false },
+                                jedi_rename = { enabled = false },
+                                pylsp_rope = { rename = true },
+
+                                -- ACTIVACIÓN DEL FORMATEADOR (Usa solo uno)
+                                autopep8 = { enabled = true },
+                                yapf = { enabled = false },
+                                -- black = { enabled = true }, -- Descomenta si prefieres usar Black
                             },
                         },
-                        capabilities = capabilities,
                     },
-                }
+                })
+
                 vim.lsp.enable("pylsp")
             else
                 notify_missing("pylsp")
             end
-
             --------------------------------------------------------
             -- lua_ls (Neovim 0.12+ moderno)
             --------------------------------------------------------

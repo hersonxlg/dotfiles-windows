@@ -94,6 +94,7 @@ return {
                 asm = "null-ls",
                 ps1 = "powershell_es",
                 psm1 = "powershell_es",
+                python = "pylsp",
             }
 
             local wanted = preferred[ft]

@@ -1,21 +1,43 @@
 return {
     {
         "nvim-treesitter/nvim-treesitter",
-        --branch = "main", -- Obligatorio para las nuevas versiones de Neovim
-        lazy = false, -- El nuevo Treesitter ya no recomienda la carga perezosa (lazy-load)
+        lazy = false,
         build = ":TSUpdate",
         config = function()
-            -- El setup moderno es minimalista. Neovim ahora maneja el resaltado de forma nativa.
+            -- 1. Separamos nuestra lista de lenguajes
+            local mis_lenguajes = {
+                "powershell",
+                "lua",
+                "python",
+                "javascript",
+                "typescript",
+                "tsx",
+                "rust",
+                "go",
+                "c",
+                "cpp",
+                "bash",
+                "yaml",
+                "toml",
+                "css",
+                "html",
+                "json",
+                -- Agrega aquí tus nuevos lenguajes (ej: "html", "json")
+            }
+
+            -- 2. El setup moderno solo enciende funciones nativas (como el resaltado)
             require("nvim-treesitter").setup({
-                ensure_installed = { "c", "cpp", "lua", "python", "javascript", }, -- Agrega aquí tus lenguajes
-                auto_install = true,
                 highlight = { enable = true },
             })
+
+            -- 3. EL TRUCO: Forzamos la instalación explícita
+            -- Esta función revisará la lista y solo descargará silenciosamente los que falten
+            require("nvim-treesitter").install(mis_lenguajes)
         end,
     },
+
     {
         "nvim-treesitter/nvim-treesitter-textobjects",
-        --branch = "main",
         dependencies = { "nvim-treesitter/nvim-treesitter" },
         config = function()
             -- =================================================================
