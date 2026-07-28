@@ -4,7 +4,7 @@ return {
         lazy = false,
         build = ":TSUpdate",
         config = function()
-            -- 1. Separamos nuestra lista de lenguajes
+            -- 1. Definimos nuestra lista de lenguajes
             local mis_lenguajes = {
                 "powershell",
                 "lua",
@@ -22,17 +22,22 @@ return {
                 "css",
                 "html",
                 "json",
-                -- Agrega aquí tus nuevos lenguajes (ej: "html", "json")
             }
 
-            -- 2. El setup moderno solo enciende funciones nativas (como el resaltado)
-            require("nvim-treesitter").setup({
+            -- 2. El setup moderno utiliza "nvim-treesitter.configs"
+            require("nvim-treesitter.configs").setup({
+                -- Le pasamos la lista de lenguajes para que Treesitter los instale automáticamente
+                ensure_installed = mis_lenguajes,
+                
+                -- Instala lenguajes de forma asíncrona para no bloquear el inicio de Neovim
+                sync_install = false,
+                
+                -- Instala automáticamente lenguajes cuando entras a un archivo de un lenguaje no instalado
+                auto_install = true,
+
+                -- Habilita el resaltado de sintaxis
                 highlight = { enable = true },
             })
-
-            -- 3. EL TRUCO: Forzamos la instalación explícita
-            -- Esta función revisará la lista y solo descargará silenciosamente los que falten
-            require("nvim-treesitter").install(mis_lenguajes)
         end,
     },
 
