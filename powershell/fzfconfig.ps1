@@ -2,12 +2,15 @@
 #                   Config de fzf:
 # ********************************************************
 
+# 1. Importar el módulo para que PowerShell reconozca los comandos
+Import-Module PSFzf -ErrorAction SilentlyContinue
 
-# replace 'Ctrl+t' and 'Ctrl+r' with your preferred bindings:
+# 2. Reemplaza 'Ctrl+t' y 'Ctrl+r' con tus atajos preferidos:
 Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
 
-# Alt + C
-# example command - use $Location with a different command:
+# 3. Alt + C
+# Comando de ejemplo - usa $Location con un comando diferente:
 $commandOverride = [ScriptBlock]{ param($Location) Write-Host $Location }
-# pass your override to PSFzf:
+
+# Pasa tu override a PSFzf:
 Set-PsFzfOption -AltCCommand $commandOverride

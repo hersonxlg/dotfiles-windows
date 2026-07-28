@@ -1,3 +1,4 @@
+#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     PlatformIO Configurator TUI - V8.0 (The Fully Documented Edition)
