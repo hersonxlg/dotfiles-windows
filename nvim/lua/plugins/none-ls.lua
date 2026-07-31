@@ -44,7 +44,6 @@ return {
                 ----------------------------------------------
                 null_ls.builtins.formatting.stylua.with({
                     extra_args = function()
-                        -- Detecta si el OS actual es Windows
                         local is_windows = vim.fn.has("win32") == 1
                         local line_ending_value = is_windows and "Windows" or "Unix"
 
@@ -57,7 +56,6 @@ return {
                             "120",
                             "--quote-style",
                             "AutoPreferDouble",
-                            -- Se aplica dinámicamente según el entorno
                             "--line-endings",
                             line_ending_value,
                         }
@@ -71,10 +69,12 @@ return {
                 ----------------------------------------------
                 null_ls.builtins.formatting.clang_format.with({
                     extra_args = {
-                        -- Definimos las reglas inline en una sola línea de configuración
                         "--style={BasedOnStyle: LLVM, IndentWidth: 4, UseTab: Never, ColumnLimit: 120}",
                     },
                 }),
+
+                -- ✨ AÑADIMOS EL FORMATEADOR PARA PYTHON AQUÍ ✨
+                null_ls.builtins.formatting.black,
 
                 asm_formatter,
                 matlab_formatter,
@@ -86,7 +86,6 @@ return {
             local ft = vim.bo.filetype
 
             local preferred = {
-                --lua = "stylua",
                 lua = "null-ls",
                 cpp = "null-ls",
                 c = "null-ls",
@@ -94,7 +93,8 @@ return {
                 asm = "null-ls",
                 ps1 = "powershell_es",
                 psm1 = "powershell_es",
-                python = "pylsp",
+                -- ✨ CAMBIAMOS DE "pylsp" A "null-ls" PARA QUE USE BLACK ✨
+                python = "null-ls", 
             }
 
             local wanted = preferred[ft]
@@ -108,7 +108,6 @@ return {
                     if wanted then
                         return client.name == wanted
                     end
-
                     return client.name == "null-ls" or client.name == "none-ls"
                 end,
             })

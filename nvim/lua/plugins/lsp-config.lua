@@ -25,6 +25,7 @@ return {
                     -- 🔧 Tus LSPs actuales (Intactos)
                     "lua_ls",
                     "pylsp",
+                    "pyright",
                     "clangd",
                     "ts_ls",
                     "powershell_es",
@@ -64,6 +65,7 @@ return {
                 ensure_installed = {
                     "clang-format", -- Mason lo descargará automáticamente
                     "stylua",
+                    "black",
                 },
                 automatic_setup = false,
                 handlers = {
@@ -379,38 +381,114 @@ return {
             end
 
             --------------------------------------------------------
-            -- pylsp (Corregido para Neovim 0.12 Nativo)
+            -- Python LSPs: Pyright & Pylsp (Selector Dinámico)
             --------------------------------------------------------
+            
+            -- 1. Configuramos Pylsp
             if has_exe("pylsp") then
-                -- Usamos tbl_deep_extend para no sobreescribir la configuración base de Neovim
                 vim.lsp.config.pylsp = vim.tbl_deep_extend("force", vim.lsp.config.pylsp or {}, {
                     cmd = { "pylsp" },
-
-                    -- CRÍTICO en Neovim 0.12 nativo: Define cuándo se activa
-                    filetypes = { "python" },
-
+                    -- 🛑 CRÍTICO: Tabla vacía para aplastar el autostart nativo de Neovim
+                    filetypes = {}, 
                     capabilities = capabilities,
                     settings = {
                         pylsp = {
                             plugins = {
-                                -- Tus configuraciones de renombrado
                                 rope_rename = { enabled = false },
                                 jedi_rename = { enabled = false },
                                 pylsp_rope = { rename = true },
-
-                                -- ACTIVACIÓN DEL FORMATEADOR (Usa solo uno)
                                 autopep8 = { enabled = true },
                                 yapf = { enabled = false },
-                                -- black = { enabled = true }, -- Descomenta si prefieres usar Black
                             },
                         },
                     },
                 })
-
-                vim.lsp.enable("pylsp")
             else
                 notify_missing("pylsp")
             end
+
+            -- 2. Configuramos Pyright
+            if has_exe("pyright-langserver") then
+                vim.lsp.config.pyright = vim.tbl_deep_extend("force", vim.lsp.config.pyright or {}, {
+                    cmd = { "pyright-langserver", "--stdio" },
+                    -- 🛑 CRÍTICO: Tabla vacía para aplastar el autostart nativo de Neovim
+                    filetypes = {},
+                    capabilities = capabilities,
+                    settings = {
+                        python = {
+                            analysis = {
+                                autoSearchPaths = true,
+                                useLibraryCodeForTypes = true,
+                                diagnosticMode = "workspace",
+                            },
+                        },
+                    },
+                })
+            else
+                notify_missing("pyright-langserver")
+            end
+
+            -- =========================================================
+            -- 🧠 LÓGICA DE LAS 3 CAPAS (BLINDADA CONTRA DUPLICADOS)
+            -- =========================================================
+
+            -- Tu servidor global por defecto
+            vim.g.python_lsp_default = "pyright"
+
+            -- Autocomando que inyecta el LSP correcto
+            vim.api.nvim_create_autocmd("FileType", {
+                pattern = "python",
+                callback = function(args)
+                    local lsp_to_use = vim.b.python_lsp or vim.g.python_lsp or vim.g.python_lsp_default
+                    local config = vim.lsp.config[lsp_to_use]
+                    
+                    if config then
+                        -- 🛡️ ESCUDO: Verificamos si este servidor YA está corriendo en este buffer
+                        local active_clients = vim.lsp.get_clients({ bufnr = args.buf, name = lsp_to_use })
+                        
+                        -- Solo lo iniciamos si no hay ninguna instancia activa
+                        if #active_clients == 0 then
+                            vim.lsp.start(config, { bufnr = args.buf })
+                        end
+                    end
+                end,
+            })
+
+            -- EL INTERRUPTOR: Comando interactivo
+            vim.api.nvim_create_user_command("PythonLspSwitch", function()
+                vim.ui.select({ "pyright", "pylsp" }, {
+                    prompt = "🐍 Elige el LSP para Python:",
+                }, function(choice)
+                    if not choice then return end
+
+                    vim.g.python_lsp = choice
+                    local bufnr = vim.api.nvim_get_current_buf()
+
+                    -- 1. Apagamos TODOS los clientes de Python en este buffer de forma blindada
+                    local clients = vim.lsp.get_clients({ bufnr = bufnr })
+                    for _, client in ipairs(clients) do
+                        if client.name == "pyright" or client.name == "pylsp" then
+                            -- 🛡️ TÁCTICA 1: Cortamos la comunicación con el buffer ANTES de apagar
+                            vim.lsp.buf_detach_client(bufnr, client.id)
+                            -- Ahora sí, le pedimos que se apague amablemente
+                            client:stop()
+                        end
+                    end
+
+                    -- 2. 🛡️ TÁCTICA 2: Esperamos 300ms para que el servidor viejo muera en paz
+                    vim.defer_fn(function()
+                        local config = vim.lsp.config[choice]
+                        if config then
+                            vim.lsp.start(config, { bufnr = bufnr })
+                            vim.notify("✅ LSP cambiado a: " .. choice, vim.log.levels.INFO)
+                        end
+                    end, 300) -- 300 milisegundos de respiro
+                end)
+            end, {})
+
+            -- Atajo de teclado
+            vim.keymap.set("n", "<leader>ps", ":PythonLspSwitch<CR>", { desc = "Python: Cambiar LSP" })
+
             --------------------------------------------------------
             -- lua_ls (Neovim 0.12+ moderno)
             --------------------------------------------------------
@@ -1438,9 +1516,6 @@ return {
                 vim.lsp.enable("matlab_ls")
             end
 
-            ------------------------------------------------------------
-            -- Atajos de Teclado del LSP (Con descripciones)
-            ------------------------------------------------------------
 
             ------------------------------------------------------------
             -- Atajos de Teclado del LSP (Solo los necesarios)
