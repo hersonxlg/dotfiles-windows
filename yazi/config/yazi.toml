@@ -1,0 +1,42 @@
+[mgr]
+show_hidden = true
+ratio = [1, 3, 4]
+
+[preview]
+max_width = 3000
+max_height = 3000
+image_delay = 30
+image_filter = "lanczos3"
+
+# --- REGLAS DE APERTURA ---
+[opener]
+# Neovim (funciona idéntico en Linux y Windows)
+edit = [
+    { run = 'nvim %s', block = true, for = "unix" },
+    { run = 'nvim %s', block = true, for = "windows" }
+]
+
+# Abrir con la aplicación predeterminada del sistema operativo
+default = [
+    { run = 'xdg-open %s', orphan = true, for = "unix" },
+    { run = 'explorer %s', orphan = true, for = "windows" }
+]
+
+# Reproductor de audio (DeaDBeeF / MPV en Linux, Foobar2000 en Windows)
+audio_player = [
+    { run = 'deadbeef %s',  orphan = true, for = "unix" },
+    { run = 'foobar2000 %s', orphan = true, for = "windows" }
+]
+
+[open]
+rules = [
+    { mime = "text/*", use = [ "edit", "default" ] },
+    { url = "*.{txt,md,lua,toml,json,yaml,ino,py,c,cpp,h,js,ts,css,html}", use = [ "edit", "default" ] },
+    { mime = "audio/*", use = [ "audio_player" ] },
+    { mime = "*/*",     use = [ "default" ] }
+]
+# --- REGLAS DE VISTA PREVIA ---
+[plugin]
+prepend_previewers = [
+    { url = "*.ino", run = "code" }
+]

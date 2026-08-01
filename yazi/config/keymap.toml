@@ -1,0 +1,35 @@
+[mgr]
+prepend_keymap = [
+  # Navegación estilo Enter con la tecla 'l'
+  #{ on = "l", run = "open", desc = "Abrir archivo o entrar a directorio" },
+  { on = "l", run = "plugin smart-enter", desc = "Entrar a directorio o abrir archivo" },
+
+  # Shells (Linux / Windows)
+  { on = "!", run = 'shell "$SHELL" --block', for = "unix", desc = "Open Shell here" },
+  { on = "!", run = 'shell "powershell.exe" --block', for = "windows", desc = "Open PowerShell here" },
+
+  # bookmarks.yazi
+  { on = [ "m" ], run = "plugin bookmarks save", desc = "Save bookmark" },
+  { on = [ "'" ], run = "plugin bookmarks jump", desc = "Jump to bookmark" },
+  { on = [ "b", "d" ], run = "plugin bookmarks delete", desc = "Delete bookmark" },
+  { on = [ "b", "D" ], run = "plugin bookmarks delete_all", desc = "Delete all bookmarks" },
+
+  # whoosh.yazi
+  { on = [ "B" ], run = "plugin whoosh jump_by_fzf", desc = "Open Whoosh bookmarks" },
+  { on = [ "g", "a" ], run = "plugin whoosh save", desc = "Save Whoosh bookmark" },
+  { on = [ "g", "d" ], run = "plugin whoosh delete_by_fzf", desc = "Delete Whoosh bookmark" },
+  { on = [ "g", "r" ], run = "plugin whoosh rename_by_fzf", desc = "Rename Whoosh bookmark" },
+
+  # MIS COMANDOS PERSONALIZADOS
+  { on = [ "o", "i" ], run = "plugin abrir-url-incognito", desc = "Extraer URL y abrir en Brave Incógnito" },
+
+  # Atajos de música multiplataforma
+  { on = [ "o", "f" ], run = 'shell "deadbeef %s" --orphan', for = "unix", desc = "Abrir con DeaDBeeF" },
+  { on = [ "o", "f" ], run = 'shell "foobar2000 %s" --orphan', for = "windows", desc = "Abrir con foobar2000" },
+
+  # Reproductores adicionales
+  { on = [ "o", "v" ], run = 'shell "vlc %s" --orphan', desc = "Abrir con VLC" },
+
+  # Menú flotante "Abrir con..."
+  { on = [ "o", "m" ], run = "open --interactive", desc = "Menú interactivo Abrir con..." }
+]

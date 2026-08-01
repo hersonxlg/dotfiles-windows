@@ -1,0 +1,14 @@
+[[plugin.deps]]
+use = "dedukun/bookmarks"
+rev = "9ef1254"
+hash = "fc77f2bd3aad78199fbe11b727b1954f"
+
+[[flavor.deps]]
+use = "yazi-rs/flavors:catppuccin-mocha"
+rev = "0670801"
+hash = "5ebc8659108fcb68fe853e523115ed3c"
+
+[[flavor.deps]]
+use = "yazi-rs/flavors:dracula"
+rev = "0670801"
+hash = "fee9eeb8bf3ac3ed251812cbc0452bbd"

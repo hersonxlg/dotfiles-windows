@@ -1,8 +1,7 @@
-
 # Ignorar archivos temporales
-#*.log
-#*.tmp
-#*.bak
+*.log
+*.tmp
+*.bak
 
 # Ignorar carpetas específicas
 #build/
@@ -14,6 +13,24 @@ Vifm/vifminfo.json
 #.DS_Store
 #Thumbs.db
 
-# Ignorar todo menos un archivo
-#!important.txt
+# Ignorar archivos específicos
 nvim/PowerShellEditorServices.json
+
+# ===============================
+# Yazi File Manager
+# ===============================
+# 1. Logs y estado temporal
+yazi/state/
+
+# 2. Archivo de marcadores (guarda rutas C:\Users\... locales) y archivos de prueba
+yazi/config/bookmarks
+
+# 3. Temas/Flavors descargados externamente
+#yazi/config/flavors/
+
+# 4. Plugins descargados de terceros (administrados por 'ya pkg')
+yazi/config/plugins/*
+
+# ...EXCEPTO tus dos plugins personalizados:
+!yazi/config/plugins/smart-enter.yazi/
+!yazi/config/plugins/abrir-url-incognito.yazi/
