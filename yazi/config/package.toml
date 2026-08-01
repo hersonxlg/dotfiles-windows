@@ -8,6 +8,11 @@ use = "WhoSowSee/whoosh"
 rev = "ec2e6f7"
 hash = "957354359d2850e7efd7c60fc3f2bc87"
 
+[[plugin.deps]]
+use = "XYenon/clipboard"
+rev = "d4d19ea"
+hash = "ef8df13dca8471792c3583f783f3890a"
+
 [[flavor.deps]]
 use = "yazi-rs/flavors:catppuccin-mocha"
 rev = "0670801"

@@ -20,6 +20,12 @@ prepend_keymap = [
   { on = [ "g", "d" ], run = "plugin whoosh delete_by_fzf", desc = "Delete Whoosh bookmark" },
   { on = [ "g", "r" ], run = "plugin whoosh rename_by_fzf", desc = "Rename Whoosh bookmark" },
 
+  # clipboard.yazi
+  { on = [ "<C-c>" ], run = [ "yank", "plugin clipboard -- --action=copy" ], desc = "Copiar al portapapeles del sistema" },
+  { on = [ "<C-x>" ], run = [ "yank --cut", "plugin clipboard -- --action=copy" ], desc = "Cortar al portapapeles del sistema" },
+  { on = [ "<C-v>" ], run = "plugin clipboard -- --action=paste", desc = "Pegar desde el portapapeles del sistema" },
+
+
   # MIS COMANDOS PERSONALIZADOS
   { on = [ "o", "i" ], run = "plugin abrir-url-incognito", desc = "Extraer URL y abrir en Brave Incógnito" },
 
@@ -30,6 +36,6 @@ prepend_keymap = [
   # Reproductores adicionales
   { on = [ "o", "v" ], run = 'shell "vlc %s" --orphan', desc = "Abrir con VLC" },
 
-  # Menú flotante "Abrir con..."
+  # Menú flotante "Abrir com..."
   { on = [ "o", "m" ], run = "open --interactive", desc = "Menú interactivo Abrir con..." }
 ]
