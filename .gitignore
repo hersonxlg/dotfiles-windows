@@ -34,3 +34,4 @@ yazi/config/plugins/*
 # ...EXCEPTO tus dos plugins personalizados:
 !yazi/config/plugins/smart-enter.yazi/
 !yazi/config/plugins/abrir-url-incognito.yazi/
+!yazi/config/plugins/whoosh.yazi/
