@@ -28,10 +28,12 @@ yazi/config/bookmarks
 # 3. Temas/Flavors descargados externamente
 #yazi/config/flavors/
 
-# 4. Plugins descargados de terceros (administrados por 'ya pkg')
+# 4. Plugins descargados de terceros
 yazi/config/plugins/*
 
-# ...EXCEPTO tus dos plugins personalizados:
+# EXCEPCIONES: Plugins a incluir en el repositorio
 !yazi/config/plugins/smart-enter.yazi/
 !yazi/config/plugins/abrir-url-incognito.yazi/
 !yazi/config/plugins/whoosh.yazi/
+!yazi/config/plugins/bookmarks.yazi/
+!yazi/config/plugins/lazygit.yazi/
