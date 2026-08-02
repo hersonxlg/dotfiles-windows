@@ -39,5 +39,10 @@ prepend_keymap = [
   { on = [ "o", "v" ], run = 'shell "vlc %s" --orphan', desc = "Abrir con VLC" },
 
   # Menú flotante "Abrir con..."
-  { on = [ "o", "m" ], run = "open --interactive", desc = "Menú interactivo Abrir con..." }
+  { on = [ "o", "m" ], run = "open --interactive", desc = "Menú interactivo Abrir con..." },
+
+  # Ventana flotante nativa para cambiar de unidad en Windows
+  { on = [ "g", "u" ], run = "plugin drives", desc = "Prueba ventana flotante" },
+
 ]
+
