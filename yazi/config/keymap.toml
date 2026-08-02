@@ -1,12 +1,15 @@
 [mgr]
 prepend_keymap = [
   # Navegación estilo Enter con la tecla 'l'
-  #{ on = "l", run = "open", desc = "Abrir archivo o entrar a directorio" },
   { on = "l", run = "plugin smart-enter", desc = "Entrar a directorio o abrir archivo" },
 
-  # Shells (Linux / Windows)
+  # Shell completa en ventana (!)
   { on = "!", run = 'shell "$SHELL" --block', for = "unix", desc = "Open Shell here" },
-  { on = "!", run = 'shell "powershell.exe" --block', for = "windows", desc = "Open PowerShell here" },
+  { on = "!", run = 'shell "pwsh -nop" --block', for = "windows", desc = "Open PowerShell here" },
+
+  # --- COMANDOS RÁPIDOS (;, :) ---
+  { on = ";", run = 'shell "pwsh -nop -c ; " --interactive', for = "windows", desc = "Comando rápido en PowerShell" },
+  { on = ":", run = 'shell "pwsh -nop -c ; " --block --interactive', for = "windows", desc = "Comando rápido bloqueante en PowerShell" },
 
   # bookmarks.yazi
   { on = [ "m" ], run = "plugin bookmarks save", desc = "Save bookmark" },
@@ -25,7 +28,6 @@ prepend_keymap = [
   { on = [ "<C-x>" ], run = [ "yank --cut", "plugin clipboard -- --action=copy" ], desc = "Cortar al portapapeles del sistema" },
   { on = [ "<C-v>" ], run = "plugin clipboard -- --action=paste", desc = "Pegar desde el portapapeles del sistema" },
 
-
   # MIS COMANDOS PERSONALIZADOS
   { on = [ "o", "i" ], run = "plugin abrir-url-incognito", desc = "Extraer URL y abrir en Brave Incógnito" },
 
@@ -36,6 +38,6 @@ prepend_keymap = [
   # Reproductores adicionales
   { on = [ "o", "v" ], run = 'shell "vlc %s" --orphan', desc = "Abrir con VLC" },
 
-  # Menú flotante "Abrir com..."
+  # Menú flotante "Abrir con..."
   { on = [ "o", "m" ], run = "open --interactive", desc = "Menú interactivo Abrir con..." }
 ]
