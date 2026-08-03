@@ -4,7 +4,8 @@ require("vim._core.ui2").enable({})
 -- Instalar LAZY:
 ------------------------------------------------------------
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-if not vim.loop.fs_stat(lazypath) then
+local uv = vim.uv or vim.loop
+if not uv.fs_stat(lazypath) then
     vim.fn.system({
         "git",
         "clone",
@@ -30,21 +31,30 @@ require("keymaps")
 ------------------------------------------------------------
 -- PLUGINS FOR LAZY:
 ------------------------------------------------------------
-require("lazy").setup("plugins")
+require("lazy").setup("plugins", {
+    git = {
+        timeout = 300, -- 5 minutos de tiempo límite para evitar descargas abortadas en Linux
+    },
+})
 
 ------------------------------------------------------------
--- auto comando
+-- Autocomando Multiplataforma (Linux / Windows)
 ------------------------------------------------------------
 function RequireAll(relative_path)
-    local path_base = vim.fn.expand("$LOCALAPPDATA\\nvim\\lua\\")
-    vim.g.a = relative_path
-    vim.g.b = path_base
-    local paths = vim.split(vim.fn.globpath(path_base .. relative_path, "*.lua"), "\n", { trimempty = true })
-    vim.g.p = ""
-    for i, p in pairs(paths) do
-        local path_for_require = p:gsub(path_base, ""):gsub(".lua", ""):gsub("\\", ".")
-        require(path_for_require)
-        vim.g.p = vim.g.p .. path_for_require .. "\n"
+    -- stdpath("config") obtiene dinámicamente ~/.config/nvim en Linux o AppData/Local/nvim en Windows
+    local config_path = vim.fn.stdpath("config") .. "/lua/"
+    local target_dir = config_path .. relative_path
+    
+    local paths = vim.split(vim.fn.globpath(target_dir, "*.lua"), "\n", { trimempty = true })
+    
+    for _, p in ipairs(paths) do
+        -- Normalizamos barras inclinadas de Windows (\) a estilo Linux (/)
+        local normalized_p = p:gsub("\\", "/")
+        local normalized_config = config_path:gsub("\\", "/")
+        
+        -- Convertimos la ruta en formato del require de Lua (ejemplo: "autocmd.mis_autocmds")
+        local module_name = normalized_p:gsub(normalized_config, ""):gsub("%.lua$", ""):gsub("/", ".")
+        require(module_name)
     end
 end
 
