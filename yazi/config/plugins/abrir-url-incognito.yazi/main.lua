@@ -26,26 +26,48 @@ function M:entry(job)
             timeout = 2 
         })
         
-        -- TRUCO MAESTRO: Escapamos los símbolos especiales de Windows (^ y &)
-        -- Esto nos permite enviar la URL limpia a la consola SIN usar comillas dobles
-        local link_escapado = link:gsub("%^", "^^"):gsub("&", "^&")
-        
-        -- Construimos el comando completamente libre de comillas problemáticas
-        local comando = "start brave --incognito " .. link_escapado
+        if ya.target_family() == "windows" then
+            -- ----------------------------------------------------
+            -- WINDOWS: Usar CMD con start y escape de símbolos
+            -- ----------------------------------------------------
+            local link_escapado = link:gsub("%^", "^^"):gsub("&", "^&")
+            local comando = "start brave --incognito " .. link_escapado
 
-        -- Usamos :output() para obligar a Yazi a esperar los 10ms que tarda CMD en lanzar Brave
-        local output, err = Command("cmd")
-            :arg("/c")
-            :arg(comando)
-            :output()
+            local output, err = Command("cmd")
+                :arg("/c")
+                :arg(comando)
+                :output()
 
-        if not output then
-            ya.notify({ 
-                title = "Error de Ejecución", 
-                content = tostring(err), 
-                level = "error", 
-                timeout = 5 
-            })
+            if not output then
+                ya.notify({ 
+                    title = "Error de Ejecución", 
+                    content = tostring(err), 
+                    level = "error", 
+                    timeout = 5 
+                })
+            end
+        else
+            -- ----------------------------------------------------
+            -- LINUX / MACOS: Desvincular con systemd-run / nohup y :output()
+            -- ----------------------------------------------------
+            local cmd_linux = string.format(
+                "systemd-run --user --scope brave --incognito %q >/dev/null 2>&1 || nohup brave --incognito %q >/dev/null 2>&1 &",
+                link, link
+            )
+
+            local output, err = Command("sh")
+                :arg("-c")
+                :arg(cmd_linux)
+                :output()
+
+            if not output then
+                ya.notify({ 
+                    title = "Error de Ejecución", 
+                    content = tostring(err), 
+                    level = "error", 
+                    timeout = 5 
+                })
+            end
         end
     else
         ya.notify({ 
