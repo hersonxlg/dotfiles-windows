@@ -44,5 +44,7 @@ prepend_keymap = [
   # Ventana/Menú flotante para cambiar de disco o punto de montaje (Multiplataforma)
   { on = [ "g", "u" ], run = "plugin drives", desc = "Ver unidades / puntos de montaje" },
 
+# --- DESHACER BORRADO / PAPELERA (u) ---
+  { on = [ "u" ], run = 'shell "trash-restore" --block', for = "unix", desc = "Restaurar elemento de la papelera (trash-cli)" },
+  { on = [ "u" ], run = 'shell "pwsh -nop -c \"$b=(New-Object -ComObject Shell.Application).NameSpace(10).Items(); if($b.Count -gt 0){$i=$b.Item(0); $i.Verbs() | Where-Object {$_.Name -match \"Restaurar|Restore\"} | ForEach-Object {$_.DoIt()}; Write-Host Restaurado: $i.Name; Start-Sleep 1}\"" --block', for = "windows", desc = "Restaurar último elemento de la Papelera" },
 ]
-
