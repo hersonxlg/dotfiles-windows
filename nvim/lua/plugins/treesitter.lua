@@ -1,6 +1,7 @@
 return {
     {
         "nvim-treesitter/nvim-treesitter",
+        branch = "master", -- Forzar a Lazy a usar y seguir la rama master
         lazy = false,
         build = ":TSUpdate",
         config = function()
