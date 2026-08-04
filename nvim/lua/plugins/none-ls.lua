@@ -94,7 +94,8 @@ return {
                 ps1 = "powershell_es",
                 psm1 = "powershell_es",
                 -- ✨ CAMBIAMOS DE "pylsp" A "null-ls" PARA QUE USE BLACK ✨
-                python = "null-ls", 
+                python = "null-ls",
+                toml = "tombi",
             }
 
             local wanted = preferred[ft]

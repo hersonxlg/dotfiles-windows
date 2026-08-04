@@ -28,6 +28,7 @@ return {
                     "pyright",
                     "clangd",
                     "ts_ls",
+                    "tombi",
                     "powershell_es",
                     "arduino_language_server",
                     "asm_lsp",
@@ -59,7 +60,8 @@ return {
         lazy = false,
         dependencies = { "williamboman/mason.nvim", "nvimtools/none-ls.nvim" },
         config = function()
-            local is_windows = vim.loop.os_uname().sysname:match("Windows")
+            -- local is_windows = vim.loop.os_uname().sysname:match("Windows")
+            local is_windows = vim.uv.os_uname().sysname:match("Windows")
 
             require("mason-null-ls").setup({
                 ensure_installed = {
@@ -178,7 +180,71 @@ return {
                 return binary
             end
 
-            ---------------------------------
+            -----------------------------------------------------------------
+            -- TOML (Tombi)
+            --------------------------------------------------------
+            if has_exe("taplo") or has_exe("tombi") then
+                -- 1. Determinamos la ruta de configuración global según el SO
+                local tombi_config_dir
+                if is_windows then
+                    local appdata = vim.env.APPDATA or (os_home() .. "/AppData/Roaming")
+                    tombi_config_dir = vim.fs.normalize(appdata .. "/tombi")
+                else
+                    local xdg_config = vim.env.XDG_CONFIG_HOME
+                    tombi_config_dir = (xdg_config and xdg_config ~= "") and vim.fs.normalize(xdg_config .. "/tombi")
+                        or (os_home() .. "/.config/tombi")
+                end
+
+                local tombi_config_file = tombi_config_dir .. "/config.toml"
+
+                -- Crear directorio si no existe (funciona de forma transparente en Linux/macOS/Windows)
+                if vim.fn.isdirectory(tombi_config_dir) == 0 then
+                    vim.fn.mkdir(tombi_config_dir, "p")
+                end
+
+                local config_content = [[
+[format.rules]
+indent-width = 4
+indent-table-key-value-pairs = true
+indent-sub-tables = true
+]]
+
+                local f = io.open(tombi_config_file, "w")
+                if f then
+                    f:write(config_content)
+                    f:close()
+                end
+
+                -- 2. Configuración e inicio de Tombi LSP
+                vim.lsp.config.tombi = {
+                    default_config = {
+                        cmd = { "tombi", "lsp" },
+                        filetypes = { "toml" },
+                        single_file_support = true,
+                        root_dir = function(bufnr_or_fname)
+                            local fname = type(bufnr_or_fname) == "number" and vim.api.nvim_buf_get_name(bufnr_or_fname)
+                                or bufnr_or_fname
+
+                            if fname and fname ~= "" then
+                                local abs_path = vim.fs.normalize(vim.fn.fnamemodify(fname, ":p"))
+                                local root = vim.fs.root(
+                                    abs_path,
+                                    { ".git", "pyproject.toml", "Cargo.toml", "tombi.toml", "config.toml" }
+                                )
+                                if root then
+                                    return root
+                                end
+                                return vim.fs.dirname(abs_path)
+                            end
+                            return vim.uv.cwd()
+                        end,
+                        capabilities = capabilities,
+                    },
+                }
+                vim.lsp.enable("tombi")
+            else
+                notify_missing("tombi")
+            end ------------------------
             -- Emmet LSP (Abreviaciones ultra rápidas de HTML/CSS)
             ---------------------------------
             if has_exe("emmet-language-server") then
@@ -383,13 +449,13 @@ return {
             --------------------------------------------------------
             -- Python LSPs: Pyright & Pylsp (Selector Dinámico)
             --------------------------------------------------------
-            
+
             -- 1. Configuramos Pylsp
             if has_exe("pylsp") then
                 vim.lsp.config.pylsp = vim.tbl_deep_extend("force", vim.lsp.config.pylsp or {}, {
                     cmd = { "pylsp" },
                     -- 🛑 CRÍTICO: Tabla vacía para aplastar el autostart nativo de Neovim
-                    filetypes = {}, 
+                    filetypes = {},
                     capabilities = capabilities,
                     settings = {
                         pylsp = {
@@ -441,11 +507,11 @@ return {
                 callback = function(args)
                     local lsp_to_use = vim.b.python_lsp or vim.g.python_lsp or vim.g.python_lsp_default
                     local config = vim.lsp.config[lsp_to_use]
-                    
+
                     if config then
                         -- 🛡️ ESCUDO: Verificamos si este servidor YA está corriendo en este buffer
                         local active_clients = vim.lsp.get_clients({ bufnr = args.buf, name = lsp_to_use })
-                        
+
                         -- Solo lo iniciamos si no hay ninguna instancia activa
                         if #active_clients == 0 then
                             vim.lsp.start(config, { bufnr = args.buf })
@@ -459,7 +525,9 @@ return {
                 vim.ui.select({ "pyright", "pylsp" }, {
                     prompt = "🐍 Elige el LSP para Python:",
                 }, function(choice)
-                    if not choice then return end
+                    if not choice then
+                        return
+                    end
 
                     vim.g.python_lsp = choice
                     local bufnr = vim.api.nvim_get_current_buf()
@@ -592,7 +660,8 @@ return {
                                 ----------------------------------------
                                 -- Runtime files de Neovim
                                 ----------------------------------------
-                                library = vim.api.nvim_get_runtime_file("", true),
+                                -- library = vim.api.nvim_get_runtime_file("", true),
+                                library = {},
                             },
 
                             --------------------------------------------
@@ -895,234 +964,6 @@ return {
             vim.api.nvim_create_user_command("PioRefresh", function()
                 ensure_platformio_setup(vim.api.nvim_get_current_buf(), true)
             end, {})
-
-            -->local function read_file(path)
-            -->	if vim.fn.filereadable(path) ~= 1 then
-            -->		return ""
-            -->	end
-            -->	return table.concat(vim.fn.readfile(path), "\n")
-            -->end
-
-            -->local function platformio_root(bufnr)
-            -->	return vim.fs.root(bufnr, { "platformio.ini" })
-            -->end
-
-            -->-- 1. Función para extraer las rutas de sistema dinámicamente (VERSIÓN CORREGIDA)
-            -->local function get_pio_includes(platformio_ini_text)
-            -->	local pio_packages = os_home() .. "/.platformio/packages"
-            -->	local text = (platformio_ini_text or ""):lower()
-
-            -->	-- Determinar qué binario buscar según el proyecto
-            -->	local compiler_name = "xtensa-esp32s3-elf-g++" -- default
-            -->	if text:find("atmelavr") or text:find("uno") then
-            -->		compiler_name = "avr-g++"
-            -->	elseif text:find("esp32") and not text:find("s3") then
-            -->		compiler_name = "xtensa-esp32-elf-g++"
-            -->	end
-
-            -->	local find_cmd
-            -->	if is_windows then
-            -->		find_cmd = 'dir /s /b "' .. pio_packages .. "\\*" .. compiler_name .. '.exe" 2>nul'
-            -->	else
-            -->		find_cmd = 'find "'
-            -->			.. pio_packages
-            -->			.. '" -iname "'
-            -->			.. compiler_name
-            -->			.. '" -type f 2>/dev/null | head -n 1'
-            -->	end
-
-            -->	local handle = io.popen(find_cmd)
-            -->	if not handle then
-            -->		return {}
-            -->	end
-            -->	local compiler_path = handle:read("*l")
-            -->	handle:close()
-
-            -->	if not compiler_path or compiler_path == "" then
-            -->		return {}
-            -->	end
-
-            -->	local echo_cmd = is_windows and "echo." or 'echo ""'
-            -->	local shell_cmd = echo_cmd .. ' | "' .. compiler_path .. '" -v -E -x c++ - 2>&1'
-            -->	local dump = io.popen(shell_cmd)
-            -->	if not dump then
-            -->		return {}
-            -->	end
-
-            -->	local includes = {}
-            -->	local found_start = false
-            -->	for line in dump:lines() do
-            -->		local clean_line = line:gsub("\r", ""):gsub("^%s+", "")
-            -->		if clean_line:find("#include <...> search starts here:") then
-            -->			found_start = true
-            -->		elseif clean_line:find("End of search list%.") then
-            -->			found_start = false
-            -->		elseif found_start then
-            -->			local path = clean_line:gsub("\\", "/")
-            -->			if path ~= "" and vim.fn.isdirectory(path) == 1 then
-            -->				table.insert(includes, path)
-            -->			end
-            -->		end
-            -->	end
-            -->	dump:close()
-            -->	return includes
-            -->end
-
-            -->-- 2. Plantilla con el formato exacto que pediste
-            -->local function build_clangd_template(platformio_ini_text, pio_includes)
-            -->	local text = (platformio_ini_text or ""):lower()
-            -->	local lines = {
-            -->		"CompileFlags:",
-            -->		"  Add:",
-            -->	}
-
-            -->	if text:find("esp32") then
-            -->		table.insert(lines, "    - --target=xtensa-esp32-elf")
-            -->	elseif text:find("atmelavr") then
-            -->		table.insert(lines, "    - --target=avr")
-            -->	end
-
-            -->	-- Insertar rutas con el formato: - "-isystem" \n - "ruta"
-            -->	for _, path in ipairs(pio_includes or {}) do
-            -->		table.insert(lines, '    - "-isystem"')
-            -->		table.insert(lines, '    - "' .. path .. '"')
-            -->	end
-
-            -->	vim.list_extend(lines, {
-            -->		"  Remove:",
-            -->		"    - -mlongcalls",
-            -->		"    - -fstrict-volatile-bitfields",
-            -->		"    - -fno-tree-switch-conversion",
-            -->		"    - -free",
-            -->		"    - -fipa-pta",
-            -->		"",
-            -->		"Diagnostics:",
-            -->		"  Suppress:",
-            -->		"    - pp_file_not_found",
-            -->		"    - type_unsupported",
-            -->		"    - machine_mode",
-            -->	})
-            -->	return lines
-            -->end
-
-            -->-- 3. Escritura del archivo
-            -->local function write_clangd(root)
-            -->	local ini_path = root .. "/platformio.ini"
-            -->	local clangd_file = root .. "/.clangd"
-            -->	local ini_text = read_file(ini_path)
-
-            -->	--local pio_includes = get_pio_includes(ini_text) -- CAMBIO AQUÍ: añadir ini_text
-            -->	--local new_lines = build_clangd_template(ini_text, pio_includes)
-            -->	local new_lines = build_clangd_template(ini_text, {})
-
-            -->	vim.fn.writefile(new_lines, clangd_file)
-            -->end
-
-            -->local function safe_lsp_restart(client_name)
-            -->	-- El comando nativo de Neovim 0.12 es estrictamente en minúsculas: 'lsp'
-            -->	vim.cmd("lsp restart " .. (client_name or ""))
-            -->end
-
-            -->--local function safe_lsp_restart(client_name)
-            -->--	local status = pcall(vim.cmd, "LspRestart " .. client_name)
-
-            -->--	if not status or vim.fn.has("nvim-0.12") == 1 then
-            -->--		-- Si el archivo tiene cambios sin guardar (ej. el snippet expandido), lo guardamos silenciosamente
-            -->--		if vim.api.nvim_get_option_value("modified", { buf = 0 }) then
-            -->--			vim.cmd("silent! write")
-            -->--		end
-            -->--		-- Ahora sí recargamos sin riesgo de error E37
-            -->--		vim.cmd("edit")
-            -->--	end
-            -->--end
-
-            -->-- 4. Función principal (Restaurada con ensure_gitignore_entry)
-            -->local function ensure_platformio_setup(bufnr, force)
-            -->	local root = platformio_root(bufnr)
-            -->	if not root then
-            -->		return
-            -->	end
-
-            -->	local pio_cmd = find_pio()
-            -->	if not pio_cmd then
-            -->		vim.notify("PlatformIO no encontrado", vim.log.levels.ERROR)
-            -->		return
-            -->	end
-
-            -->	-- AQUÍ ESTÁ TU FUNCIÓN ORIGINAL
-            -->	local function ensure_gitignore_entry(entry)
-            -->		local gitignore = root .. "/.gitignore"
-            -->		local lines = {}
-            -->		if vim.fn.filereadable(gitignore) == 1 then
-            -->			lines = vim.fn.readfile(gitignore)
-            -->			for _, line in ipairs(lines) do
-            -->				if vim.trim(line) == entry then
-            -->					return
-            -->				end
-            -->			end
-            -->		end
-            -->		table.insert(lines, entry)
-            -->		vim.fn.writefile(lines, gitignore)
-            -->		vim.notify(".gitignore actualizado: " .. entry, vim.log.levels.INFO)
-            -->	end
-
-            -->	ensure_gitignore_entry("compile_commands.json")
-            -->	ensure_gitignore_entry(".clangd")
-
-            -->	local ini_path = root .. "/platformio.ini"
-            -->	local compiledb = root .. "/compile_commands.json"
-            -->	local clangd_file = root .. "/.clangd"
-
-            -->	local ini_time = vim.fn.getftime(ini_path)
-            -->	local db_time = vim.fn.filereadable(compiledb) == 1 and vim.fn.getftime(compiledb) or -1
-            -->	local clangd_time = vim.fn.filereadable(clangd_file) == 1 and vim.fn.getftime(clangd_file) or -1
-
-            -->	-- Regenerar .clangd si es necesario
-            -->	if force or vim.fn.filereadable(clangd_file) == 0 or ini_time > clangd_time then
-            -->		write_clangd(root)
-            -->		vim.notify("PlatformIO: .clangd actualizado", vim.log.levels.INFO)
-            -->		-- REINICIAR LSP AQUÍ
-            -->		safe_lsp_restart("clangd")
-            -->	end
-
-            -->	-- Regenerar compile_commands.json si es necesario
-            -->	if force or vim.fn.filereadable(compiledb) == 0 or ini_time > db_time then
-            -->		vim.notify("PlatformIO: generando compile_commands.json...", vim.log.levels.INFO)
-            -->		vim.fn.jobstart({ pio_cmd, "run", "-t", "compiledb" }, {
-            -->			cwd = root,
-            -->			on_exit = function(_, code)
-            -->				if code == 0 then
-            -->					vim.schedule(function()
-            -->						vim.notify("PlatformIO: compile_commands.json listo")
-            -->						-- REINICIAR LSP AQUÍ
-            -->						safe_lsp_restart("clangd")
-            -->					end)
-            -->				end
-            -->			end,
-            -->		})
-            -->	end
-            -->end
-
-            -->local pio_group = vim.api.nvim_create_augroup("PlatformIOAutoSetup", { clear = true })
-
-            -->------------------------------------------------------------
-            -->-- 1. Autocomando Pasivo (Al abrir archivos)
-            -->------------------------------------------------------------
-            -->vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
-            -->	group = pio_group,
-            -->	pattern = { "*.c", "*.cpp", "*.h", "*.hpp", "*.ino" },
-            -->	callback = function(args)
-            -->		-- Solo revisa silenciosamente si falta el compile_commands.json
-            -->		ensure_platformio_setup(args.buf, false)
-            -->	end,
-            -->})
-
-            -->------------------------------------------------------------
-            -->-- 2. Comando manual :PioRefresh
-            -->------------------------------------------------------------
-            -->vim.api.nvim_create_user_command("PioRefresh", function()
-            -->	ensure_platformio_setup(vim.api.nvim_get_current_buf(), true)
-            -->end, {})
 
             ------------------------------------------------------------
             -- 3. Intercepción del Menú de Autocompletado (nvim-cmp)
@@ -1515,7 +1356,6 @@ return {
                 }
                 vim.lsp.enable("matlab_ls")
             end
-
 
             ------------------------------------------------------------
             -- Atajos de Teclado del LSP (Solo los necesarios)
