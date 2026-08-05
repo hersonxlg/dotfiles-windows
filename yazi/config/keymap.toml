@@ -1,50 +1,53 @@
 [mgr]
-prepend_keymap = [
-  # Navegación estilo Enter con la tecla 'l'
-  { on = "l", run = "plugin smart-enter", desc = "Entrar a directorio o abrir archivo" },
+    prepend_keymap = [
+        # Navegación estilo Enter con la tecla 'l'
+        { on = "l", run = "plugin smart-enter", desc = "Entrar a directorio o abrir archivo" },
 
-  # Shell completa en ventana (!)
-  { on = "!", run = 'shell "$SHELL" --block', for = "unix", desc = "Open Shell here" },
-  { on = "!", run = 'shell "pwsh -nop" --block', for = "windows", desc = "Open PowerShell here" },
+        # Shell completa en ventana (!)
+        { on = "!", run = 'shell "$SHELL" --block', for = "unix", desc = "Open Shell here" },
+        { on = "!", run = 'shell "pwsh -nop" --block', for = "windows", desc = "Open PowerShell here" },
 
-  # --- COMANDOS RÁPIDOS (;, :) ---
-  { on = ";", run = 'shell "pwsh -nop -c ; " --interactive', for = "windows", desc = "Comando rápido en PowerShell" },
-  { on = ":", run = 'shell "pwsh -nop -c ; " --block --interactive', for = "windows", desc = "Comando rápido bloqueante en PowerShell" },
+        # --- COMANDOS RÁPIDOS (;, :) ---
+        { on = ";", run = 'shell "pwsh -nop -c ; " --interactive', for = "windows", desc = "Comando rápido en PowerShell" },
+        { on = ":", run = 'shell "pwsh -nop -c ; " --block --interactive', for = "windows", desc = "Comando rápido bloqueante en PowerShell" },
 
-  # bookmarks.yazi
-  { on = [ "m" ], run = "plugin bookmarks save", desc = "Save bookmark" },
-  { on = [ "'" ], run = "plugin bookmarks jump", desc = "Jump to bookmark" },
-  { on = [ "b", "d" ], run = "plugin bookmarks delete", desc = "Delete bookmark" },
-  { on = [ "b", "D" ], run = "plugin bookmarks delete_all", desc = "Delete all bookmarks" },
+        # bookmarks.yazi
+        { on = ["m"], run = "plugin bookmarks save", desc = "Save bookmark" },
+        { on = ["'"], run = "plugin bookmarks jump", desc = "Jump to bookmark" },
+        { on = ["b", "d"], run = "plugin bookmarks delete", desc = "Delete bookmark" },
+        { on = ["b", "D"], run = "plugin bookmarks delete_all", desc = "Delete all bookmarks" },
 
-  # whoosh.yazi
-  { on = [ "B" ], run = "plugin whoosh jump_by_fzf", desc = "Open Whoosh bookmarks" },
-  { on = [ "g", "a" ], run = "plugin whoosh save", desc = "Save Whoosh bookmark" },
-  { on = [ "g", "d" ], run = "plugin whoosh delete_by_fzf", desc = "Delete Whoosh bookmark" },
-  { on = [ "g", "r" ], run = "plugin whoosh rename_by_fzf", desc = "Rename Whoosh bookmark" },
+        # whoosh.yazi
+        { on = ["B"], run = "plugin whoosh jump_by_fzf", desc = "Open Whoosh bookmarks" },
+        { on = ["g", "a"], run = "plugin whoosh save", desc = "Save Whoosh bookmark" },
+        { on = ["g", "d"], run = "plugin whoosh delete_by_fzf", desc = "Delete Whoosh bookmark" },
+        { on = ["g", "r"], run = "plugin whoosh rename_by_fzf", desc = "Rename Whoosh bookmark" },
 
-  # clipboard.yazi
-  { on = [ "<C-c>" ], run = [ "yank", "plugin clipboard -- --action=copy" ], desc = "Copiar al portapapeles del sistema" },
-  { on = [ "<C-x>" ], run = [ "yank --cut", "plugin clipboard -- --action=copy" ], desc = "Cortar al portapapeles del sistema" },
-  { on = [ "<C-v>" ], run = "plugin clipboard -- --action=paste", desc = "Pegar desde el portapapeles del sistema" },
+        # clipboard.yazi
+        { on = ["<C-c>"], run = ["yank", "plugin clipboard -- --action=copy"], desc = "Copiar al portapapeles del sistema" },
+        { on = ["<C-x>"], run = [
+            "yank --cut",
+            "plugin clipboard -- --action=copy"
+        ], desc = "Cortar al portapapeles del sistema" },
+        { on = ["<C-v>"], run = "plugin clipboard -- --action=paste", desc = "Pegar desde el portapapeles del sistema" },
 
-  # MIS COMANDOS PERSONALIZADOS
-  { on = [ "o", "i" ], run = "plugin abrir-url-incognito", desc = "Extraer URL y abrir en Brave Incógnito" },
+        # MIS COMANDOS PERSONALIZADOS
+        { on = ["o", "i"], run = "plugin abrir-url-incognito", desc = "Extraer URL y abrir en Brave Incógnito" },
 
-  # Atajos de música multiplataforma
-  { on = [ "o", "o" ], run = 'shell "deadbeef %s" --orphan', for = "unix", desc = "Abrir con DeaDBeeF" },
-  { on = [ "o", "o" ], run = 'shell "foobar2000 %s" --orphan', for = "windows", desc = "Abrir con foobar2000" },
+        # Atajos de música multiplataforma
+        { on = ["o", "o"], run = 'shell "deadbeef %s" --orphan', for = "unix", desc = "Abrir con DeaDBeeF" },
+        { on = ["o", "o"], run = 'shell "foobar2000 %s" --orphan', for = "windows", desc = "Abrir con foobar2000" },
 
-  # Reproductores adicionales
-  { on = [ "o", "v" ], run = 'shell "vlc %s" --orphan', desc = "Abrir con VLC" },
+        # Reproductores adicionales
+        { on = ["o", "v"], run = 'shell "vlc %s" --orphan', desc = "Abrir con VLC" },
 
-  # Menú flotante "Abrir con..."
-  { on = [ "o", "m" ], run = "open --interactive", desc = "Menú interactivo Abrir con..." },
+        # Menú flotante "Abrir con..."
+        { on = ["o", "m"], run = "open --interactive", desc = "Menú interactivo Abrir con..." },
 
-  # Ventana/Menú flotante para cambiar de disco o punto de montaje (Multiplataforma)
-  { on = [ "g", "u" ], run = "plugin drives", desc = "Ver unidades / puntos de montaje" },
+        # Ventana/Menú flotante para cambiar de disco o punto de montaje (Multiplataforma)
+        { on = ["g", "u"], run = "plugin drives", desc = "Ver unidades / puntos de montaje" },
 
-# --- DESHACER BORRADO / PAPELERA (u) ---
-  { on = [ "u" ], run = 'shell "trash-restore" --block', for = "unix", desc = "Restaurar elemento de la papelera (trash-cli)" },
-  { on = [ "u" ], run = 'shell "pwsh -nop -c \"$b=(New-Object -ComObject Shell.Application).NameSpace(10).Items(); if($b.Count -gt 0){$i=$b.Item(0); $i.Verbs() | Where-Object {$_.Name -match \"Restaurar|Restore\"} | ForEach-Object {$_.DoIt()}; Write-Host Restaurado: $i.Name; Start-Sleep 1}\"" --block', for = "windows", desc = "Restaurar último elemento de la Papelera" },
-]
+        # --- DESHACER BORRADO / PAPELERA (u) ---
+        { on = ["u"], run = 'shell "trash-restore" --block', for = "unix", desc = "Restaurar elemento de la papelera (trash-cli)" },
+        { on = ["u"], run = 'shell "pwsh -nop -c \"$b=(New-Object -ComObject Shell.Application).NameSpace(10).Items(); if($b.Count -gt 0){$i=$b.Item(0); $i.Verbs() | Where-Object {$_.Name -match \"Restaurar|Restore\"} | ForEach-Object {$_.DoIt()}; Write-Host Restaurado: $i.Name; Start-Sleep 1}\"" --block', for = "windows", desc = "Restaurar último elemento de la Papelera" },
+    ]
