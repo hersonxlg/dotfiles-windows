@@ -448,7 +448,28 @@ indent-sub-tables = true
 
             --------------------------------------------------------
             -- Python LSPs: Pyright & Pylsp (Selector Dinámico)
+            -- pyright
+            -- pylsp
             --------------------------------------------------------
+
+            -- 🔍 Helper: Localiza el ejecutable de Python en el entorno virtual (.venv / uv)
+            local function find_python_venv(bufnr)
+                local buf_path = vim.api.nvim_buf_get_name(bufnr or 0)
+                local start_dir = (buf_path ~= "" and vim.fs.dirname(buf_path)) or (vim.uv or vim.loop).cwd()
+
+                local venv_dir = vim.fs.find(".venv", { upward = true, path = start_dir })[1]
+                if not venv_dir then
+                    return nil
+                end
+
+                local python_bin = is_windows and (venv_dir .. "/Scripts/python.exe") or (venv_dir .. "/bin/python")
+                python_bin = python_bin:gsub("\\", "/")
+
+                if vim.fn.filereadable(python_bin) == 1 or vim.fn.executable(python_bin) == 1 then
+                    return python_bin
+                end
+                return nil
+            end
 
             -- 1. Configuramos Pylsp
             if has_exe("pylsp") then
@@ -501,7 +522,7 @@ indent-sub-tables = true
             -- Tu servidor global por defecto
             vim.g.python_lsp_default = "pyright"
 
-            -- Autocomando que inyecta el LSP correcto
+            -- Autocomando que inyecta el LSP correcto + entorno .venv de uv
             vim.api.nvim_create_autocmd("FileType", {
                 pattern = "python",
                 callback = function(args)
@@ -509,12 +530,28 @@ indent-sub-tables = true
                     local config = vim.lsp.config[lsp_to_use]
 
                     if config then
-                        -- 🛡️ ESCUDO: Verificamos si este servidor YA está corriendo en este buffer
                         local active_clients = vim.lsp.get_clients({ bufnr = args.buf, name = lsp_to_use })
 
-                        -- Solo lo iniciamos si no hay ninguna instancia activa
                         if #active_clients == 0 then
-                            vim.lsp.start(config, { bufnr = args.buf })
+                            -- 🐍 Inyección de entorno virtual de UV
+                            local venv_python = find_python_venv(args.buf)
+                            local lsp_config = vim.deepcopy(config)
+
+                            if venv_python then
+                                lsp_config.settings = lsp_config.settings or {}
+                                if lsp_to_use == "pyright" then
+                                    lsp_config.settings.python = lsp_config.settings.python or {}
+                                    lsp_config.settings.python.pythonPath = venv_python
+                                elseif lsp_to_use == "pylsp" then
+                                    lsp_config.settings.pylsp = lsp_config.settings.pylsp or {}
+                                    lsp_config.settings.pylsp.plugins = lsp_config.settings.pylsp.plugins or {}
+                                    lsp_config.settings.pylsp.plugins.jedi = lsp_config.settings.pylsp.plugins.jedi
+                                        or {}
+                                    lsp_config.settings.pylsp.plugins.jedi.environment = venv_python
+                                end
+                            end
+
+                            vim.lsp.start(lsp_config, { bufnr = args.buf })
                         end
                     end
                 end,
@@ -547,15 +584,57 @@ indent-sub-tables = true
                     vim.defer_fn(function()
                         local config = vim.lsp.config[choice]
                         if config then
-                            vim.lsp.start(config, { bufnr = bufnr })
-                            vim.notify("✅ LSP cambiado a: " .. choice, vim.log.levels.INFO)
+                            local venv_python = find_python_venv(bufnr)
+                            local lsp_config = vim.deepcopy(config)
+
+                            if venv_python then
+                                lsp_config.settings = lsp_config.settings or {}
+                                if choice == "pyright" then
+                                    lsp_config.settings.python = lsp_config.settings.python or {}
+                                    lsp_config.settings.python.pythonPath = venv_python
+                                elseif choice == "pylsp" then
+                                    lsp_config.settings.pylsp = lsp_config.settings.pylsp or {}
+                                    lsp_config.settings.pylsp.plugins = lsp_config.settings.pylsp.plugins or {}
+                                    lsp_config.settings.pylsp.plugins.jedi = lsp_config.settings.pylsp.plugins.jedi
+                                        or {}
+                                    lsp_config.settings.pylsp.plugins.jedi.environment = venv_python
+                                end
+                            end
+
+                            vim.lsp.start(lsp_config, { bufnr = bufnr })
+                            local msg = "✅ LSP cambiado a: " .. choice
+                            if venv_python then
+                                msg = msg .. " (.venv detectado)"
+                            end
+                            vim.notify(msg, vim.log.levels.INFO)
                         end
-                    end, 300) -- 300 milisegundos de respiro
+                    end, 300)
                 end)
             end, {})
 
             -- Atajo de teclado
             vim.keymap.set("n", "<leader>ps", ":PythonLspSwitch<CR>", { desc = "Python: Cambiar LSP" })
+
+            -- =========================================================
+            -- ⚡ COMANDOS Y ATAJOS PARA `UV`
+            -- =========================================================
+            if has_exe("uv") then
+                vim.keymap.set(
+                    "n",
+                    "<leader>pr",
+                    ":term uv run python %<CR>",
+                    { desc = "Python (uv): Ejecutar archivo actual" }
+                )
+                vim.keymap.set("n", "<leader>pt", ":term uv run pytest<CR>", { desc = "Python (uv): Ejecutar tests" })
+
+                vim.api.nvim_create_user_command("UvSync", function()
+                    vim.cmd("split | terminal uv sync")
+                end, { desc = "Sincronizar dependencias con uv" })
+
+                vim.api.nvim_create_user_command("UvAdd", function(opts)
+                    vim.cmd("split | terminal uv add " .. opts.args)
+                end, { nargs = 1, desc = "Añadir un paquete con uv" })
+            end
 
             --------------------------------------------------------
             -- lua_ls (Neovim 0.12+ moderno)

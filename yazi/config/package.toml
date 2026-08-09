@@ -1,24 +1,24 @@
 [[plugin.deps]]
-    use = "dedukun/bookmarks"
-    rev = "9ef1254"
-    hash = "fc77f2bd3aad78199fbe11b727b1954f"
+use = "dedukun/bookmarks"
+rev = "9ef1254"
+hash = "92fbb5483657fa7976cdf4e0104e18e0"
 
 [[plugin.deps]]
-    use = "WhoSowSee/whoosh"
-    rev = "ec2e6f7"
-    hash = "957354359d2850e7efd7c60fc3f2bc87"
+use = "WhoSowSee/whoosh"
+rev = "ec2e6f7"
+hash = "59e984146fa6b20c441817444d5fdd61"
 
 [[plugin.deps]]
-    use = "XYenon/clipboard"
-    rev = "d4d19ea"
-    hash = "ef8df13dca8471792c3583f783f3890a"
+use = "XYenon/clipboard"
+rev = "d4d19ea"
+hash = "2cfc56d62f9ca0c62ce356e4364c3d89"
 
 [[flavor.deps]]
-    use = "yazi-rs/flavors:catppuccin-mocha"
-    rev = "0670801"
-    hash = "5ebc8659108fcb68fe853e523115ed3c"
+use = "yazi-rs/flavors:catppuccin-mocha"
+rev = "0670801"
+hash = "7dfe41c9c3d9be76da8a844263d0bbed"
 
 [[flavor.deps]]
-    use = "yazi-rs/flavors:dracula"
-    rev = "0670801"
-    hash = "fee9eeb8bf3ac3ed251812cbc0452bbd"
+use = "yazi-rs/flavors:dracula"
+rev = "0670801"
+hash = "20624fcdfcf7e4e912de05e348065e5e"
