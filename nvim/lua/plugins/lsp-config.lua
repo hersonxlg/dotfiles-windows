@@ -47,6 +47,10 @@ return {
 
                     -- 🚀 Herramientas Avanzadas
                     "ast_grep",
+
+                    -- Kotlin LSP
+                    --"kotlin_lsp",
+                    "kotlin_language_server",
                 },
             })
         end,
@@ -1409,6 +1413,66 @@ indent-sub-tables = true
                     end)
                 end,
             })
+
+            --------------------------------------------------------
+            -- Kotlin Language Server (Community / JetBrains)
+            --------------------------------------------------------
+            if has_exe("kotlin-language-server") then
+                local cache_dir = vim.fs.normalize(vim.fn.stdpath("cache") .. "/kotlin_language_server")
+                if vim.fn.isdirectory(cache_dir) == 0 then
+                    vim.fn.mkdir(cache_dir, "p")
+                end
+
+                local cmd_env = nil
+                if vim.fn.has("win32") == 1 then
+                    local scoop_jdk17 = vim.fs.normalize(vim.fn.expand("~") .. "/scoop/apps/openjdk17/current")
+                    if vim.fn.isdirectory(scoop_jdk17) == 1 then
+                        cmd_env = { JAVA_HOME = scoop_jdk17 }
+                    end
+                end
+
+                vim.lsp.config("kotlin_language_server", {
+                    cmd = { "kotlin-language-server" },
+                    filetypes = { "kotlin" },
+                    capabilities = capabilities,
+                    single_file_support = true,
+                    cmd_env = cmd_env,
+                    init_options = {
+                        storagePath = cache_dir,
+                    },
+                    settings = {
+                        kotlin = {
+                            indexing = {
+                                enabled = true,
+                            },
+                        },
+                    },
+                    root_dir = function(fname)
+                        local absolute_fname = vim.fs.normalize(vim.fn.fnamemodify(fname, ":p"))
+                        local root =
+                            vim.fs.root(absolute_fname, { "build.gradle", "build.gradle.kts", "pom.xml", ".git" })
+                        return root or vim.uv.cwd()
+                    end,
+                })
+                vim.lsp.enable("kotlin_language_server")
+            else
+                notify_missing("kotlin-language-server")
+            end
+
+            --------------------------------------------------------
+            -- Kotlin LSP
+            --------------------------------------------------------
+            --if has_exe("kotlin-lsp") or has_exe("kotlin-language-server") then
+            --    vim.lsp.config.kotlin_lsp = {
+            --        default_config = {
+            --            capabilities = capabilities,
+            --            single_file_support = false,
+            --        },
+            --    }
+            --    vim.lsp.enable("kotlin_lsp")
+            --else
+            --    notify_missing("kotlin-lsp")
+            --end
 
             ---------------------------------
             -- Matlab LSP
