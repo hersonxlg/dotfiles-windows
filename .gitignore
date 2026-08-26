@@ -38,3 +38,4 @@ yazi/config/plugins/*
 !yazi/config/plugins/bookmarks.yazi/
 !yazi/config/plugins/lazygit.yazi/
 !yazi/config/plugins/drives.yazi/
+!yazi/config/plugins/system-clipboard.yazi/
