@@ -1415,23 +1415,44 @@ indent-sub-tables = true
             })
 
             --------------------------------------------------------
-            -- Kotlin Language Server (Community / JetBrains)
+            -- Kotlin Language Server (FWCD)
             --------------------------------------------------------
             if has_exe("kotlin-language-server") then
+                local is_windows = vim.fn.has("win32") == 1
+                local path_sep = is_windows and ";" or ":"
+
                 local cache_dir = vim.fs.normalize(vim.fn.stdpath("cache") .. "/kotlin_language_server")
                 if vim.fn.isdirectory(cache_dir) == 0 then
                     vim.fn.mkdir(cache_dir, "p")
                 end
 
-                local cmd_env = nil
-                if vim.fn.has("win32") == 1 then
-                    local scoop_jdk17 = vim.fs.normalize(vim.fn.expand("~") .. "/scoop/apps/openjdk17/current")
-                    if vim.fn.isdirectory(scoop_jdk17) == 1 then
-                        cmd_env = { JAVA_HOME = scoop_jdk17 }
-                    end
+                -- 1. Resolver JAVA_HOME y KOTLIN_HOME automáticamente mediante mise
+                local java_home = vim.env.JAVA_HOME
+                if (not java_home or java_home == "") and vim.fn.executable("mise") == 1 then
+                    java_home = vim.fn.trim(vim.fn.system({ "mise", "where", "java" }))
                 end
 
-                vim.lsp.config("kotlin_language_server", {
+                local kotlin_home = ""
+                if vim.fn.executable("mise") == 1 then
+                    kotlin_home = vim.fn.trim(vim.fn.system({ "mise", "where", "kotlin" }))
+                end
+
+                -- 2. Inyectar GRADLE_OPTS para deshabilitar configuration-cache en el proceso LSP
+                local cmd_env = {
+                    PATH = vim.env.PATH,
+                    GRADLE_OPTS = "-Dorg.gradle.configuration-cache=false",
+                }
+
+                if java_home and java_home ~= "" and vim.fn.isdirectory(java_home) == 1 then
+                    cmd_env.JAVA_HOME = java_home
+                    cmd_env.PATH = java_home .. "/bin" .. path_sep .. cmd_env.PATH
+                end
+
+                if kotlin_home and kotlin_home ~= "" and vim.fn.isdirectory(kotlin_home) == 1 then
+                    cmd_env.PATH = kotlin_home .. "/bin" .. path_sep .. cmd_env.PATH
+                end
+
+                vim.lsp.config.kotlin_language_server = {
                     cmd = { "kotlin-language-server" },
                     filetypes = { "kotlin" },
                     capabilities = capabilities,
@@ -1440,21 +1461,153 @@ indent-sub-tables = true
                     init_options = {
                         storagePath = cache_dir,
                     },
-                    settings = {
-                        kotlin = {
-                            indexing = {
-                                enabled = true,
-                            },
-                        },
+                    root_markers = {
+                        "settings.gradle.kts",
+                        "settings.gradle",
+                        "build.gradle.kts",
+                        "build.gradle",
+                        "pom.xml",
+                        ".git",
                     },
-                    root_dir = function(fname)
-                        local absolute_fname = vim.fs.normalize(vim.fn.fnamemodify(fname, ":p"))
-                        local root =
-                            vim.fs.root(absolute_fname, { "build.gradle", "build.gradle.kts", "pom.xml", ".git" })
-                        return root or vim.uv.cwd()
+                }
+                vim.lsp.enable("kotlin_language_server")
+
+                -- =========================================================
+                -- 🚀 AUTO-VERIFICADOR / ACTUALIZADOR DE KOTLIN (MULTIPLATAFORMA)
+                -- =========================================================
+                local kotlin_check_group = vim.api.nvim_create_augroup("KotlinVersionCheck", { clear = true })
+
+                vim.api.nvim_create_autocmd("FileType", {
+                    group = kotlin_check_group,
+                    pattern = "kotlin",
+                    callback = function(ev)
+                        local root = vim.fs.root(
+                            ev.buf,
+                            { "settings.gradle.kts", "settings.gradle", "gradlew", "gradlew.bat", ".git" }
+                        )
+
+                        if not root then
+                            root = vim.fs.root(
+                                vim.fn.getcwd(),
+                                { "settings.gradle.kts", "settings.gradle", "gradlew", "gradlew.bat", ".git" }
+                            )
+                        end
+
+                        if not root then
+                            return
+                        end
+
+                        local toml_path = root .. "/gradle/libs.versions.toml"
+                        local kts_path = root .. "/build.gradle.kts"
+
+                        local target_file = nil
+                        if vim.fn.filereadable(toml_path) == 1 then
+                            target_file = toml_path
+                        elseif vim.fn.filereadable(kts_path) == 1 then
+                            target_file = kts_path
+                        end
+
+                        if not target_file then
+                            return
+                        end
+
+                        local f = io.open(target_file, "r")
+                        if not f then
+                            return
+                        end
+                        local content = f:read("*a")
+                        f:close()
+
+                        if content:match("2%.%d+%.%d+") then
+                            vim.schedule(function()
+                                vim.ui.select(
+                                    { "Sí, cambiar a Kotlin 1.9.24", "No, mantener Kotlin 2.x" },
+                                    {
+                                        prompt = "Detectado Kotlin 2.x (Incompatible con LSP). ¿Deseas adaptar el proyecto?",
+                                    },
+                                    function(choice)
+                                        if choice and choice:find("Sí") then
+                                            local new_content = content
+                                                :gsub('kotlin = "2%..-"', 'kotlin = "1.9.24"')
+                                                :gsub('version = "2%..-"', 'version = "1.9.24"')
+                                                :gsub(
+                                                    'id%("org%.jetbrains%.kotlin%.jvm"%) version "2%..-"',
+                                                    'id("org.jetbrains.kotlin.jvm") version "1.9.24"'
+                                                )
+
+                                            local out = io.open(target_file, "w")
+                                            if out then
+                                                out:write(new_content)
+                                                out:close()
+
+                                                vim.notify(
+                                                    "Kotlin ajustado a 1.9.24. Recompilando Gradle...",
+                                                    vim.log.levels.INFO
+                                                )
+
+                                                local gradlew_bin = root
+                                                    .. (is_windows and "/gradlew.bat" or "/gradlew")
+                                                local stderr_lines = {}
+
+                                                vim.fn.jobstart(
+                                                    {
+                                                        gradlew_bin,
+                                                        "compileKotlin",
+                                                        "--refresh-dependencies",
+                                                        "--no-configuration-cache",
+                                                    },
+                                                    {
+                                                        cwd = root,
+                                                        shell = is_windows,
+                                                        on_stderr = function(_, data)
+                                                            if data then
+                                                                for _, line in ipairs(data) do
+                                                                    if line ~= "" then
+                                                                        table.insert(stderr_lines, line)
+                                                                    end
+                                                                end
+                                                            end
+                                                        end,
+                                                        on_exit = function(_, code)
+                                                            if code == 0 then
+                                                                for _, client in
+                                                                    ipairs(
+                                                                        vim.lsp.get_clients({
+                                                                            name = "kotlin_language_server",
+                                                                        })
+                                                                    )
+                                                                do
+                                                                    client:stop()
+                                                                end
+
+                                                                vim.defer_fn(function()
+                                                                    vim.cmd("edit")
+                                                                end, 1000)
+
+                                                                vim.notify(
+                                                                    "¡Proyecto adaptado con éxito! LSP reiniciado.",
+                                                                    vim.log.levels.INFO
+                                                                )
+                                                            else
+                                                                local err_summary = #stderr_lines > 0
+                                                                        and table.concat(stderr_lines, "\n")
+                                                                    or "Fallo al ejecutar gradlew"
+                                                                vim.notify(
+                                                                    "Error de Gradle:\n" .. err_summary:sub(1, 150),
+                                                                    vim.log.levels.ERROR
+                                                                )
+                                                            end
+                                                        end,
+                                                    }
+                                                )
+                                            end
+                                        end
+                                    end
+                                )
+                            end)
+                        end
                     end,
                 })
-                vim.lsp.enable("kotlin_language_server")
             else
                 notify_missing("kotlin-language-server")
             end
