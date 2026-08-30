@@ -1420,12 +1420,12 @@ indent-sub-tables = true
             --------------------------------------------------------
             -- Kotlin LSP (Oficial JetBrains)
             --------------------------------------------------------
-            if has_exe("kotlin-lsp") or has_exe("intellij-server") then
-                local cmd = has_exe("kotlin-lsp") and { "kotlin-lsp" } or { "intellij-server", "--stdio" }
+            local kotlin_binary = get_mason_binary("kotlin-lsp", "bin/intellij-server")
 
+            if has_exe("kotlin-lsp") or has_exe("intellij-server") or vim.fn.filereadable(kotlin_binary) == 1 then
                 vim.lsp.config.kotlin_lsp = {
                     default_config = {
-                        cmd = cmd,
+                        cmd = { kotlin_binary, "--stdio" },
                         filetypes = { "kotlin" },
                         root_markers = {
                             "settings.gradle.kts",
@@ -1441,6 +1441,7 @@ indent-sub-tables = true
             else
                 notify_missing("kotlin-lsp")
             end
+
 
             --------------------------------------------------------
             -- Kotlin LSP

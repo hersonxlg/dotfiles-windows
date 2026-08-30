@@ -128,3 +128,41 @@ vim.keymap.set("n", "<leader>u", function()
 end, {
     desc = "Alternar árbol de deshacer"
 })
+
+
+----------------------------------------------
+-- Cerrar la ventana actual
+----------------------------------------------
+local function smart_quit()
+  local modified = {}
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].modified then
+      local name = vim.api.nvim_buf_get_name(b)
+      table.insert(modified, name == "" and "[Sin nombre]" or vim.fn.fnamemodify(name, ":~:."))
+    end
+  end
+
+  -- Si NO hay cambios, sale inmediatamente sin preguntar nada
+  if #modified == 0 then
+    vim.cmd("qa")
+    return
+  end
+
+  -- Si HAY cambios, consulta qué hacer
+  local options = {
+    "1. Guardar todo y salir",
+    "2. Descartar cambios y salir",
+    "3. Cancelar",
+  }
+  local prompt = "Cambios pendientes en: " .. table.concat(modified, ", ")
+
+  vim.ui.select(options, { prompt = prompt }, function(choice)
+    if choice == options[1] then
+      vim.cmd("wall | qa")
+    elseif choice == options[2] then
+      vim.cmd("qa!")
+    end
+  end)
+end
+
+vim.keymap.set('n', 'q', smart_quit, { desc = 'Salir directo o consultar si hay cambios' })
