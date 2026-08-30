@@ -1,47 +1,72 @@
 return {
     {
         "nvim-telescope/telescope.nvim",
-        branch = "master",
+        branch = "0.1.x",
         lazy = true,
         dependencies = {
-            {
-                'nvim-telescope/telescope-fzf-native.nvim',
-                build = 'make'
-            },
             "nvim-lua/plenary.nvim",
+            { "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
             "nvim-telescope/telescope-file-browser.nvim",
             "jonarrien/telescope-cmdline.nvim",
+            "nvim-telescope/telescope-ui-select.nvim",
         },
         opts = {
-            -- Toda la configuración de extensiones unificada aquí
-            extensions = {
-                fzf = {
-                    fuzzy = true,                   -- Activar las búsquedas aproximadas
-                    override_generic_sorter = true, -- override the generic sorter
-                    override_file_sorter = true,    -- override the file sorter
-                    case_mode = "smart_case",       -- default case_mode is "smart_case"
-                },
-                fzf_writer = {
-                    minimum_grep_characters = 2,
-                    minimum_files_characters = 2,
-                    use_highlighter = true,
-                },
-            },
-            cmdline = {
-                picker   = {
-                    layout_config = {
-                        width  = 120,
-                        height = 25,
-                    }
+            defaults = {
+                path_display = { "filename_first" }, -- Muestra "archivo.lua (~/config/nvim)" en vez de la ruta larga
+                sorting_strategy = "ascending", -- Los mejores resultados quedan arriba
+                layout_config = {
+                    prompt_position = "top", -- Barra de búsqueda arriba
                 },
                 mappings = {
-                    complete      = '<Tab>',
-                    run_selection = '<C-CR>',
-                    run_input     = '<CR>',
+                    i = {
+                        ["<C-j>"] = "move_selection_next", -- Mover hacia abajo sin soltar la barra de texto
+                        ["<C-k>"] = "move_selection_previous", -- Mover hacia arriba
+                        --["<C-q>"] = "send_selected_to_qflist", -- Enviar seleccionados a la lista Quickfix
+                    },
+                    -- Mapeos dentro del modo Normal (tras presionar <Esc>)
+                    n = {
+                        ["q"] = require("telescope.actions").close,
+                        ["<Esc>"] = require("telescope.actions").close,
+                    },
+                },
+            },
+            extensions = {
+                fzf = {
+                    fuzzy = true,
+                    override_generic_sorter = true,
+                    override_file_sorter = true,
+                    case_mode = "smart_case",
+                },
+                cmdline = {
+                    picker = {
+                        layout_config = {
+                            width = 120,
+                            height = 25,
+                        },
+                    },
+                    mappings = {
+                        complete = "<Tab>",
+                        run_selection = "<C-CR>",
+                        run_input = "<CR>",
+                    },
+                },
+                ["ui-select"] = {
+                    require("telescope.themes").get_dropdown({}),
                 },
             },
         },
         keys = {
+            -- Mis atajos Personales:
+            {
+                "<leader>en",
+                function()
+                    require("telescope.builtin").find_files({
+                        cwd = vim.fn.stdpath("config"),
+                    })
+                end,
+                desc = "Neovim config Files",
+            },
+            -- LSP
             {
                 "grr",
                 function()
@@ -52,29 +77,63 @@ return {
             {
                 "<leader>ds",
                 function()
-                    require('telescope.builtin').lsp_document_symbols()
+                    require("telescope.builtin").lsp_document_symbols()
                 end,
                 desc = "LSP Document Symbols",
             },
+
+            -- Navegación general y atajos unificados
             {
-                "<leader><leader>;",
-                '<cmd>Telescope cmdline<cr>',
-                desc = 'Cmdline'
+                "<C-p>",
+                function()
+                    require("telescope.builtin").find_files()
+                end,
+                desc = "Buscar archivos",
+            },
+            {
+                "<leader>pf",
+                function()
+                    require("telescope.builtin").find_files()
+                end,
+                desc = "Telescope Find Files",
+            },
+            {
+                "<leader>fg",
+                function()
+                    require("telescope.builtin").live_grep()
+                end,
+                desc = "Buscar texto",
+            },
+            {
+                "<leader>fb",
+                function()
+                    require("telescope.builtin").buffers()
+                end,
+                desc = "Buscar buffers",
+            },
+            {
+                "<leader>fh",
+                function()
+                    require("telescope.builtin").help_tags()
+                end,
+                desc = "Buscar ayuda",
             },
             {
                 "<leader>pe",
                 function()
-                    require('telescope.builtin').buffers()
+                    require("telescope.builtin").buffers()
                 end,
                 desc = "Telescope buffers",
             },
+            { "<leader><leader>;", "<cmd>Telescope cmdline<cr>", desc = "Cmdline" },
+
+            -- Git con Fallbacks
             {
                 "<leader>pp",
                 function()
-                    -- Intenta abrir git_files, si falla (no es un repo Git), abre find_files normal
-                    local ok = pcall(require('telescope.builtin').git_files, { show_untracked = true })
+                    local ok = pcall(require("telescope.builtin").git_files, { show_untracked = true })
                     if not ok then
-                        require('telescope.builtin').find_files()
+                        require("telescope.builtin").find_files()
                     end
                 end,
                 desc = "Telescope Git Files (Fallback)",
@@ -82,7 +141,7 @@ return {
             {
                 "<leader>gs",
                 function()
-                    local ok = pcall(require('telescope.builtin').git_status)
+                    local ok = pcall(require("telescope.builtin").git_status)
                     if not ok then
                         vim.notify("Esta carpeta no es un repositorio Git", vim.log.levels.WARN)
                     end
@@ -92,7 +151,7 @@ return {
             {
                 "<leader>gc",
                 function()
-                    local ok = pcall(require('telescope.builtin').git_bcommits)
+                    local ok = pcall(require("telescope.builtin").git_bcommits)
                     if not ok then
                         vim.notify("Esta carpeta no es un repositorio Git", vim.log.levels.WARN)
                     end
@@ -102,19 +161,19 @@ return {
             {
                 "<leader>gb",
                 function()
-                    local ok = pcall(require('telescope.builtin').git_branches)
+                    local ok = pcall(require("telescope.builtin").git_branches)
                     if not ok then
                         vim.notify("Esta carpeta no es un repositorio Git", vim.log.levels.WARN)
                     end
                 end,
                 desc = "Telescope Git Branches",
             },
+
+            -- Extensiones y creación de Plugins
             {
                 "<leader>rp",
                 function()
-                    -- Ruta dinámica y multiplataforma para los plugins
                     local plugins_path = vim.fn.stdpath("config") .. "/lua/plugins"
-                    
                     require("telescope.builtin").find_files({
                         prompt_title = "Plugins",
                         cwd = plugins_path,
@@ -127,55 +186,66 @@ return {
                                 vim.cmd(string.format("edit %s/%s.lua", plugins_path, new_plugin))
                             end)
                             return true
-                        end
+                        end,
                     })
                 end,
                 desc = "Find/Create Plugins",
-            },
-            {
-                "<leader>pf",
-                function()
-                    require('telescope.builtin').find_files()
-                end,
-                desc = "Telescope Find Files",
             },
             {
                 "<leader>bb",
                 function()
                     require("telescope").extensions.file_browser.file_browser({ path = "%:h:p", select_buffer = true })
                 end,
-                desc = "Telescope File Browser"
+                desc = "Telescope File Browser",
+            },
+            -- Agrega estas entradas a tu lista de `keys`:
+            {
+                "<leader>pr",
+                function()
+                    require("telescope.builtin").resume()
+                end,
+                desc = "Reanudar última búsqueda",
+            },
+            {
+                "<leader>fc",
+                function()
+                    require("telescope.builtin").grep_string()
+                end,
+                desc = "Buscar palabra bajo el cursor",
+            },
+            {
+                "<leader>fk",
+                function()
+                    require("telescope.builtin").keymaps()
+                end,
+                desc = "Buscar atajos de teclado",
+            },
+            {
+                "<leader>fd",
+                function()
+                    require("telescope.builtin").diagnostics()
+                end,
+                desc = "Buscar errores/diagnósticos LSP",
+            },
+            {
+                "<leader>uT",
+                function()
+                    require("telescope.builtin").colorscheme({ enable_preview = true })
+                end,
+                desc = "Seleccionar tema de color",
             },
         },
-        config = function(opts)
-            local builtin = require("telescope.builtin")
-            
-            -- Una sola llamada a setup pasando los "opts" definidos arriba
-            require('telescope').setup(opts)
-            
-            -- Cargar extensiones
-            require("telescope").load_extension('cmdline')
-            require('telescope').load_extension('fzf')
+        config = function(_, opts)
+            local telescope = require("telescope")
 
-            -- Atajos clásicos
-            vim.keymap.set("n", "<C-p>", builtin.find_files, {})
-            vim.keymap.set("n", "<leader>fg", builtin.live_grep, {})
-            vim.keymap.set("n", "<leader>fb", builtin.buffers, {})
-            vim.keymap.set("n", "<leader>fh", builtin.help_tags, {})
-        end,
-    },
-    -- batería
-    {
-        "nvim-telescope/telescope-ui-select.nvim",
-        config = function()
-            require("telescope").setup({
-                extensions = {
-                    ["ui-select"] = {
-                        require("telescope.themes").get_dropdown({}),
-                    },
-                },
-            })
-            require("telescope").load_extension("ui-select")
+            -- Inicialización única pasándole la tabla opts adecuada
+            telescope.setup(opts)
+
+            -- Cargar todas las extensiones registradas
+            telescope.load_extension("fzf")
+            telescope.load_extension("cmdline")
+            telescope.load_extension("file_browser")
+            telescope.load_extension("ui-select")
         end,
     },
 }

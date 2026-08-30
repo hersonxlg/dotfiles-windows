@@ -130,9 +130,22 @@ end, {
 })
 
 
-----------------------------------------------
--- Cerrar la ventana actual
-----------------------------------------------
+-- ==========================================================
+-- Helper para contar buffers visibles/activos
+-- ==========================================================
+local function get_listed_buffers()
+  local listed = {}
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(b) and vim.bo[b].buflisted then
+      table.insert(listed, b)
+    end
+  end
+  return listed
+end
+
+-- ==========================================================
+-- 1. Salir de TODO Neovim (Cierre global)
+-- ==========================================================
 local function smart_quit()
   local modified = {}
   for _, b in ipairs(vim.api.nvim_list_bufs()) do
@@ -142,13 +155,12 @@ local function smart_quit()
     end
   end
 
-  -- Si NO hay cambios, sale inmediatamente sin preguntar nada
+  -- Si todo está guardado, sale inmediatamente
   if #modified == 0 then
     vim.cmd("qa")
     return
   end
 
-  -- Si HAY cambios, consulta qué hacer
   local options = {
     "1. Guardar todo y salir",
     "2. Descartar cambios y salir",
@@ -165,4 +177,45 @@ local function smart_quit()
   end)
 end
 
-vim.keymap.set('n', 'q', smart_quit, { desc = 'Salir directo o consultar si hay cambios' })
+-- ==========================================================
+-- 2. Cerrar buffer actual (o salir de Neovim si es el último)
+-- ==========================================================
+local function smart_close_buffer()
+  local listed_bufs = get_listed_buffers()
+
+  -- Si es el único buffer abierto, redirige a la salida de Neovim
+  if #listed_bufs <= 1 then
+    smart_quit()
+    return
+  end
+
+  local current_buf = vim.api.nvim_get_current_buf()
+
+  -- Si el buffer actual NO tiene cambios, se cierra de inmediato
+  if not vim.bo[current_buf].modified then
+    vim.cmd("bdelete")
+    return
+  end
+
+  -- Si el buffer actual TIENE cambios, pregunta solo por este archivo
+  local buf_name = vim.api.nvim_buf_get_name(current_buf)
+  local display_name = buf_name == "" and "[Sin nombre]" or vim.fn.fnamemodify(buf_name, ":~:.")
+
+  local options = {
+    "1. Guardar cambios y cerrar buffer",
+    "2. Descartar cambios y cerrar buffer",
+    "3. Cancelar",
+  }
+
+  vim.ui.select(options, { prompt = "Cambios sin guardar en " .. display_name .. ":" }, function(choice)
+    if choice == options[1] then
+      vim.cmd("write | bdelete")
+    elseif choice == options[2] then
+      vim.cmd("bdelete!")
+    end
+  end)
+end
+
+-- Mapeos
+vim.keymap.set('n', 'q', smart_close_buffer, { desc = 'Cerrar buffer actual (o salir si es el último)' })
+vim.keymap.set('n', '<S-q>', smart_quit, { desc = 'Salir de todo Neovim' })-- ==========================================================

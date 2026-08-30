@@ -628,7 +628,7 @@ indent-sub-tables = true
             if has_exe("uv") then
                 vim.keymap.set(
                     "n",
-                    "<leader>pr",
+                    "<leader>rr",
                     ":term uv run python %<CR>",
                     { desc = "Python (uv): Ejecutar archivo actual" }
                 )
