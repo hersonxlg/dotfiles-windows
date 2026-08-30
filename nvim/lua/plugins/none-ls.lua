@@ -1,4 +1,3 @@
--- lua/plugins/none-ls.lua
 return {
     "nvimtools/none-ls.nvim",
     dependencies = { "nvim-lua/plenary.nvim" },
@@ -73,11 +72,19 @@ return {
                     },
                 }),
 
-                -- ✨ AÑADIMOS EL FORMATEADOR PARA PYTHON AQUÍ ✨
+                -- Formateador para Python
                 null_ls.builtins.formatting.black,
+
+                ----------------------------------------------
+                -- kotlin: Formateador para Kotlin (ktlint)
+                ----------------------------------------------
+                null_ls.builtins.formatting.ktlint,
 
                 asm_formatter,
                 matlab_formatter,
+
+
+
             },
         })
 
@@ -93,9 +100,13 @@ return {
                 asm = "null-ls",
                 ps1 = "powershell_es",
                 psm1 = "powershell_es",
-                -- ✨ CAMBIAMOS DE "pylsp" A "null-ls" PARA QUE USE BLACK ✨
                 python = "null-ls",
                 toml = "tombi",
+                -- rust
+                rust = "rust_analyzer",
+                -- kotlin
+                kt = "null-ls",
+                kts = "null-ls",
             }
 
             local wanted = preferred[ft]

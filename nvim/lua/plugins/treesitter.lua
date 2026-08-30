@@ -23,6 +23,23 @@ return {
                 "css",
                 "html",
                 "json",
+                "vim",
+                "vimdoc",
+                "bash",
+                "fish",
+                "asm",
+                "arduino",
+                "cmake",
+                "csv",
+                "diff",
+                "gitignore",
+                "gitcommit",
+                "gnuplot",
+                "ini",
+                "markdown",
+                "nasm",
+                "regex",
+                "sql",
             }
 
             -- 2. El setup moderno utiliza "nvim-treesitter.configs"

@@ -50,6 +50,9 @@ return {
 
                     -- Kotlin LSP
                     "kotlin_lsp",
+
+                    -- Rust
+                    "rust_analyzer",
                 },
             })
         end,
@@ -71,6 +74,7 @@ return {
                     "clang-format", -- Mason lo descargará automáticamente
                     "stylua",
                     "black",
+                    "ktlint",
                 },
                 automatic_setup = false,
                 handlers = {
@@ -1436,8 +1440,7 @@ indent-sub-tables = true
                 vim.lsp.enable("kotlin_lsp")
             else
                 notify_missing("kotlin-lsp")
-            end 
-
+            end
 
             --------------------------------------------------------
             -- Kotlin LSP
@@ -1453,6 +1456,62 @@ indent-sub-tables = true
             --else
             --    notify_missing("kotlin-lsp")
             --end
+
+            --------------------------------------------------------
+            -- Rust LSP (rust-analyzer)
+            --------------------------------------------------------
+            if has_exe("rust-analyzer") then
+                vim.lsp.config.rust_analyzer = {
+                    default_config = {
+                        cmd = { "rust-analyzer" },
+                        filetypes = { "rust" },
+                        root_markers = { "Cargo.toml", "rust-project.json", ".git" },
+                        single_file_support = true,
+                        capabilities = capabilities,
+                        settings = {
+                            ["rust-analyzer"] = {
+                                imports = {
+                                    granularity = { group = "module" },
+                                    prefix = "self",
+                                },
+                                cargo = {
+                                    sysroot = "discover",
+                                    allFeatures = true,
+                                },
+                                procMacro = { enable = true },
+                            },
+                        },
+                    },
+                }
+                vim.lsp.enable("rust_analyzer")
+
+                -- 🔔 NOTIFICACIÓN: Alerta si se abre un archivo sin Cargo.toml
+                local rust_notice_group = vim.api.nvim_create_augroup("RustSingleFileNotice", { clear = true })
+                vim.api.nvim_create_autocmd("FileType", {
+                    group = rust_notice_group,
+                    pattern = "rust",
+                    callback = function(args)
+                        local buf_path = vim.api.nvim_buf_get_name(args.buf)
+                        if buf_path == "" then
+                            return
+                        end
+
+                        -- Buscar el manifiesto del proyecto en la carpeta o hacia arriba
+                        local root = vim.fs.root(args.buf, { "Cargo.toml", "rust-project.json" })
+                        if not root then
+                            vim.schedule(function()
+                                vim.notify(
+                                    "⚠️ rust-analyzer no funciona en archivos sueltos.\nEjecuta 'cargo init' para activar autocompletado y errores.",
+                                    vim.log.levels.WARN,
+                                    { title = "Rust LSP" }
+                                )
+                            end)
+                        end
+                    end,
+                })
+            else
+                notify_missing("rust-analyzer")
+            end
 
             ---------------------------------
             -- Matlab LSP
