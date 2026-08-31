@@ -46,10 +46,10 @@ return {
             require("nvim-treesitter.configs").setup({
                 -- Le pasamos la lista de lenguajes para que Treesitter los instale automáticamente
                 ensure_installed = mis_lenguajes,
-                
+
                 -- Instala lenguajes de forma asíncrona para no bloquear el inicio de Neovim
                 sync_install = false,
-                
+
                 -- Instala automáticamente lenguajes cuando entras a un archivo de un lenguaje no instalado
                 auto_install = true,
 

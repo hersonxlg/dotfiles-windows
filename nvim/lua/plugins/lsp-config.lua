@@ -109,6 +109,7 @@ return {
         dependencies = {
             "williamboman/mason.nvim",
             "folke/neodev.nvim",
+            "saghen/blink.cmp",
         },
         lazy = false,
         config = function()
@@ -123,7 +124,9 @@ return {
                 vim.env.PATH = mason_bin .. separator .. vim.env.PATH
             end
 
-            local capabilities = require("cmp_nvim_lsp").default_capabilities()
+            -- Reemplaza: require("cmp_nvim_lsp").default_capabilities()
+            -- Por esto:
+            local capabilities = require("blink.cmp").get_lsp_capabilities()
 
             capabilities.textDocument.foldingRange = {
                 dynamicRegistration = false,
@@ -1052,60 +1055,34 @@ indent-sub-tables = true
             end, {})
 
             ------------------------------------------------------------
-            -- 3. Intercepción del Menú de Autocompletado (nvim-cmp)
+            -- 3. Detección de Plantillas PlatformIO (Compatible con blink.cmp)
             ------------------------------------------------------------
-            local cmp_ok, cmp = pcall(require, "cmp")
+            local pio_snippets = {
+                ["espwifi"] = true,
+                ["piomain"] = true,
+                ["uno_setup"] = true,
+            }
 
-            if cmp_ok then
-                -- Escuchamos exactamente cuando presionas 'Enter' en el menú
-                cmp.event:on("confirm_done", function(evt)
-                    -- Obtenemos el nombre exacto de la opción que elegiste en el menú
-                    local item = evt.entry:get_completion_item()
-                    local trigger = item.label
-
-                    if not trigger then
+            vim.api.nvim_create_autocmd("InsertLeave", {
+                group = pio_group,
+                pattern = { "*.c", "*.cpp", "*.h", "*.hpp", "*.ino" },
+                callback = function(args)
+                    local bufnr = args.buf
+                    if not platformio_root(bufnr) then
                         return
                     end
 
-                    -- ==============================================================
-                    -- 🎯 LISTA DE TUS SNIPPETS
-                    -- ==============================================================
-                    local pio_snippets = {
-                        ["espwifi"] = true,
-                        ["piomain"] = true,
-                        ["uno_setup"] = true,
-                    }
-
-                    -- Si presionaste Enter sobre uno de nuestros snippets...
-                    if pio_snippets[trigger] then
-                        vim.schedule(function()
-                            local bufnr = vim.api.nvim_get_current_buf()
-
-                            if not platformio_root(bufnr) then
+                    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+                    for _, line in ipairs(lines) do
+                        for snippet, _ in pairs(pio_snippets) do
+                            if line:find(snippet) then
+                                ensure_platformio_setup(bufnr, true)
                                 return
                             end
-
-                            -- Guardamos el archivo para que PlatformIO lea las nuevas librerías
-                            vim.api.nvim_buf_call(bufnr, function()
-                                if vim.api.nvim_get_option_value("modified", { buf = bufnr }) then
-                                    vim.cmd("silent! write")
-                                end
-                            end)
-
-                            vim.notify(
-                                "PlatformIO: Plantilla '" .. trigger .. "' confirmada. Generando mapa...",
-                                vim.log.levels.INFO
-                            )
-                            ensure_platformio_setup(bufnr, true)
-                        end)
+                        end
                     end
-                end)
-            else
-                vim.notify(
-                    "No se encontró nvim-cmp. La automatización de snippets requiere nvim-cmp.",
-                    vim.log.levels.WARN
-                )
-            end
+                end,
+            })
 
             ---------------------------------
             -- Arduino LSP  (usa clangd + arduino-cli)
@@ -1441,7 +1418,6 @@ indent-sub-tables = true
             else
                 notify_missing("kotlin-lsp")
             end
-
 
             --------------------------------------------------------
             -- Kotlin LSP

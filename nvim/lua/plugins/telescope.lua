@@ -12,21 +12,19 @@ return {
         },
         opts = {
             defaults = {
-                path_display = { "filename_first" }, -- Muestra "archivo.lua (~/config/nvim)" en vez de la ruta larga
-                sorting_strategy = "ascending", -- Los mejores resultados quedan arriba
+                path_display = { "filename_first" },
+                sorting_strategy = "ascending",
                 layout_config = {
-                    prompt_position = "top", -- Barra de búsqueda arriba
+                    prompt_position = "top",
                 },
                 mappings = {
                     i = {
-                        ["<C-j>"] = "move_selection_next", -- Mover hacia abajo sin soltar la barra de texto
-                        ["<C-k>"] = "move_selection_previous", -- Mover hacia arriba
-                        --["<C-q>"] = "send_selected_to_qflist", -- Enviar seleccionados a la lista Quickfix
+                        ["<C-j>"] = "move_selection_next",
+                        ["<C-k>"] = "move_selection_previous",
                     },
-                    -- Mapeos dentro del modo Normal (tras presionar <Esc>)
                     n = {
-                        ["q"] = require("telescope.actions").close,
-                        ["<Esc>"] = require("telescope.actions").close,
+                        ["q"] = "close",
+                        ["<Esc>"] = "close",
                     },
                 },
             },
@@ -50,13 +48,10 @@ return {
                         run_input = "<CR>",
                     },
                 },
-                ["ui-select"] = {
-                    require("telescope.themes").get_dropdown({}),
-                },
             },
         },
         keys = {
-            -- Mis atajos Personales:
+            -- Configuración de Neovim
             {
                 "<leader>en",
                 function()
@@ -82,7 +77,7 @@ return {
                 desc = "LSP Document Symbols",
             },
 
-            -- Navegación general y atajos unificados
+            -- Navegación general
             {
                 "<C-p>",
                 function()
@@ -169,7 +164,7 @@ return {
                 desc = "Telescope Git Branches",
             },
 
-            -- Extensiones y creación de Plugins
+            -- Extensiones y utilidades
             {
                 "<leader>rp",
                 function()
@@ -198,7 +193,6 @@ return {
                 end,
                 desc = "Telescope File Browser",
             },
-            -- Agrega estas entradas a tu lista de `keys`:
             {
                 "<leader>pr",
                 function()
@@ -230,18 +224,41 @@ return {
             {
                 "<leader>uT",
                 function()
-                    require("telescope.builtin").colorscheme({ enable_preview = true })
+                    require("telescope.builtin").colorscheme({ enable_preview = false })
                 end,
                 desc = "Seleccionar tema de color",
+            },
+
+            -- Buscar y abrir forzosamente en pestaña nueva
+            {
+                "<leader>fta",
+                function()
+                    require("telescope.builtin").find_files({
+                        attach_mappings = function(prompt_bufnr, map)
+                            local actions = require("telescope.actions")
+                            map({ "i", "n" }, "<CR>", function()
+                                actions.select_tab(prompt_bufnr)
+                            end)
+                            return true
+                        end,
+                    })
+                end,
+                desc = "Buscar archivo y abrir en pestaña nueva",
             },
         },
         config = function(_, opts)
             local telescope = require("telescope")
+            local themes = require("telescope.themes")
 
-            -- Inicialización única pasándole la tabla opts adecuada
+            -- Inyectamos ui-select de forma segura con Telescope ya cargado
+            opts.extensions = opts.extensions or {}
+            opts.extensions["ui-select"] = {
+                themes.get_dropdown({}),
+            }
+
             telescope.setup(opts)
 
-            -- Cargar todas las extensiones registradas
+            -- Carga de extensiones
             telescope.load_extension("fzf")
             telescope.load_extension("cmdline")
             telescope.load_extension("file_browser")

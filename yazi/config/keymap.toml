@@ -48,3 +48,26 @@
         { on = ["u"], run = 'shell "trash-restore" --block', for = "unix", desc = "Restaurar elemento de la papelera (trash-cli)" },
         { on = ["u"], run = 'shell "pwsh -nop -c \"$b=(New-Object -ComObject Shell.Application).NameSpace(10).Items(); if($b.Count -gt 0){$i=$b.Item(0); $i.Verbs() | Where-Object {$_.Name -match \"Restaurar|Restore\"} | ForEach-Object {$_.DoIt()}; Write-Host Restaurado: $i.Name; Start-Sleep 1}\"" --block', for = "windows", desc = "Restaurar último elemento de la Papelera" },
     ]
+
+[input]
+    prepend_keymap = [
+        # Salir del modo insertar a modo normal con "kj"
+        { on = ["k", "j"], run = "escape", mode = ["insert"], desc = "Salir al modo normal" },
+
+        # Salir a modo normal con Alt + j
+        { on = ["<A-j>"], run = "escape", mode = ["insert"], desc = "Salir al modo normal" },
+
+        # Salida rápida
+        { on = ["<Esc>"], run = "close", mode = ["normal", "insert"], desc = "Cancelar entrada" },
+        { on = ["<C-c>"], run = "close", mode = ["normal", "insert"], desc = "Cancelar entrada" },
+        { on = ["q"],     run = "close", mode = ["normal"], desc = "Cancelar entrada" },
+
+        # Navegación del cursor
+        { on = ["<C-a>"], run = "move -999", mode = ["normal", "insert"], desc = "Ir al inicio de la línea" },
+        { on = ["<C-e>"], run = "move 999", mode = ["normal", "insert"], desc = "Ir al final de la línea" },
+
+        # Borrado de texto (comando 'kill')
+        { on = ["<C-w>"], run = "kill backward", mode = ["normal", "insert"], desc = "Borrar palabra hacia atrás" },
+        { on = ["<C-u>"], run = "kill bol", mode = ["normal", "insert"], desc = "Borrar hasta el inicio" },
+        { on = ["<C-k>"], run = "kill eol", mode = ["normal", "insert"], desc = "Borrar hasta el final" },
+    ]
