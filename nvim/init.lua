@@ -1,5 +1,3 @@
---require("vim._core.ui2").enable({})
-
 -- 1. Primero cargamos las variables globales (Leader)
 require("config.globals")
 
@@ -30,7 +28,7 @@ require("config.autocmd")
 
 ------------------------------------------------------------
 -- 4. PLUGINS FOR LAZY:
-------------------------------------------------------------
+-----------------------------------------------------------
 require("lazy").setup("plugins", {
     git = {
         timeout = 300,

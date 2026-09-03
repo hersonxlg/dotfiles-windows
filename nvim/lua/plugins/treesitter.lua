@@ -25,6 +25,7 @@ return {
             "javascript",
             "json",
             "lua",
+            "matlab",
             "markdown",
             "markdown_inline",
             "nasm",

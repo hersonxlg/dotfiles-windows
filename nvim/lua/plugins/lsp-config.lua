@@ -61,6 +61,11 @@ return {
                     "rust_analyzer",
                 },
             })
+            vim.diagnostic.config({
+                virtual_text = true,
+                virtual_lines = false,
+                underline = false,
+            })
         end,
     },
 
