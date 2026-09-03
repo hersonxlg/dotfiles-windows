@@ -1,18 +1,20 @@
 return {
     "saghen/blink.cmp",
-    version = "*",
+    version = "v1.10.2",
+    dependencies = {
+        "rafamadriz/friendly-snippets",
+    },
 
     ---@module 'blink.cmp'
     ---@type blink.cmp.Config
     opts = {
         keymap = {
-            preset = "none", -- Desactivamos los presets para definir las teclas explícitamente
+            preset = "none",
 
             ["<C-space>"] = { "show", "show_documentation", "hide_documentation" },
             ["<C-e>"] = { "hide" },
             ["<CR>"] = { "accept", "fallback" },
 
-            -- 🚀 Configuración explícita de TAB y SHIFT-TAB estilo VS Code
             ["<Tab>"] = { "select_next", "snippet_forward", "fallback" },
             ["<S-Tab>"] = { "select_prev", "snippet_backward", "fallback" },
 
@@ -27,10 +29,32 @@ return {
 
         sources = {
             default = { "lsp", "path", "snippets", "buffer" },
+            providers = {
+                lsp = {
+                    transform_items = function(_, items)
+                        for _, item in ipairs(items) do
+                            if item.documentation and type(item.documentation) == "string" then
+                                item.documentation = item.documentation:gsub("&nbsp;", " ")
+                            elseif
+                                item.documentation
+                                and type(item.documentation) == "table"
+                                and item.documentation.value
+                            then
+                                item.documentation.value = item.documentation.value:gsub("&nbsp;", " ")
+                            end
+                        end
+                        return items
+                    end,
+                },
+            },
         },
 
         completion = {
-            documentation = { auto_show = true, auto_show_delay_ms = 200 },
+            documentation = {
+                auto_show = true,
+                auto_show_delay_ms = 200,
+                window = { border = "rounded" },
+            },
             menu = { border = "rounded" },
         },
     },

@@ -4,10 +4,16 @@ return {
     ---------------------------------
     {
         "williamboman/mason.nvim",
-        lazy = false,
-        config = function()
-            require("mason").setup()
-        end,
+        cmd = "Mason",
+        opts = {
+            ui = {
+                icons = {
+                    package_installed = "✓",
+                    package_pending = "➜",
+                    package_uninstalled = "✗",
+                },
+            },
+        },
     },
 
     ---------------------------------
@@ -53,49 +59,6 @@ return {
 
                     -- Rust
                     "rust_analyzer",
-                },
-            })
-        end,
-    },
-
-    ---------------------------------
-    -- Auto-install Formatters (Mason + None-LS)
-    ---------------------------------
-    {
-        "jay-babu/mason-null-ls.nvim",
-        lazy = false,
-        dependencies = { "williamboman/mason.nvim", "nvimtools/none-ls.nvim" },
-        config = function()
-            -- local is_windows = vim.loop.os_uname().sysname:match("Windows")
-            local is_windows = vim.uv.os_uname().sysname:match("Windows")
-
-            require("mason-null-ls").setup({
-                ensure_installed = {
-                    "clang-format", -- Mason lo descargará automáticamente
-                    "stylua",
-                    "black",
-                    "ktlint",
-                },
-                automatic_setup = false,
-                handlers = {
-                    -- ¡ESTA ES LA MAGIA!: Se ejecuta EN CUANTO MASON INSTALA LA HERRAMIENTA (o si ya existe)
-                    clang_format = function(source_name, methods)
-                        local null_ls = require("null-ls")
-                        local clang_cmd = "clang-format"
-
-                        if is_windows then
-                            clang_cmd = vim.fn.stdpath("data")
-                                .. "/mason/packages/clang-format/venv/Scripts/clang-format.exe"
-                        end
-
-                        -- Registramos el formateador de forma dinámica en caliente
-                        null_ls.register(null_ls.builtins.formatting.clang_format.with({
-                            command = clang_cmd,
-                            extra_args = {
-                                "-style={BasedOnStyle: LLVM, IndentWidth: 4, TabWidth: 4, UseTab: Never}",
-                            },
-                        }))
-                    end,
                 },
             })
         end,

@@ -1,109 +1,85 @@
 return {
-    {
-        "nvim-treesitter/nvim-treesitter",
-        branch = "master", -- Forzar a Lazy a usar y seguir la rama master
-        lazy = false,
-        build = ":TSUpdate",
-        config = function()
-            -- 1. Definimos nuestra lista de lenguajes
-            local mis_lenguajes = {
-                "powershell",
-                "lua",
-                "python",
-                "javascript",
-                "typescript",
-                "tsx",
-                "rust",
-                "go",
-                "c",
-                "cpp",
-                "bash",
-                "yaml",
-                "toml",
-                "css",
-                "html",
-                "json",
-                "vim",
-                "vimdoc",
-                "bash",
-                "fish",
-                "asm",
-                "arduino",
-                "cmake",
-                "csv",
-                "diff",
-                "gitignore",
-                "gitcommit",
-                "gnuplot",
-                "ini",
-                "markdown",
-                "nasm",
-                "regex",
-                "sql",
-            }
+    "nvim-treesitter/nvim-treesitter",
+    lazy = false,
+    build = ":TSUpdate",
+    config = function()
+        -- Array ordenado con todos los analizadores (parsers) solicitados.
+        -- 'markdown' y 'markdown_inline' son esenciales para renderizar las ventanas emergentes (LSP doc / Blink).
+        local mis_lenguajes = {
+            "arduino",
+            "asm",
+            "bash",
+            "c",
+            "cmake",
+            "cpp",
+            "css",
+            "csv",
+            "diff",
+            "fish",
+            "gitcommit",
+            "gitignore",
+            "gnuplot",
+            "go",
+            "html",
+            "ini",
+            "javascript",
+            "json",
+            "lua",
+            "markdown",
+            "markdown_inline",
+            "nasm",
+            "powershell",
+            "python",
+            "regex",
+            "rust",
+            "sql",
+            "toml",
+            "tsx",
+            "typescript",
+            "vim",
+            "vimdoc",
+            "yaml",
+        }
 
-            -- 2. El setup moderno utiliza "nvim-treesitter.configs"
-            require("nvim-treesitter.configs").setup({
-                -- Le pasamos la lista de lenguajes para que Treesitter los instale automáticamente
+        -- Carga de forma segura 'nvim-treesitter.configs'. Si Lazy aún no ha instalado el plugin,
+        -- pcall evita que Neovim lance una pantalla roja de error al iniciar.
+        local status_ok, configs = pcall(require, "nvim-treesitter.configs")
+        if status_ok then
+            configs.setup({
                 ensure_installed = mis_lenguajes,
-
-                -- Instala lenguajes de forma asíncrona para no bloquear el inicio de Neovim
-                sync_install = false,
-
-                -- Instala automáticamente lenguajes cuando entras a un archivo de un lenguaje no instalado
                 auto_install = true,
 
-                -- Habilita el resaltado de sintaxis
-                highlight = { enable = true },
+                -- IMPORTANTE EN NEOVIM 0.12:
+                -- Desactivamos los módulos legados 'highlight' e 'indent' del plugin nvim-treesitter.
+                -- Esto previene el crash fatal por métodos obsoletos de Treesitter (como '.range()').
+                highlight = {
+                    enable = false,
+                },
+                indent = {
+                    enable = false,
+                },
             })
-        end,
-    },
+        end
 
-    {
-        "nvim-treesitter/nvim-treesitter-textobjects",
-        dependencies = { "nvim-treesitter/nvim-treesitter" },
-        config = function()
-            -- =================================================================
-            -- CONFIGURACIÓN MODERNA DIRECTA
-            -- Mapeamos directamente a las funciones del plugin saltándonos el antiguo configs.setup
-            -- =================================================================
-            local move = require("nvim-treesitter-textobjects.move")
+        -- DELEGACIÓN AL MOTOR NATIVO Y DESCARGA FILTRADA AL VUELO:
+        -- Neovim 0.12 incluye su propio motor Treesitter en C. Usamos este autocomando para
+        -- iniciar el pintado nativo (vim.treesitter.start) cada vez que se detecta un tipo de archivo.
+        vim.api.nvim_create_autocmd("FileType", {
+            desc = "Activa el resaltado nativo de Treesitter e instala el parser si pertenece a la lista",
+            group = vim.api.nvim_create_augroup("native-treesitter-highlight", { clear = true }),
+            callback = function(args)
+                local ft = vim.bo[args.buf].filetype
+                local started = pcall(vim.treesitter.start, args.buf)
 
-            -- Movimiento: Ir al SIGUIENTE INICIO (Next Start)
-            vim.keymap.set({ "n", "x", "o" }, "]f", function()
-                move.goto_next_start("@function.outer", "textobjects")
-            end, { desc = "Saltar al inicio de la siguiente función" })
-
-            vim.keymap.set({ "n", "x", "o" }, "]c", function()
-                move.goto_next_start("@class.outer", "textobjects")
-            end, { desc = "Saltar al inicio de la siguiente clase" })
-
-            -- Movimiento: Ir al SIGUIENTE FIN (Next End)
-            vim.keymap.set({ "n", "x", "o" }, "]F", function()
-                move.goto_next_end("@function.outer", "textobjects")
-            end, { desc = "Saltar al final de la siguiente función" })
-
-            vim.keymap.set({ "n", "x", "o" }, "]C", function()
-                move.goto_next_end("@class.outer", "textobjects")
-            end, { desc = "Saltar al final de la siguiente clase" })
-
-            -- Movimiento: Ir al ANTERIOR INICIO (Previous Start)
-            vim.keymap.set({ "n", "x", "o" }, "[f", function()
-                move.goto_previous_start("@function.outer", "textobjects")
-            end, { desc = "Saltar al inicio de la función anterior" })
-
-            vim.keymap.set({ "n", "x", "o" }, "[c", function()
-                move.goto_previous_start("@class.outer", "textobjects")
-            end, { desc = "Saltar al inicio de la clase anterior" })
-
-            -- Movimiento: Ir al ANTERIOR FIN (Previous End)
-            vim.keymap.set({ "n", "x", "o" }, "[F", function()
-                move.goto_previous_end("@function.outer", "textobjects")
-            end, { desc = "Saltar al final de la función anterior" })
-
-            vim.keymap.set({ "n", "x", "o" }, "[C", function()
-                move.goto_previous_end("@class.outer", "textobjects")
-            end, { desc = "Saltar al final de la clase anterior" })
-        end,
-    },
+                -- Si Treesitter no pudo iniciar en este buffer (parser no instalado):
+                if not started and ft ~= "" then
+                    vim.bo[args.buf].syntax = "on"
+                    -- Lanza la instalación automática SOLO si el tipo de archivo está en tu lista 'mis_lenguajes'
+                    if vim.tbl_contains(mis_lenguajes, ft) then
+                        pcall(vim.cmd, "TSInstall " .. ft)
+                    end
+                end
+            end,
+        })
+    end,
 }

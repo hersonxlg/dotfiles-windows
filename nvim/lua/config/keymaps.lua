@@ -1,6 +1,3 @@
-vim.g.mapleader = " "
-vim.g.maplocalleader = " "
-
 -----------------------------------------------------
 -- Atajos de teclado generales
 -----------------------------------------------------
@@ -8,6 +5,10 @@ vim.g.maplocalleader = " "
 --vim.keymap.set("n", "<leader>s", ":so %<CR>", { noremap = true })
 --vim.keymap.set("n", "<leader>ev", ":vsplit $MYVIMRC<CR>", { noremap = true })
 --vim.keymap.set("n", "<leader>sv", ":w<CR>:so %<CR>:q<CR>", { noremap = true })
+
+vim.opt.cursorline = true
+vim.opt.winborder = "rounded"
+vim.opt.breakindent = true
 
 -- Ejecutar archivos LUA con Neovim.
 vim.keymap.set("n", "<leader>rl", ":source %<CR>", { desc = "Ejecutar archivo Lua actual" })

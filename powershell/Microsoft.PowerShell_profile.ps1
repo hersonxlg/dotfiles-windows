@@ -68,9 +68,17 @@ $myalias          = Join-Path $ProfileDir "myalias.ps1"
 $fzfconfig        = Join-Path $ProfileDir "fzfconfig.ps1"
 
 # Cargar configuraciones si los archivos existen
-if (Test-Path $psreadlineConfig) { . $psreadlineConfig } else { Write-Warning "No se encontró psreadline-config.ps1" }
-if (Test-Path $myalias)          { . $myalias }
-if (Test-Path $fzfconfig)        { . $fzfconfig }
+if (Test-Path $psreadlineConfig) {
+    . $psreadlineConfig 
+} else {
+    Write-Warning "No se encontró psreadline-config.ps1" 
+}
+if (Test-Path $myalias)          {
+    . $myalias 
+}
+if (Test-Path $fzfconfig)        {
+    . $fzfconfig 
+}
 
 # ********************************************************
 #                  CARGA CONDICIONAL (Módulos)
@@ -131,7 +139,9 @@ function Activar-FZF {
 
     function global:_open_path {
         param ([string]$input_path)
-        if (-not $input_path) { return }
+        if (-not $input_path) {
+            return 
+        }
         Write-Output "[ ] cd"
         Write-Output "[*] nvim"
         $choice = Read-Host "Enter your choice"
@@ -145,7 +155,9 @@ function Activar-FZF {
                 }
                 Set-Location -Path $input_path
             }
-            default { nvim $input_path }
+            default {
+                nvim $input_path 
+            }
         }
     }
 
@@ -195,8 +207,12 @@ function Activar-FZF {
         return $input_path
     }
 
-    function global:fdg { _open_path $(_get_path_using_fd) }
-    function global:rgg { _open_path $(_get_path_using_rg) }
+    function global:fdg {
+        _open_path $(_get_path_using_fd) 
+    }
+    function global:rgg {
+        _open_path $(_get_path_using_rg) 
+    }
 
     Set-PSReadLineKeyHandler -Key "Ctrl+f" -ScriptBlock {
         [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
@@ -213,7 +229,9 @@ function Activar-FZF {
     Write-Host "🚀 FZF listo para usarse." -ForegroundColor Green
 }
 
-if ($AutoCargarFZF) { Activar-FZF }
+if ($AutoCargarFZF) {
+    Activar-FZF 
+}
 
 # *******************************************************
 #                  my functions (Carga normal)
@@ -256,7 +274,9 @@ function lfcd {
             }
         }
     } finally {
-        if (Test-Path $tmp) { Remove-Item $tmp -ErrorAction SilentlyContinue }
+        if (Test-Path $tmp) {
+            Remove-Item $tmp -ErrorAction SilentlyContinue 
+        }
     }
 }
 
@@ -287,4 +307,17 @@ if (Get-Command yazi -ErrorAction SilentlyContinue) {
         }
         Remove-Item -Path $tmp
     }
+}
+
+function nvimt {
+    $env:NVIM_APPNAME = "nvim-test"
+    nvim @args
+    Remove-Item Env:\NVIM_APPNAME
+}
+
+
+function nvimp {
+    $env:NVIM_APPNAME = "nvim-prueba"
+    nvim @args
+    Remove-Item Env:\NVIM_APPNAME
 }
