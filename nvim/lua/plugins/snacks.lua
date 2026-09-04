@@ -57,12 +57,14 @@ return {
         },
         -- 9. Desplazamiento suave (Smooth Scroll)
         scroll = { enabled = true },
-        -- 10. Renderizado e inspección de imágenes
+        -- 10. Renderizado e inspección de imágenes con Snacks
         image = {
             enabled = true,
             doc = {
-                inline = true, -- Renderiza imágenes dentro de archivos Markdown
-                float = true, -- Vista previa flotante al pasar sobre un enlace de imagen
+                inline = true, -- Intenta renderizar dentro del buffer
+                float = true, -- Muestra vista previa en ventana flotante si inline falla
+                max_width = 80,
+                max_height = 20,
             },
         },
     },
@@ -364,6 +366,58 @@ return {
                 Snacks.picker.resume()
             end,
             desc = "Reanudar última búsqueda",
+        },
+
+        -- Interacción y vista previa de imágenes (Multiplataforma)
+        {
+            "<leader>ih",
+            function()
+                Snacks.image.hover()
+            end,
+            desc = "Vista previa flotante de imagen (Hover)",
+        },
+        {
+            "<leader>io",
+            function()
+                local line = vim.api.nvim_get_current_line()
+                local img_name = line:match("%!%[%[(.-)%]%]")
+                    or line:match("%!%[%[(.-)%]%(")
+                    or line:match("%!%[(.-)%]%((.-)%)")
+
+                -- Ajuste por si el regex devuelve dos capturas (alt y link)
+                if type(img_name) == "table" then
+                    img_name = img_name[2]
+                end
+
+                if not img_name or img_name == "" then
+                    vim.notify("No se detectó ningún enlace de imagen en la línea actual", vim.log.levels.WARN)
+                    return
+                end
+
+                -- Limpiar espacios codificados (%20)
+                img_name = img_name:gsub("%%20", " ")
+
+                -- Normalizar ruta para evitar problemas con diagonales en Windows/Linux
+                local attachments_dir = vim.fn.expand("~/syncthing/obsidian/attachments/")
+                local full_path = vim.fs.normalize(attachments_dir .. img_name)
+
+                if vim.fn.filereadable(full_path) == 0 then
+                    vim.notify("No se encontró la imagen: " .. full_path, vim.log.levels.ERROR)
+                    return
+                end
+
+                -- Detección de OS
+                local is_windows = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
+
+                if is_windows then
+                    -- Windows: Abre con el visor predeterminado (Fotos, ImageGlass, IrfanView, etc.)
+                    vim.fn.jobstart({ "cmd.exe", "/c", "start", "", full_path }, { detach = true })
+                else
+                    -- Linux: Abre directamente con nsxiv
+                    vim.fn.jobstart({ "nsxiv", full_path }, { detach = true })
+                end
+            end,
+            desc = "Abrir imagen en visor externo (Multiplataforma)",
         },
 
         -- Terminal Flotante General (Toggle / Raíz del proyecto)
