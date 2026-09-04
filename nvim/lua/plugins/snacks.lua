@@ -61,10 +61,12 @@ return {
         image = {
             enabled = true,
             doc = {
-                inline = true, -- Intenta renderizar dentro del buffer
-                float = true, -- Muestra vista previa en ventana flotante si inline falla
-                max_width = 80,
-                max_height = 20,
+                --inline = true, -- Intenta renderizar dentro del buffer
+                --float = true, -- Muestra vista previa en ventana flotante si inline falla
+                inline = false, -- Intenta renderizar dentro del buffer
+                float = false, -- Muestra vista previa en ventana flotante si inline falla
+                --max_width = 80,
+                --max_height = 20,
             },
         },
     },

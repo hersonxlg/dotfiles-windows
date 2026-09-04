@@ -192,8 +192,46 @@ local function smart_quit()
     end)
 end
 
--- 2. Cierre contextual (Panel -> Buffer -> Neovim)
+-- 2. Cierre contextual (Imagen -> Panel -> Buffer -> Neovim)
 local function smart_close()
+    -- =========================================================================
+    -- NUEVA LÓGICA DE PRIORIDAD 1: Cerrar la imagen de Obsidian si está abierta
+    -- =========================================================================
+    -- 1. Obtenemos todas las ventanas de la pestaña actual
+    local current_wins = vim.api.nvim_tabpage_list_wins(0)
+    local img_closed = false
+
+    -- 2. Iteramos buscando alguna ventana que esté en el extremo derecho (botright vsplit)
+    -- y que su buffer NO sea listado (que es como configuraste la imagen en tu init.lua)
+    for _, w in ipairs(current_wins) do
+        local b = vim.api.nvim_win_get_buf(w)
+        local buf_name = vim.api.nvim_buf_get_name(b)
+
+        -- Si encontramos un buffer que está dentro de tu carpeta de attachments...
+        if string.find(buf_name, "syncthing/obsidian/attachments") then
+            -- Cerramos la ventana de la imagen
+            pcall(vim.api.nvim_win_close, w, true)
+
+            -- Limpiamos la caché gráfica (Kitty protocol) y repintamos
+            pcall(vim.api.nvim_chan_send, vim.v.stderr, "\27_Ga=d,d=a;\27\\")
+            vim.cmd("redraw!")
+
+            -- Para evitar que el archivo de obsidian intente cerrarla de nuevo si tenías 'img_win_id'
+            -- lanzamos un pequeño autocomando que el init.lua puede escuchar (opcional pero limpio)
+            vim.api.nvim_exec_autocmds("User", { pattern = "ObsidianImageClosed" })
+
+            img_closed = true
+            break -- Ya encontramos y cerramos la imagen, salimos del bucle
+        end
+    end
+
+    -- 3. Si cerramos una imagen, DETENEMOS la ejecución aquí.
+    -- No queremos cerrar tu código ni tus búferes.
+    if img_closed then
+        return
+    end
+    -- =========================================================================
+
     local normal_wins = get_normal_windows()
 
     -- NIVEL 1: Si hay múltiples paneles (splits) abiertos, cierra solo el panel enfocado
