@@ -59,6 +59,9 @@ return {
 
                     -- Rust
                     "rust_analyzer",
+
+                    -- Formatters
+                    "black",
                 },
             })
             vim.diagnostic.config({

@@ -12,62 +12,123 @@
         { on = ":", run = 'shell "pwsh -nop -c ; " --block --interactive', for = "windows", desc = "Comando rápido bloqueante en PowerShell" },
 
         # bookmarks.yazi
-        { on = ["m"], run = "plugin bookmarks save", desc = "Save bookmark" },
-        { on = ["'"], run = "plugin bookmarks jump", desc = "Jump to bookmark" },
-        { on = ["b", "d"], run = "plugin bookmarks delete", desc = "Delete bookmark" },
-        { on = ["b", "D"], run = "plugin bookmarks delete_all", desc = "Delete all bookmarks" },
+        { on = [
+            "m",
+        ], run = "plugin bookmarks save", desc = "Save bookmark" },
+        { on = [
+            "'",
+        ], run = "plugin bookmarks jump", desc = "Jump to bookmark" },
+        { on = [
+            "b",
+            "d",
+        ], run = "plugin bookmarks delete", desc = "Delete bookmark" },
+        { on = [
+            "b",
+            "D",
+        ], run = "plugin bookmarks delete_all", desc = "Delete all bookmarks" },
 
         # whoosh.yazi
-        { on = ["B"], run = "plugin whoosh jump_by_fzf", desc = "Open Whoosh bookmarks" },
-        { on = ["g", "a"], run = "plugin whoosh save", desc = "Save Whoosh bookmark" },
-        { on = ["g", "d"], run = "plugin whoosh delete_by_fzf", desc = "Delete Whoosh bookmark" },
-        { on = ["g", "r"], run = "plugin whoosh rename_by_fzf", desc = "Rename Whoosh bookmark" },
+        { on = [
+            "B",
+        ], run = "plugin whoosh jump_by_fzf", desc = "Open Whoosh bookmarks" },
+        { on = [
+            "g",
+            "a",
+        ], run = "plugin whoosh save", desc = "Save Whoosh bookmark" },
+        { on = [
+            "g",
+            "d",
+        ], run = "plugin whoosh delete_by_fzf", desc = "Delete Whoosh bookmark" },
+        { on = [
+            "g",
+            "r",
+        ], run = "plugin whoosh rename_by_fzf", desc = "Rename Whoosh bookmark" },
 
         # system-clipboard.yazi
-        { on = ["<C-c>"], run = ["yank", "plugin system-clipboard -- --action=copy"], desc = "Copiar al portapapeles del sistema" },
-        { on = ["<C-x>"], run = ["yank --cut", "plugin system-clipboard -- --action=copy"], desc = "Cortar al portapapeles del sistema" },
-        { on = ["<C-v>"], run = "plugin system-clipboard -- --action=paste", desc = "Pegar desde el portapapeles del sistema" },
+        { on = [
+            "<C-c>",
+        ], run = [
+            "yank",
+            "plugin system-clipboard -- --action=copy",
+        ], desc = "Copiar al portapapeles del sistema" },
+        { on = [
+            "<C-x>",
+        ], run = [
+            "yank --cut",
+            "plugin system-clipboard -- --action=copy",
+        ], desc = "Cortar al portapapeles del sistema" },
+        { on = [
+            "<C-v>",
+        ], run = "plugin system-clipboard -- --action=paste", desc = "Pegar desde el portapapeles del sistema" },
 
         # MIS COMANDOS PERSONALIZADOS
-        { on = ["o", "i"], run = "plugin abrir-url-incognito", desc = "Extraer URL y abrir en Brave Incógnito" },
+        { on = [
+            "o",
+            "i",
+        ], run = "plugin abrir-url-incognito", desc = "Extraer URL y abrir en Brave Incógnito" },
+
+        # Abrir con Neovim
+        { on = [
+            "o",
+            "n",
+        ], run = 'shell "nvim %s" --block', desc = "Abrir con Neovim" },
 
         # Atajos de música multiplataforma
-        { on = ["o", "o"], run = 'shell "deadbeef %s" --orphan', for = "unix", desc = "Abrir con DeaDBeeF" },
-        { on = ["o", "o"], run = 'shell "foobar2000 %s" --orphan', for = "windows", desc = "Abrir con foobar2000" },
+        { on = [
+            "o",
+            "o",
+        ], run = 'shell "deadbeef %s" --orphan', for = "unix", desc = "Abrir con DeaDBeeF" },
+        { on = [
+            "o",
+            "o",
+        ], run = 'shell "foobar2000 %s" --orphan', for = "windows", desc = "Abrir con foobar2000" },
 
         # Reproductores adicionales
-        { on = ["o", "v"], run = 'shell "vlc %s" --orphan', desc = "Abrir con VLC" },
+        { on = [
+            "o",
+            "v",
+        ], run = 'shell "vlc %s" --orphan', desc = "Abrir con VLC" },
 
         # Menú flotante "Abrir con..."
-        { on = ["o", "m"], run = "open --interactive", desc = "Menú interactivo Abrir con..." },
+        { on = [
+            "o",
+            "m",
+        ], run = "open --interactive", desc = "Menú interactivo Abrir con..." },
 
         # Ventana/Menú flotante para cambiar de disco o punto de montaje (Multiplataforma)
-        { on = ["g", "u"], run = "plugin drives", desc = "Ver unidades / puntos de montaje" },
+        { on = [
+            "g",
+            "u",
+        ], run = "plugin drives", desc = "Ver unidades / puntos de montaje" },
 
         # --- DESHACER BORRADO / PAPELERA (u) ---
-        { on = ["u"], run = 'shell "trash-restore" --block', for = "unix", desc = "Restaurar elemento de la papelera (trash-cli)" },
-        { on = ["u"], run = 'shell "pwsh -nop -c \"$b=(New-Object -ComObject Shell.Application).NameSpace(10).Items(); if($b.Count -gt 0){$i=$b.Item(0); $i.Verbs() | Where-Object {$_.Name -match \"Restaurar|Restore\"} | ForEach-Object {$_.DoIt()}; Write-Host Restaurado: $i.Name; Start-Sleep 1}\"" --block', for = "windows", desc = "Restaurar último elemento de la Papelera" },
+        { on = [
+            "u",
+        ], run = 'shell "trash-restore" --block', for = "unix", desc = "Restaurar elemento de la papelera (trash-cli)" },
+        { on = [
+            "u",
+        ], run = 'shell "pwsh -nop -c \"$b=(New-Object -ComObject Shell.Application).NameSpace(10).Items(); if($b.Count -gt 0){$i=$b.Item(0); $i.Verbs() | Where-Object {$_.Name -match \"Restaurar|Restore\"} | ForEach-Object {$_.DoIt()}; Write-Host Restaurado: $i.Name; Start-Sleep 1}\"" --block', for = "windows", desc = "Restaurar último elemento de la Papelera" },
     ]
 
 [input]
     prepend_keymap = [
         # Salir del modo insertar a modo normal con "kj"
-        { on = ["k", "j"], run = "escape", mode = ["insert"], desc = "Salir al modo normal" },
+        { on = [ "k", "j" ], run = "escape", mode = [ "insert" ], desc = "Salir al modo normal" },
 
         # Salir a modo normal con Alt + j
-        { on = ["<A-j>"], run = "escape", mode = ["insert"], desc = "Salir al modo normal" },
+        { on = [ "<A-j>" ], run = "escape", mode = [ "insert" ], desc = "Salir al modo normal" },
 
         # Salida rápida
-        { on = ["<Esc>"], run = "close", mode = ["normal", "insert"], desc = "Cancelar entrada" },
-        { on = ["<C-c>"], run = "close", mode = ["normal", "insert"], desc = "Cancelar entrada" },
-        { on = ["q"],     run = "close", mode = ["normal"], desc = "Cancelar entrada" },
+        { on = [ "<Esc>" ], run = "close", mode = [ "normal", "insert" ], desc = "Cancelar entrada" },
+        { on = [ "<C-c>" ], run = "close", mode = [ "normal", "insert" ], desc = "Cancelar entrada" },
+        { on = [ "q" ], run = "close", mode = [ "normal" ], desc = "Cancelar entrada" },
 
         # Navegación del cursor
-        { on = ["<C-a>"], run = "move -999", mode = ["normal", "insert"], desc = "Ir al inicio de la línea" },
-        { on = ["<C-e>"], run = "move 999", mode = ["normal", "insert"], desc = "Ir al final de la línea" },
+        { on = [ "<C-a>" ], run = "move -999", mode = [ "normal", "insert" ], desc = "Ir al inicio de la línea" },
+        { on = [ "<C-e>" ], run = "move 999", mode = [ "normal", "insert" ], desc = "Ir al final de la línea" },
 
         # Borrado de texto (comando 'kill')
-        { on = ["<C-w>"], run = "kill backward", mode = ["normal", "insert"], desc = "Borrar palabra hacia atrás" },
-        { on = ["<C-u>"], run = "kill bol", mode = ["normal", "insert"], desc = "Borrar hasta el inicio" },
-        { on = ["<C-k>"], run = "kill eol", mode = ["normal", "insert"], desc = "Borrar hasta el final" },
+        { on = [ "<C-w>" ], run = "kill backward", mode = [ "normal", "insert" ], desc = "Borrar palabra hacia atrás" },
+        { on = [ "<C-u>" ], run = "kill bol", mode = [ "normal", "insert" ], desc = "Borrar hasta el inicio" },
+        { on = [ "<C-k>" ], run = "kill eol", mode = [ "normal", "insert" ], desc = "Borrar hasta el final" },
     ]
