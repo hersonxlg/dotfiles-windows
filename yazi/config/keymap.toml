@@ -46,19 +46,19 @@
 
         # system-clipboard.yazi
         { on = [
-            "<C-c>",
+            "y",
         ], run = [
             "yank",
             "plugin system-clipboard -- --action=copy",
         ], desc = "Copiar al portapapeles del sistema" },
         { on = [
-            "<C-x>",
+            "x",
         ], run = [
             "yank --cut",
             "plugin system-clipboard -- --action=copy",
         ], desc = "Cortar al portapapeles del sistema" },
         { on = [
-            "<C-v>",
+            "v",
         ], run = "plugin system-clipboard -- --action=paste", desc = "Pegar desde el portapapeles del sistema" },
 
         # MIS COMANDOS PERSONALIZADOS
@@ -120,7 +120,7 @@
 
         # Salida rápida
         { on = [ "<Esc>" ], run = "close", mode = [ "normal", "insert" ], desc = "Cancelar entrada" },
-        { on = [ "<C-c>" ], run = "close", mode = [ "normal", "insert" ], desc = "Cancelar entrada" },
+        #{ on = [ "<C-c>" ], run = "close", mode = [ "normal", "insert" ], desc = "Cancelar entrada" },
         { on = [ "q" ], run = "close", mode = [ "normal" ], desc = "Cancelar entrada" },
 
         # Navegación del cursor
