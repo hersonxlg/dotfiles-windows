@@ -73,7 +73,10 @@ return {
     config = function(_, opts)
         require("snacks").setup(opts)
 
-        -- Precarga la shell principal en segundo plano y regresa a Modo Normal
+        ------------------------------------------------------------
+        -- AUTOCOMANDOS: Precarga la shell principal en segundo
+        --               plano y regresa a Modo Normal.
+        ------------------------------------------------------------
         vim.api.nvim_create_autocmd("UIEnter", {
             once = true,
             callback = function()
@@ -86,7 +89,128 @@ return {
                 end)
             end,
         })
+
+        ------------------------------------------------------------
+        -- AUTOCOMANDOS: Vista previa de imágenes de Obsidian
+        ------------------------------------------------------------
+        vim.opt.updatetime = 50
+        local waitUntilScrollEnd = 20
+        local last_opened_line = nil
+        local img_win_id = nil
+
+        local group = vim.api.nvim_create_augroup("ObsidianImageDetector", { clear = true })
+
+        local function clear_terminal_graphics()
+            pcall(vim.api.nvim_chan_send, vim.v.stderr, "\27_Ga=d,d=a;\27\\")
+            vim.cmd("redraw!")
+        end
+
+        local function close_image_panel()
+            if img_win_id and vim.api.nvim_win_is_valid(img_win_id) then
+                pcall(vim.api.nvim_win_close, img_win_id, true)
+                img_win_id = nil
+                clear_terminal_graphics()
+                return true
+            end
+            return false
+        end
+
+        -- 1. Detectar y abrir la imagen al detener el cursor
+        vim.api.nvim_create_autocmd("CursorHold", {
+            group = group,
+            pattern = "*.md",
+            callback = function()
+                local current_line_num = vim.api.nvim_win_get_cursor(0)[1]
+                local line = vim.api.nvim_get_current_line()
+
+                local wiki_match = line:match("%!%[%[(.-)%]%]")
+                local md_match = line:match("%!%[.-%]%((.-)%)")
+                local img_name = wiki_match or md_match
+
+                if img_name then
+                    if last_opened_line == current_line_num then
+                        return
+                    end
+                    last_opened_line = current_line_num
+
+                    img_name = img_name:gsub("%%20", " ")
+                    local attachments_dir = vim.fn.expand("~/syncthing/obsidian/attachments/")
+                    local full_path = vim.fs.normalize(attachments_dir .. img_name)
+
+                    if vim.fn.filereadable(full_path) == 1 then
+                        vim.cmd("normal! zt")
+
+                        vim.defer_fn(function()
+                            if vim.api.nvim_win_get_cursor(0)[1] ~= current_line_num then
+                                return
+                            end
+
+                            if img_win_id and vim.api.nvim_win_is_valid(img_win_id) then
+                                pcall(vim.api.nvim_win_close, img_win_id, true)
+                            end
+
+                            local current_win = vim.api.nvim_get_current_win()
+                            vim.cmd("botright 40vsplit " .. vim.fn.fnameescape(full_path))
+                            img_win_id = vim.api.nvim_get_current_win()
+
+                            vim.wo[img_win_id].number = false
+                            vim.wo[img_win_id].relativenumber = false
+                            vim.wo[img_win_id].signcolumn = "no"
+                            vim.bo[vim.api.nvim_win_get_buf(img_win_id)].bufhidden = "wipe"
+
+                            vim.api.nvim_set_current_win(current_win)
+                            vim.cmd("redraw")
+                        end, waitUntilScrollEnd)
+                    end
+                end
+            end,
+        })
+
+        -- 2. Cerrar al mover el cursor fuera de la línea
+        vim.api.nvim_create_autocmd("CursorMoved", {
+            group = group,
+            pattern = "*.md",
+            callback = function()
+                local current_line_num = vim.api.nvim_win_get_cursor(0)[1]
+                if last_opened_line and last_opened_line ~= current_line_num then
+                    last_opened_line = nil
+                    close_image_panel()
+                end
+            end,
+        })
+
+        -- 3. Cerrar al entrar a Modo Insertar
+        vim.api.nvim_create_autocmd("InsertEnter", {
+            group = group,
+            pattern = "*.md",
+            callback = function()
+                close_image_panel()
+            end,
+        })
+
+        -- Atajo para Maximizar / Restaurar el panel de la imagen
+        vim.keymap.set("n", "<leader>im", function()
+            if img_win_id and vim.api.nvim_win_is_valid(img_win_id) then
+                local current_win = vim.api.nvim_get_current_win()
+                vim.api.nvim_set_current_win(img_win_id)
+
+                if vim.api.nvim_win_get_width(img_win_id) > 45 then
+                    vim.cmd("wincmd =")
+                    vim.cmd("vertical resize 40")
+                else
+                    vim.cmd("wincmd _")
+                    vim.cmd("wincmd |")
+                end
+
+                vim.api.nvim_set_current_win(current_win)
+                clear_terminal_graphics()
+            end
+        end, { desc = "Maximizar o restaurar panel de imagen" })
     end,
+
+    ------------------------------------------------------------
+    -- Atajos (shortcuts)
+    ------------------------------------------------------------
     keys = {
         -- Saltar al inicio o final del bloque actual
         {
@@ -378,28 +502,22 @@ return {
             end,
             desc = "Vista previa flotante de imagen (Hover)",
         },
+
+        -- Interacción y apertura de imágenes en visor externo (Instantáneo + Con Foco)
         {
-            "<leader>io",
+            "<CR>",
             function()
                 local line = vim.api.nvim_get_current_line()
-                local img_name = line:match("%!%[%[(.-)%]%]")
-                    or line:match("%!%[%[(.-)%]%(")
-                    or line:match("%!%[(.-)%]%((.-)%)")
-
-                -- Ajuste por si el regex devuelve dos capturas (alt y link)
-                if type(img_name) == "table" then
-                    img_name = img_name[2]
-                end
+                local wiki_match = line:match("%!%[%[(.-)%]%]")
+                local md_match = line:match("%!%[.-%]%((.-)%)")
+                local img_name = wiki_match or md_match
 
                 if not img_name or img_name == "" then
                     vim.notify("No se detectó ningún enlace de imagen en la línea actual", vim.log.levels.WARN)
                     return
                 end
 
-                -- Limpiar espacios codificados (%20)
                 img_name = img_name:gsub("%%20", " ")
-
-                -- Normalizar ruta para evitar problemas con diagonales en Windows/Linux
                 local attachments_dir = vim.fn.expand("~/syncthing/obsidian/attachments/")
                 local full_path = vim.fs.normalize(attachments_dir .. img_name)
 
@@ -408,18 +526,32 @@ return {
                     return
                 end
 
-                -- Detección de OS
                 local is_windows = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
+                local target_path = is_windows and full_path:gsub("/", "\\") or full_path
 
+                -- 1. Feedback visual instantáneo para confirmar el atajo
+                vim.notify("📷 Abriendo imagen en visor externo...", vim.log.levels.INFO, { title = "Obsidian" })
+
+                -- 2. Visores dedicados prioritarios (si existen en el PATH)
+                local apps = is_windows and { "qview", "imageglass", "irfanview", "mpv" }
+                    or { "nsxiv", "feh", "sxiv", "eog", "loupe" }
+
+                for _, app in ipairs(apps) do
+                    if vim.fn.executable(app) == 1 then
+                        vim.system({ app, target_path }, { detach = true })
+                        return
+                    end
+                end
+
+                -- 3. Fallback con foco forzado según el Sistema Operativo
                 if is_windows then
-                    -- Windows: Abre con el visor predeterminado (Fotos, ImageGlass, IrfanView, etc.)
-                    vim.fn.jobstart({ "cmd.exe", "/c", "start", "", full_path }, { detach = true })
+                    -- 'cmd.exe /c start ""' obliga a Windows a traer la app lanzada al primer plano
+                    vim.system({ "cmd.exe", "/c", "start", "", target_path }, { detach = true })
                 else
-                    -- Linux: Abre directamente con nsxiv
-                    vim.fn.jobstart({ "nsxiv", full_path }, { detach = true })
+                    vim.ui.open(target_path)
                 end
             end,
-            desc = "Abrir imagen en visor externo (Multiplataforma)",
+            desc = "Abrir imagen en visor externo (con foco y notificación)",
         },
 
         -- Terminal Flotante General (Toggle / Raíz del proyecto)
