@@ -3,18 +3,224 @@ return {
     priority = 1000,
     lazy = false,
     opts = {
+
         -- Detección y navegación por el ámbito de código activo
         scope = { enabled = true },
         -- Oscurece el código fuera del alcance/ámbito actual
         dim = { enabled = true },
-        -- Diálogos de entrada estilizados (remplaza vim.ui.input)
-        input = { enabled = true },
 
+        win = {
+            show = true,
+            fixbuf = true,
+            relative = "editor",
+            position = "float",
+            minimal = true,
+            wo = {
+                winhighlight = "Normal:SnacksNormal,NormalNC:SnacksNormalNC,WinBar:SnacksWinBar,WinBarNC:SnacksWinBarNC,FloatTitle:SnacksTitle,FloatFooter:SnacksFooter,WinSeparator:SnacksWinSeparator",
+            },
+            bo = {},
+            title_pos = "center",
+            keys = {
+                q = "close",
+            },
+            footer_pos = "center",
+            footer_keys = false,
+        },
+
+        -- Diálogos de entrada estilizados (remplaza vim.ui.input)
+        input = {
+            backdrop = false,
+            position = "float",
+            border = true,
+            title_pos = "center",
+            height = 1,
+            width = 60,
+            relative = "editor",
+            noautocmd = true,
+            row = 2,
+            -- relative = "cursor",
+            -- row = -3,
+            -- col = 0,
+            wo = {
+                winhighlight = "NormalFloat:SnacksInputNormal,FloatBorder:SnacksInputBorder,FloatTitle:SnacksInputTitle",
+                cursorline = false,
+            },
+            bo = {
+                filetype = "snacks_input",
+                buftype = "prompt",
+            },
+            --- buffer local variables
+            b = {
+                completion = false, -- disable blink completions in input
+            },
+            keys = {
+                n_esc = { "<esc>", { "cmp_close", "cancel" }, mode = "n", expr = true },
+                i_esc = { "<esc>", { "cmp_close", "stopinsert" }, mode = "i", expr = true },
+                i_cr = { "<cr>", { "cmp_accept", "confirm" }, mode = { "i", "n" }, expr = true },
+                i_tab = { "<tab>", { "cmp_select_next", "cmp" }, mode = "i", expr = true },
+                i_ctrl_w = { "<c-w>", "<c-s-w>", mode = "i", expr = true },
+                i_up = { "<up>", { "hist_up" }, mode = { "i", "n" } },
+                i_down = { "<down>", { "hist_down" }, mode = { "i", "n" } },
+                q = "cancel",
+            },
+        },
         -- Notificaciones rápidas (remplaza nvim-notify)
         notifier = { enabled = true },
-        -- 1. Pantalla de inicio
-        dashboard = { enabled = true },
 
+        profiler = { enabled = true },
+
+        zen = {
+            enter = true,
+            fixbuf = false,
+            minimal = false,
+            width = 120,
+            height = 0,
+            backdrop = { transparent = true, blend = 40 },
+            keys = { q = false },
+            zindex = 40,
+            wo = {
+                winhighlight = "NormalFloat:Normal",
+            },
+            w = {
+                snacks_main = true,
+            },
+        },
+
+        -- 1. Pantalla de inicio
+
+        dashboard = {
+            sections = {
+                -- Wide version (180 columns or more)
+                {
+                    enabled = function()
+                        return (vim.o.columns >= 180)
+                    end,
+                    {
+                        section = "header",
+                        indent = 64,
+                    },
+                    {
+                        pane = 1,
+                        {
+                            {
+                                icon = " ",
+                                key = "f",
+                                desc = "Find File",
+                                action = ":lua Snacks.dashboard.pick('files')",
+                            },
+                            { icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },
+                            {
+                                icon = " ",
+                                key = "g",
+                                desc = "Find Text",
+                                action = ":lua Snacks.dashboard.pick('live_grep')",
+                            },
+                            { icon = " ", key = "s", desc = "Restore Session", section = "session" },
+                            {
+                                icon = " ",
+                                key = "c",
+                                desc = "Config",
+                                action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})",
+                            },
+                            {
+                                icon = "󰒲 ",
+                                key = "L",
+                                desc = "Lazy",
+                                action = ":Lazy",
+                                enabled = package.loaded.lazy ~= nil,
+                            },
+                            { icon = " ", key = "x", desc = "Lazy Extras", action = ":LazyExtras" },
+                            { icon = "󱁤 ", key = "m", desc = "Mason", action = ":Mason" },
+                            { icon = " ", key = "q", desc = "Quit", action = ":qa" },
+                            padding = 5,
+                        },
+                        {
+                            section = "startup",
+                            indent = 64,
+                        },
+                    },
+                    {
+                        pane = 2,
+                        {
+                            padding = 8,
+                        },
+                        {
+                            icon = " ",
+                            title = "Recent Files",
+                            section = "recent_files",
+                            indent = 3,
+                            padding = 1,
+                        },
+                        {
+                            icon = " ",
+                            title = "Projects",
+                            section = "projects",
+                            indent = 3,
+                        },
+                    },
+                },
+
+                -- Slim version (less than 180 columns)
+                {
+                    enabled = function()
+                        return (vim.o.columns < 180)
+                    end,
+                    {
+                        { section = "header" },
+                        {
+                            {
+                                icon = " ",
+                                key = "f",
+                                desc = "Find File",
+                                action = ":lua Snacks.dashboard.pick('files')",
+                            },
+                            { icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },
+                            {
+                                icon = " ",
+                                key = "g",
+                                desc = "Find Text",
+                                action = ":lua Snacks.dashboard.pick('live_grep')",
+                            },
+                            { icon = " ", key = "s", desc = "Restore Session", section = "session" },
+                            {
+                                icon = " ",
+                                key = "c",
+                                desc = "Config",
+                                action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})",
+                            },
+                            {
+                                icon = "󰒲 ",
+                                key = "L",
+                                desc = "Lazy",
+                                action = ":Lazy",
+                                enabled = package.loaded.lazy ~= nil,
+                            },
+                            { icon = " ", key = "x", desc = "Lazy Extras", action = ":LazyExtras" },
+                            { icon = "󱁤 ", key = "m", desc = "Mason", action = ":Mason" },
+                            { icon = " ", key = "q", desc = "Quit", action = ":qa" },
+                            padding = 1,
+                        },
+                        {
+                            icon = " ",
+                            title = "Recent Files",
+                            section = "recent_files",
+                            indent = 3,
+                            padding = 1,
+                        },
+                        {
+                            icon = " ",
+                            title = "Projects",
+                            section = "projects",
+                            indent = 3,
+                            padding = 3,
+                        },
+                        {
+                            section = "startup",
+                        },
+                    },
+                },
+            },
+        },
         -- 2. Guias de sangrado y scope
         indent = { enabled = true },
 
@@ -55,8 +261,28 @@ return {
             fps = 60,
             easing = "outQuad",
         },
+
         -- 9. Desplazamiento suave (Smooth Scroll)
-        scroll = { enabled = true },
+        scroll = {
+            enabled = true,
+            animate = {
+                duration = { step = 10, total = 200 },
+                easing = "linear",
+            },
+            -- faster animation when repeating scroll after delay
+            animate_repeat = {
+                delay = 100, -- delay in ms before using the repeat animation
+                duration = { step = 5, total = 50 },
+                easing = "linear",
+            },
+            -- what buffers to animate
+            filter = function(buf)
+                return vim.g.snacks_scroll ~= false
+                    and vim.b[buf].snacks_scroll ~= false
+                    and vim.bo[buf].buftype ~= "terminal"
+            end,
+        },
+
         -- 10. Renderizado e inspección de imágenes con Snacks
         image = {
             enabled = true,
@@ -93,7 +319,7 @@ return {
         ------------------------------------------------------------
         -- AUTOCOMANDOS: Vista previa de imágenes de Obsidian
         ------------------------------------------------------------
-        vim.opt.updatetime = 50
+        vim.opt.updatetime = 300
         local waitUntilScrollEnd = 20
         local last_opened_line = nil
         local img_win_id = nil
@@ -206,12 +432,22 @@ return {
                 clear_terminal_graphics()
             end
         end, { desc = "Maximizar o restaurar panel de imagen" })
+
+        -- Abre un panel flotante centrado para buscar líneas dentro del buffer actual
+        vim.keymap.set("n", "<leader>fw", function()
+            Snacks.picker.lines({
+                layout = {
+                    preset = "vertical", -- Diseño vertical centrado
+                },
+            })
+        end, { desc = "Buscar en buffer (panel flotante centrado)" })
     end,
 
     ------------------------------------------------------------
     -- Atajos (shortcuts)
     ------------------------------------------------------------
     keys = {
+
         -- Saltar al inicio o final del bloque actual
         {
             "[s",
@@ -504,6 +740,7 @@ return {
         },
 
         -- Interacción y apertura de imágenes en visor externo (Instantáneo + Con Foco)
+
         {
             "<CR>",
             function()
@@ -551,7 +788,8 @@ return {
                     vim.ui.open(target_path)
                 end
             end,
-            desc = "Abrir imagen en visor externo (con foco y notificación)",
+            ft = "markdown", -- Carga el mapeo exclusivamente en archivos .md
+            desc = "Abrir imagen en visor externo",
         },
 
         -- Terminal Flotante General (Toggle / Raíz del proyecto)
@@ -623,6 +861,31 @@ return {
             end,
             mode = { "n", "t" },
             desc = "Terminal en carpeta del archivo (<leader>os)",
+        },
+
+        ------------------------------------------------------------
+        -- Perfilador / Profiler
+        ------------------------------------------------------------
+        {
+            "<leader>pp",
+            function()
+                Snacks.profiler.toggle()
+            end,
+            desc = "Iniciar/Detener Profiler",
+        },
+        {
+            "<leader>ps",
+            function()
+                Snacks.profiler.scratch()
+            end,
+            desc = "Abrir Scratch Buffer del Profiler",
+        },
+        {
+            "<leader>ph",
+            function()
+                Snacks.profiler.highlight()
+            end,
+            desc = "Alternar marcas de tiempo en el código (Highlights)",
         },
     },
 }
