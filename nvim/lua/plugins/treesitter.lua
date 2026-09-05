@@ -40,6 +40,7 @@ return {
             "vim",
             "vimdoc",
             "yaml",
+            "kotlin",
         }
 
         -- Carga de forma segura 'nvim-treesitter.configs'. Si Lazy aún no ha instalado el plugin,
