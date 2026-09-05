@@ -1,3 +1,136 @@
+local is_windows = vim.uv.os_uname().sysname:find("Windows") ~= nil
+
+local square_cmd = is_windows
+        and "powershell -NoProfile -EncodedCommand JABlACAAPQAgAFsAYwBoAGEAcgBdADIANwAKAFcAcgBpAHQAZQAtAEgAbwBzAHQAIAAiACQAZQBgAFsAOQAxAG0AgCUgAIglIACIJSAAgCUgACAAJABlAGAAWwA5ADIAbQCAJSAAiCUgAIglIACAJSAAIAAkAGUAYABbADkAMwBtAIAlIACIJSAAiCUgAIAlIAAgACQAZQBgAFsAOQA0AG0AgCUgAIglIACIJSAAgCUgACAAJABlAGAAWwA5ADUAbQCAJSAAiCUgAIglIACAJSAAIAAkAGUAYABbADkANgBtAIAlIACIJSAAiCUgAIAlIgAKAFcAcgBpAHQAZQAtAEgAbwBzAHQAIAAiACQAZQBgAFsAOQAxAG0AiCWIJSAAIAAgAIgliCUgACAAJABlAGAAWwA5ADIAbQCIJYglIAAgACAAiCWIJSAAIAAkAGUAYABbADkAMwBtAIgliCUgACAAIACIJYglIAAgACQAZQBgAFsAOQA0AG0AiCWIJSAAIAAgAIgliCUgACAAJABlAGAAWwA5ADUAbQCIJYglIAAgACAAiCWIJSAAIAAkAGUAYABbADkANgBtAIgliCUgACAAIACIJYglIgAKAFcAcgBpAHQAZQAtAEgAbwBzAHQAIAAiACQAZQBgAFsAOQAxAG0AhCUgAIglIACIJSAAhCUgACAAJABlAGAAWwA5ADIAbQCEJSAAiCUgAIglIACEJSAAIAAkAGUAYABbADkAMwBtAIQlIACIJSAAiCUgAIQlIAAgACQAZQBgAFsAOQA0AG0AhCUgAIglIACIJSAAhCUgACAAJABlAGAAWwA5ADUAbQCEJSAAiCUgAIglIACEJSAAIAAkAGUAYABbADkANgBtAIQlIACIJSAAiCUgAIQlJABlAGAAWwAwAG0AIgAKAFMAdABhAHIAdAAtAFMAbABlAGUAcAAgAC0AUwBlAGMAbwBuAGQAcwAgADgANgA0ADAAMAAKAA=="
+    or "colorscript -e square"
+
+------------------------------------------------------------
+-- 1. FUNCIONES AUXILIARES (Arriba del todo)
+------------------------------------------------------------
+local function smart_run()
+    if vim.bo.modified then
+        vim.cmd("w")
+    end
+
+    local file = vim.fn.expand("%:p")
+    local file_dir = vim.fn.expand("%:p:h")
+    local ft = vim.bo.filetype
+    local is_win = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
+
+    local root = vim.fs.root(0, { ".git", "xmake.lua", "Cargo.toml", "package.json", "pyproject.toml", "Makefile" })
+    local exec_dir = root or file_dir
+
+    -- Pausa universal: Funciona en Bash, Zsh, Fish, y PowerShell 5.1/7+
+    local pause_cmd = is_win and ' ; Write-Host "" ; Read-Host "--- Presiona Enter para cerrar ---"'
+        or ' ; printf "\n--- Presiona Enter para cerrar ---\n" ; read _'
+
+    -- Respetar Shebangs (#!/usr/bin/env ...)
+    local first_line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1] or ""
+    if first_line:sub(1, 2) == "#!" then
+        Snacks.terminal(vim.fn.shellescape(file) .. pause_cmd, {
+            cwd = file_dir,
+            win = { position = "bottom", height = 0.35, border = "rounded" },
+        })
+        return
+    end
+
+    local runners = {
+        python = function()
+            if vim.fn.executable("uv") == 1 then
+                return "uv run " .. vim.fn.shellescape(file)
+            end
+            local sys_python = is_win and "python" or "python3"
+            return sys_python .. " " .. vim.fn.shellescape(file)
+        end,
+
+        c = function()
+            if root and vim.fn.filereadable(root .. "/xmake.lua") == 1 then
+                return "xmake run"
+            end
+            if is_win then
+                return "gcc " .. vim.fn.shellescape(file) .. " -o .\\bin_out.exe ; if ($?) { .\\bin_out.exe }"
+            end
+            return "gcc " .. vim.fn.shellescape(file) .. " -o /tmp/c_out && /tmp/c_out"
+        end,
+
+        cpp = function()
+            if root and vim.fn.filereadable(root .. "/xmake.lua") == 1 then
+                return "xmake run"
+            end
+            if is_win then
+                return "g++ -std=c++20 "
+                    .. vim.fn.shellescape(file)
+                    .. " -o .\\bin_out.exe ; if ($?) { .\\bin_out.exe }"
+            end
+            return "g++ -std=c++20 " .. vim.fn.shellescape(file) .. " -o /tmp/cpp_out && /tmp/cpp_out"
+        end,
+
+        rust = function()
+            if root and vim.fn.filereadable(root .. "/Cargo.toml") == 1 then
+                return "cargo run"
+            end
+            if is_win then
+                return "rustc " .. vim.fn.shellescape(file) .. " -o .\\bin_out.exe ; if ($?) { .\\bin_out.exe }"
+            end
+            return "rustc " .. vim.fn.shellescape(file) .. " -o /tmp/rs_out && /tmp/rs_out"
+        end,
+
+        javascript = function()
+            if root and vim.fn.filereadable(root .. "/package.json") == 1 then
+                return "bun run start"
+            end
+            if vim.fn.executable("bun") == 1 then
+                return "bun " .. vim.fn.shellescape(file)
+            end
+            if vim.fn.executable("deno") == 1 then
+                return "deno run " .. vim.fn.shellescape(file)
+            end
+            return "node " .. vim.fn.shellescape(file)
+        end,
+
+        typescript = function()
+            if root and vim.fn.filereadable(root .. "/package.json") == 1 then
+                return "bun run start"
+            end
+            if vim.fn.executable("bun") == 1 then
+                return "bun " .. vim.fn.shellescape(file)
+            end
+            if vim.fn.executable("deno") == 1 then
+                return "deno run " .. vim.fn.shellescape(file)
+            end
+            return "npx ts-node " .. vim.fn.shellescape(file)
+        end,
+
+        lua = function()
+            if file_dir:find("nvim") or file_dir:find("lua") then
+                return "nvim -l " .. vim.fn.shellescape(file)
+            end
+            if vim.fn.executable("lua") == 1 then
+                return "lua " .. vim.fn.shellescape(file)
+            end
+            return "nvim -l " .. vim.fn.shellescape(file)
+        end,
+
+        sh = function()
+            return "bash " .. vim.fn.shellescape(file)
+        end,
+    }
+
+    local get_cmd = runners[ft]
+    if get_cmd then
+        Snacks.terminal(get_cmd() .. pause_cmd, {
+            cwd = exec_dir,
+            win = { position = "bottom", height = 0.35, border = "rounded" },
+        })
+    else
+        vim.notify("No hay regla de ejecución para: " .. ft, vim.log.levels.WARN)
+    end
+end
+
+------------------------------------------------------------
+-- 2. CONFIGURACIÓN DEL PLUGIN LAZY
+------------------------------------------------------------
+
 return {
     "folke/snacks.nvim",
     priority = 1000,
@@ -90,137 +223,175 @@ return {
 
         dashboard = {
             sections = {
-                -- Wide version (180 columns or more)
+                { section = "header" },
                 {
-                    enabled = function()
-                        return (vim.o.columns >= 180)
-                    end,
-                    {
-                        section = "header",
-                        indent = 64,
-                    },
-                    {
-                        pane = 1,
-                        {
-                            {
-                                icon = " ",
-                                key = "f",
-                                desc = "Find File",
-                                action = ":lua Snacks.dashboard.pick('files')",
-                            },
-                            { icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },
-                            {
-                                icon = " ",
-                                key = "g",
-                                desc = "Find Text",
-                                action = ":lua Snacks.dashboard.pick('live_grep')",
-                            },
-                            { icon = " ", key = "s", desc = "Restore Session", section = "session" },
-                            {
-                                icon = " ",
-                                key = "c",
-                                desc = "Config",
-                                action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})",
-                            },
-                            {
-                                icon = "󰒲 ",
-                                key = "L",
-                                desc = "Lazy",
-                                action = ":Lazy",
-                                enabled = package.loaded.lazy ~= nil,
-                            },
-                            { icon = " ", key = "x", desc = "Lazy Extras", action = ":LazyExtras" },
-                            { icon = "󱁤 ", key = "m", desc = "Mason", action = ":Mason" },
-                            { icon = " ", key = "q", desc = "Quit", action = ":qa" },
-                            padding = 5,
-                        },
-                        {
-                            section = "startup",
-                            indent = 64,
-                        },
-                    },
-                    {
-                        pane = 2,
-                        {
-                            padding = 8,
-                        },
-                        {
-                            icon = " ",
-                            title = "Recent Files",
-                            section = "recent_files",
-                            indent = 3,
-                            padding = 1,
-                        },
-                        {
-                            icon = " ",
-                            title = "Projects",
-                            section = "projects",
-                            indent = 3,
-                        },
-                    },
+                    pane = 2,
+                    section = "terminal",
+                    cmd = square_cmd,
+                    height = 5,
+                    padding = 1,
                 },
-
-                -- Slim version (less than 180 columns)
+                { section = "keys", gap = 1, padding = 1 },
+                { pane = 2, icon = " ", title = "Recent Files", section = "recent_files", indent = 2, padding = 1 },
+                { pane = 2, icon = " ", title = "Projects", section = "projects", indent = 2, padding = 1 },
                 {
+                    pane = 2,
+                    icon = " ",
+                    title = "Git Status",
+                    section = "terminal",
+                    -- Verifica que estés en un repositorio Git Y que el ejecutable 'git' exista
                     enabled = function()
-                        return (vim.o.columns < 180)
+                        return vim.fn.executable("git") == 1 and Snacks.git.get_root() ~= nil
                     end,
-                    {
-                        { section = "header" },
-                        {
-                            {
-                                icon = " ",
-                                key = "f",
-                                desc = "Find File",
-                                action = ":lua Snacks.dashboard.pick('files')",
-                            },
-                            { icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },
-                            {
-                                icon = " ",
-                                key = "g",
-                                desc = "Find Text",
-                                action = ":lua Snacks.dashboard.pick('live_grep')",
-                            },
-                            { icon = " ", key = "s", desc = "Restore Session", section = "session" },
-                            {
-                                icon = " ",
-                                key = "c",
-                                desc = "Config",
-                                action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})",
-                            },
-                            {
-                                icon = "󰒲 ",
-                                key = "L",
-                                desc = "Lazy",
-                                action = ":Lazy",
-                                enabled = package.loaded.lazy ~= nil,
-                            },
-                            { icon = " ", key = "x", desc = "Lazy Extras", action = ":LazyExtras" },
-                            { icon = "󱁤 ", key = "m", desc = "Mason", action = ":Mason" },
-                            { icon = " ", key = "q", desc = "Quit", action = ":qa" },
-                            padding = 1,
-                        },
-                        {
-                            icon = " ",
-                            title = "Recent Files",
-                            section = "recent_files",
-                            indent = 3,
-                            padding = 1,
-                        },
-                        {
-                            icon = " ",
-                            title = "Projects",
-                            section = "projects",
-                            indent = 3,
-                            padding = 3,
-                        },
-                        {
-                            section = "startup",
-                        },
-                    },
+                    cmd = "git status --short --branch --renames",
+                    height = 5,
+                    padding = 1,
+                    ttl = 5 * 60,
+                    indent = 3,
                 },
+                { section = "startup" },
             },
         },
+        --        {
+        --            sections = {
+        --                -- Wide version (180 columns or more)
+        --                {
+        --                    enabled = function()
+        --                        return (vim.o.columns >= 180)
+        --                    end,
+        --                    {
+        --                        section = "header",
+        --                        indent = 64,
+        --                    },
+        --                    {
+        --                        pane = 1,
+        --                        {
+        --                            {
+        --                                icon = " ",
+        --                                key = "f",
+        --                                desc = "Find File",
+        --                                action = ":lua Snacks.dashboard.pick('files')",
+        --                            },
+        --                            { icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },
+        --                            {
+        --                                icon = " ",
+        --                                key = "r",
+        --                                desc = "Recent Files",
+        --                                action = ":lua Snacks.dashboard.pick('oldfiles')",
+        --                            },
+        --                            { icon = " ", key = "s", desc = "Restore Session", section = "session" },
+        --                            {
+        --                                icon = " ",
+        --                                key = "g",
+        --                                desc = "Find Text",
+        --                                action = ":lua Snacks.dashboard.pick('live_grep')",
+        --                            },
+        --                            { icon = " ", key = "s", desc = "Restore Session", section = "session" },
+        --                            {
+        --                                icon = "󰒲 ",
+        --                                key = "L",
+        --                                desc = "Lazy",
+        --                                action = ":Lazy",
+        --                                enabled = package.loaded.lazy ~= nil,
+        --                            },
+        --                            { icon = " ", key = "x", desc = "Lazy Extras", action = ":LazyExtras" },
+        --                            { icon = "󱁤 ", key = "m", desc = "Mason", action = ":Mason" },
+        --                            { icon = " ", key = "q", desc = "Quit", action = ":qa" },
+        --                            padding = 5,
+        --                        },
+        --                        {
+        --                            section = "startup",
+        --                            indent = 64,
+        --                        },
+        --                    },
+        --                    {
+        --                        pane = 2,
+        --                        {
+        --                            padding = 8,
+        --                        },
+        --                        {
+        --                            icon = " ",
+        --                            title = "Recent Files",
+        --                            section = "recent_files",
+        --                            indent = 3,
+        --                            padding = 1,
+        --                        },
+        --                        {
+        --                            icon = " ",
+        --                            title = "Projects",
+        --                            section = "projects",
+        --                            indent = 3,
+        --                        },
+        --                    },
+        --                },
+        --
+        --                -- Slim version (less than 180 columns)
+        --                {
+        --                    enabled = function()
+        --                        return (vim.o.columns < 180)
+        --                    end,
+        --                    {
+        --                        { section = "header" },
+        --                        {
+        --                            {
+        --                                icon = " ",
+        --                                key = "f",
+        --                                desc = "Find File",
+        --                                action = ":lua Snacks.dashboard.pick('files')",
+        --                            },
+        --                            { icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },
+        --                            {
+        --                                icon = " ",
+        --                                key = "g",
+        --                                desc = "Find Text",
+        --                                action = ":lua Snacks.dashboard.pick('live_grep')",
+        --                            },
+        --                            {
+        --                                icon = " ",
+        --                                key = "r",
+        --                                desc = "Recent Files",
+        --                                action = ":lua Snacks.dashboard.pick('oldfiles')",
+        --                            },
+        --                            { icon = " ", key = "s", desc = "Restore Session", section = "session" },
+        --                            {
+        --                                icon = " ",
+        --                                key = "c",
+        --                                desc = "Config",
+        --                                action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})",
+        --                            },
+        --                            {
+        --                                icon = "󰒲 ",
+        --                                key = "L",
+        --                                desc = "Lazy",
+        --                                action = ":Lazy",
+        --                                enabled = package.loaded.lazy ~= nil,
+        --                            },
+        --                            { icon = " ", key = "x", desc = "Lazy Extras", action = ":LazyExtras" },
+        --                            { icon = "󱁤 ", key = "m", desc = "Mason", action = ":Mason" },
+        --                            { icon = " ", key = "q", desc = "Quit", action = ":qa" },
+        --                            padding = 1,
+        --                        },
+        --                        {
+        --                            icon = " ",
+        --                            title = "Recent Files",
+        --                            section = "recent_files",
+        --                            indent = 3,
+        --                            padding = 1,
+        --                        },
+        --                        {
+        --                            icon = " ",
+        --                            title = "Projects",
+        --                            section = "projects",
+        --                            indent = 3,
+        --                            padding = 3,
+        --                        },
+        --                        {
+        --                            section = "startup",
+        --                        },
+        --                    },
+        --                },
+        --            },
+        --        },
         -- 2. Guias de sangrado y scope
         indent = { enabled = true },
 
@@ -444,11 +615,10 @@ return {
     end,
 
     ------------------------------------------------------------
-    -- Atajos (shortcuts)
+    -- Atajos (shortcuts unificados y corregidos)
     ------------------------------------------------------------
     keys = {
-
-        -- Saltar al inicio o final del bloque actual
+        -- Navegación e inspección de Scope
         {
             "[s",
             function()
@@ -463,8 +633,6 @@ return {
             end,
             desc = "Ir al final del Scope",
         },
-
-        -- Textobjects: Seleccionar dentro o todo el Scope (en modo visual u operador)
         {
             "ii",
             function()
@@ -481,14 +649,43 @@ return {
             mode = { "o", "x" },
             desc = "Seleccionar Scope completo con cabecera",
         },
+
+        -- Principales Pickers y Búsquedas rápidas
         {
-            "<leader>ud",
+            "<leader><space>",
             function()
-                Snacks.dim()
+                Snacks.picker.smart()
             end,
-            desc = "Alternar Modo Dim (Enfoque de ámbito)",
+            desc = "Búsqueda Inteligente",
         },
-        -- Explorador de archivos
+        {
+            "<leader>,",
+            function()
+                Snacks.picker.buffers()
+            end,
+            desc = "Buscar Buffers",
+        },
+        {
+            "<leader>/",
+            function()
+                Snacks.picker.grep()
+            end,
+            desc = "Grep Global",
+        },
+        {
+            "<leader>:",
+            function()
+                Snacks.picker.command_history()
+            end,
+            desc = "Historial de Comandos",
+        },
+        {
+            "<leader>n",
+            function()
+                Snacks.picker.notifications()
+            end,
+            desc = "Historial de Notificaciones",
+        },
         {
             "<c-n>",
             function()
@@ -496,8 +693,15 @@ return {
             end,
             desc = "Toggle explorador de archivos",
         },
+        {
+            "<leader>e",
+            function()
+                Snacks.explorer()
+            end,
+            desc = "Explorador de Archivos",
+        },
 
-        -- Búsquedas generales de archivos
+        -- Búsqueda de archivos y buffers
         {
             "<C-p>",
             function()
@@ -547,33 +751,39 @@ return {
             end,
             desc = "Buscar en buffers",
         },
-
-        -- Integración LSP
         {
-            "grr",
+            "<leader>fp",
             function()
-                Snacks.picker.lsp_references()
+                Snacks.picker.projects()
             end,
-            desc = "LSP Referencias",
+            desc = "Proyectos",
         },
         {
-            "<leader>ds",
+            "<leader>fr",
             function()
-                Snacks.picker.lsp_symbols()
+                Snacks.picker.recent()
             end,
-            desc = "LSP Símbolos del documento",
-        },
-        {
-            "<leader>fd",
-            function()
-                Snacks.picker.diagnostics()
-            end,
-            desc = "Buscar diagnósticos/errores LSP",
+            desc = "Archivos Recientes",
         },
 
-        -- Integración Git
+        -- Integración Git y GitHub
         {
-            "<leader>pp",
+            "<leader>gb",
+            function()
+                Snacks.gitbrowse()
+            end,
+            desc = "Abrir en GitHub/GitLab",
+            mode = { "n", "v" },
+        },
+        {
+            "<leader>gB",
+            function()
+                Snacks.picker.git_branches()
+            end,
+            desc = "Buscar Ramas de Git",
+        },
+        {
+            "<leader>pg",
             function()
                 Snacks.picker.git_files()
             end,
@@ -593,6 +803,85 @@ return {
             end,
             desc = "Git Commits",
         },
+        {
+            "<leader>gS",
+            function()
+                Snacks.picker.git_stash()
+            end,
+            desc = "Git Stash",
+        },
+        {
+            "<leader>gd",
+            function()
+                Snacks.picker.git_diff()
+            end,
+            desc = "Git Diff",
+        },
+        {
+            "<leader>gi",
+            function()
+                Snacks.picker.gh_issue()
+            end,
+            desc = "GitHub Issues (abiertos)",
+        },
+        {
+            "<leader>gp",
+            function()
+                Snacks.picker.gh_pr()
+            end,
+            desc = "GitHub Pull Requests (abiertos)",
+        },
+
+        -- Integración LSP
+        {
+            "grr",
+            function()
+                Snacks.picker.lsp_references()
+            end,
+            desc = "LSP Referencias",
+        },
+        {
+            "gd",
+            function()
+                Snacks.picker.lsp_definitions()
+            end,
+            desc = "Ir a Definición",
+        },
+        {
+            "gD",
+            function()
+                Snacks.picker.lsp_declarations()
+            end,
+            desc = "Ir a Declaración",
+        },
+        {
+            "gI",
+            function()
+                Snacks.picker.lsp_implementations()
+            end,
+            desc = "Ir a Implementación",
+        },
+        {
+            "gy",
+            function()
+                Snacks.picker.lsp_type_definitions()
+            end,
+            desc = "Ir a Definición de Tipo",
+        },
+        {
+            "<leader>ds",
+            function()
+                Snacks.picker.lsp_symbols()
+            end,
+            desc = "LSP Símbolos del documento",
+        },
+        {
+            "<leader>fd",
+            function()
+                Snacks.picker.diagnostics()
+            end,
+            desc = "Buscar diagnósticos/errores LSP",
+        },
 
         -- Terminales y LazyGit
         {
@@ -601,7 +890,7 @@ return {
                 local dir = vim.fn.expand("%:p:h")
                 Snacks.terminal(nil, { cwd = dir ~= "" and dir or nil })
             end,
-            desc = "Terminal flotante en directorio del archivo actual",
+            desc = "Terminal flotante en carpeta actual",
         },
         {
             "<leader>tv",
@@ -618,7 +907,7 @@ return {
             desc = "Toggle LazyGit",
         },
 
-        -- Gestión de Buffers
+        -- Buffers, Ventanas y Utilidades
         {
             "<leader>bd",
             function()
@@ -633,8 +922,6 @@ return {
             end,
             desc = "Cerrar todos los demás buffers",
         },
-
-        -- Bloc de notas rápido (Scratchpad)
         {
             "<leader>bs",
             function()
@@ -649,8 +936,6 @@ return {
             end,
             desc = "Buscar en borradores guardados",
         },
-
-        -- Modo Enfoque / Zen
         {
             "<leader>z",
             function()
@@ -663,19 +948,31 @@ return {
             function()
                 Snacks.zen.zoom()
             end,
-            desc = "Alternar Zoom de la ventana activa",
+            desc = "Alternar Zoom",
         },
-
-        -- Utilidades de Git
         {
-            "<leader>gb",
+            "<leader>ud",
             function()
-                Snacks.gitbrowse()
+                Snacks.dim()
             end,
-            desc = "Abrir línea/archivo actual en GitHub/GitLab",
+            desc = "Alternar Modo Dim (Enfoque)",
+        },
+        {
+            "<leader>cR",
+            function()
+                Snacks.rename.rename_file()
+            end,
+            desc = "Renombrar Archivo Actual",
+        },
+        {
+            "<leader>un",
+            function()
+                Snacks.notifier.hide()
+            end,
+            desc = "Ocultar Notificaciones",
         },
 
-        -- Navegación LSP
+        -- Ayuda, Temas y Picker Extras
         {
             "]]",
             function()
@@ -692,14 +989,19 @@ return {
             mode = { "n", "x" },
             desc = "Anterior referencia LSP",
         },
-
-        -- Búsquedas extra en el Picker
         {
             "<leader>sk",
             function()
                 Snacks.picker.keymaps()
             end,
-            desc = "Ver todos los atajos de teclado del editor",
+            desc = "Ver todos los atajos de teclado",
+        },
+        {
+            "<leader>sK",
+            function()
+                Snacks.picker.keymaps({ pattern = "Snacks" })
+            end,
+            desc = "Ver atajos de Snacks",
         },
         {
             "<leader>uT",
@@ -720,7 +1022,7 @@ return {
             function()
                 Snacks.picker.resume()
             end,
-            desc = "Reabrir la última ventana de búsqueda",
+            desc = "Reabrir la última búsqueda",
         },
         {
             "<leader>pr",
@@ -729,18 +1031,22 @@ return {
             end,
             desc = "Reanudar última búsqueda",
         },
+        {
+            "<leader>su",
+            function()
+                Snacks.picker.undo()
+            end,
+            desc = "Historial de Deshacer (Undo Tree)",
+        },
 
-        -- Interacción y vista previa de imágenes (Multiplataforma)
+        -- Imágenes
         {
             "<leader>ih",
             function()
                 Snacks.image.hover()
             end,
-            desc = "Vista previa flotante de imagen (Hover)",
+            desc = "Vista previa flotante de imagen",
         },
-
-        -- Interacción y apertura de imágenes en visor externo (Instantáneo + Con Foco)
-
         {
             "<CR>",
             function()
@@ -763,14 +1069,12 @@ return {
                     return
                 end
 
-                local is_windows = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
-                local target_path = is_windows and full_path:gsub("/", "\\") or full_path
+                local is_win = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
+                local target_path = is_win and full_path:gsub("/", "\\") or full_path
 
-                -- 1. Feedback visual instantáneo para confirmar el atajo
                 vim.notify("📷 Abriendo imagen en visor externo...", vim.log.levels.INFO, { title = "Obsidian" })
 
-                -- 2. Visores dedicados prioritarios (si existen en el PATH)
-                local apps = is_windows and { "qview", "imageglass", "irfanview", "mpv" }
+                local apps = is_win and { "qview", "imageglass", "irfanview", "mpv" }
                     or { "nsxiv", "feh", "sxiv", "eog", "loupe" }
 
                 for _, app in ipairs(apps) do
@@ -780,92 +1084,48 @@ return {
                     end
                 end
 
-                -- 3. Fallback con foco forzado según el Sistema Operativo
-                if is_windows then
-                    -- 'cmd.exe /c start ""' obliga a Windows a traer la app lanzada al primer plano
+                if is_win then
                     vim.system({ "cmd.exe", "/c", "start", "", target_path }, { detach = true })
                 else
                     vim.ui.open(target_path)
                 end
             end,
-            ft = "markdown", -- Carga el mapeo exclusivamente en archivos .md
+            ft = "markdown",
             desc = "Abrir imagen en visor externo",
         },
 
-        -- Terminal Flotante General (Toggle / Raíz del proyecto)
+        -- Terminales Flotantes
         {
             "<A-;>",
             function()
                 local active_terms = Snacks.terminal.list()
                 local term = active_terms[1] or Snacks.terminal.get()
-
                 if term then
-                    -- Comprueba si la ventana de la terminal está actualmente visible
-                    local is_open = term.win and vim.api.nvim_win_is_valid(term.win)
-
-                    if is_open then
+                    if term.win and vim.api.nvim_win_is_valid(term.win) then
                         term:hide()
                     else
                         term:show()
-                        local root_dir = vim.fn.getcwd()
-                        term._current_cwd = term._current_cwd or root_dir
-
-                        -- Si venías de una subcarpeta con <leader>os, regresa a la raíz
-                        if term._current_cwd ~= root_dir then
-                            local job_id = term.buf and vim.b[term.buf] and vim.b[term.buf].terminal_job_id
-                            if job_id then
-                                local cmd = vim.fn.has("win32") == 1
-                                        and string.format("cd '%s'\r\n", root_dir:gsub("/", "\\"))
-                                    or string.format("cd %s\n", vim.fn.fnameescape(root_dir))
-                                vim.api.nvim_chan_send(job_id, cmd)
-                                term._current_cwd = root_dir
-                            end
-                        end
                     end
                 end
             end,
             mode = { "n", "t" },
-            desc = "Toggle Terminal Flotante (Raíz del proyecto)",
+            desc = "Toggle Terminal Flotante",
         },
-
-        -- Terminal Flotante en carpeta del archivo actual
         {
             "<leader>os",
             function()
                 local root_dir = vim.fn.getcwd()
                 local file_dir = vim.fn.expand("%:p:h")
-
-                if file_dir == "" or file_dir:find("term://") then
-                    file_dir = root_dir
-                end
-
-                local active_terms = Snacks.terminal.list()
-                local term = active_terms[1] or Snacks.terminal.get()
-
+                local term = Snacks.terminal.get()
                 if term then
                     term:show()
-                    term._current_cwd = term._current_cwd or root_dir
-
-                    -- Solo cambia de directorio si la carpeta es distinta a la actual
-                    if term._current_cwd ~= file_dir then
-                        local job_id = term.buf and vim.b[term.buf] and vim.b[term.buf].terminal_job_id
-                        if job_id then
-                            local cmd = vim.fn.has("win32") == 1
-                                    and string.format("cd '%s'\r\n", file_dir:gsub("/", "\\"))
-                                or string.format("cd %s\n", vim.fn.fnameescape(file_dir))
-                            vim.api.nvim_chan_send(job_id, cmd)
-                            term._current_cwd = file_dir
-                        end
-                    end
                 end
             end,
             mode = { "n", "t" },
-            desc = "Terminal en carpeta del archivo (<leader>os)",
+            desc = "Terminal en carpeta del archivo",
         },
 
-        ------------------------------------------------------------
-        -- Perfilador / Profiler
-        ------------------------------------------------------------
+        -- Profiler
         {
             "<leader>pp",
             function()
@@ -874,18 +1134,26 @@ return {
             desc = "Iniciar/Detener Profiler",
         },
         {
-            "<leader>ps",
+            "<leader>pS",
             function()
                 Snacks.profiler.scratch()
             end,
-            desc = "Abrir Scratch Buffer del Profiler",
+            desc = "Scratch Buffer del Profiler",
         },
         {
             "<leader>ph",
             function()
                 Snacks.profiler.highlight()
             end,
-            desc = "Alternar marcas de tiempo en el código (Highlights)",
+            desc = "Alternar Highlights de Profiler",
+        },
+        -- En los atajos de Snacks:
+        {
+            "<leader>x",
+            function()
+                smart_run()
+            end,
+            desc = "Ejecutar proyecto o script actual",
         },
     },
 }

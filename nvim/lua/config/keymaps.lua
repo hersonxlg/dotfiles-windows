@@ -127,7 +127,7 @@ vim.keymap.set("n", "<leader>re", "<cmd>restart<cr>", {
 })
 
 -- Abrir/cerrar el árbol de deshacer (Undotree)
-vim.keymap.set("n", "<leader>u", function()
+vim.keymap.set("n", "<leader>uu", function()
     vim.cmd.packadd("nvim.undotree")
     require("undotree").open()
 end, {
