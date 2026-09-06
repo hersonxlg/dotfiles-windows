@@ -7,32 +7,38 @@ local square_cmd = is_windows
 ------------------------------------------------------------
 -- 1. FUNCIONES AUXILIARES (Arriba del todo)
 ------------------------------------------------------------
-local function smart_run()
-    if vim.bo.modified then
-        vim.cmd("w")
+local is_running = false -- Candado para evitar ejecuciones simultáneas
+
+-- Liberar la bandera automáticamente si Neovim se cierra por completo
+vim.api.nvim_create_autocmd("VimLeavePre", {
+    group = vim.api.nvim_create_augroup("SmartRun_Global_Cleanup", { clear = true }),
+    callback = function()
+        is_running = false
+    end,
+})
+
+local function smart_run(layout)
+    if is_running then
+        vim.notify("⏳ Ya hay un proceso ejecutándose. Espera o cierra el panel actual.", vim.log.levels.WARN)
+        return
     end
 
+    layout = layout or "bottom"
     local file = vim.fn.expand("%:p")
+    local filename = vim.fn.expand("%:t")
     local file_dir = vim.fn.expand("%:p:h")
     local ft = vim.bo.filetype
     local is_win = vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
 
+    vim.notify("🚀 Iniciando " .. filename .. "...", vim.log.levels.INFO, { title = "Smart Run" })
+    vim.cmd("redraw")
+
+    if vim.bo.modified then
+        vim.cmd("noautocmd w")
+    end
+
     local root = vim.fs.root(0, { ".git", "xmake.lua", "Cargo.toml", "package.json", "pyproject.toml", "Makefile" })
     local exec_dir = root or file_dir
-
-    -- Pausa universal: Funciona en Bash, Zsh, Fish, y PowerShell 5.1/7+
-    local pause_cmd = is_win and ' ; Write-Host "" ; Read-Host "--- Presiona Enter para cerrar ---"'
-        or ' ; printf "\n--- Presiona Enter para cerrar ---\n" ; read _'
-
-    -- Respetar Shebangs (#!/usr/bin/env ...)
-    local first_line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1] or ""
-    if first_line:sub(1, 2) == "#!" then
-        Snacks.terminal(vim.fn.shellescape(file) .. pause_cmd, {
-            cwd = file_dir,
-            win = { position = "bottom", height = 0.35, border = "rounded" },
-        })
-        return
-    end
 
     local runners = {
         python = function()
@@ -117,16 +123,78 @@ local function smart_run()
     }
 
     local get_cmd = runners[ft]
-    if get_cmd then
-        Snacks.terminal(get_cmd() .. pause_cmd, {
-            cwd = exec_dir,
-            win = { position = "bottom", height = 0.35, border = "rounded" },
+    if not get_cmd then
+        vim.notify("No hay regla de ejecución para: " .. ft, vim.log.levels.WARN)
+        return
+    end
+
+    local win_opts = {
+        border = "rounded",
+        keys = { q = "hide" },
+    }
+
+    if layout == "float" then
+        win_opts.position = "float"
+        win_opts.height = 0.85
+        win_opts.width = 0.85
+    elseif layout == "right" then
+        win_opts.position = "right"
+        win_opts.width = 0.4
+    else
+        win_opts.position = "bottom"
+        win_opts.height = 0.35
+    end
+
+    is_running = true
+
+    local term = Snacks.terminal(get_cmd(), {
+        cwd = exec_dir,
+        auto_close = false,
+        win = win_opts,
+    })
+
+    if term and term.buf then
+        local group = vim.api.nvim_create_augroup("SmartRun_Cleanup_" .. term.buf, { clear = true })
+
+        -- Evento 1: El proceso de compilación/ejecución finalizó normalmente
+        vim.api.nvim_create_autocmd("TermClose", {
+            group = group,
+            buffer = term.buf,
+            once = true,
+            callback = function()
+                is_running = false
+                vim.schedule(function()
+                    vim.cmd("stopinsert")
+                end)
+            end,
+        })
+
+        -- Evento 2: El usuario cerró la ventana con 'q' o comando de ventana (Obtención segura del ID)
+        local win_id = type(term.win) == "number" and term.win or (type(term.win) == "table" and term.win.win or nil)
+        if win_id then
+            vim.api.nvim_create_autocmd("WinClosed", {
+                group = group,
+                pattern = tostring(win_id),
+                once = true,
+                callback = function()
+                    is_running = false
+                end,
+            })
+        end
+
+        -- Evento 3: El buffer de la terminal fue eliminado o destruido
+        vim.api.nvim_create_autocmd({ "BufWipeout", "BufDelete", "BufUnload" }, {
+            group = group,
+            buffer = term.buf,
+            once = true,
+            callback = function()
+                is_running = false
+            end,
         })
     else
-        vim.notify("No hay regla de ejecución para: " .. ft, vim.log.levels.WARN)
+        is_running = false
     end
 end
-
 ------------------------------------------------------------
 -- 2. CONFIGURACIÓN DEL PLUGIN LAZY
 ------------------------------------------------------------
@@ -1148,12 +1216,20 @@ return {
             desc = "Alternar Highlights de Profiler",
         },
         -- En los atajos de Snacks:
+        -- En tu tabla keys = { ... } de Snacks:
         {
             "<leader>x",
             function()
-                smart_run()
+                smart_run("bottom")
             end,
-            desc = "Ejecutar proyecto o script actual",
+            desc = "Ejecutar script/proyecto (Panel Inferior)",
+        },
+        {
+            "<leader>X",
+            function()
+                smart_run("float")
+            end,
+            desc = "Ejecutar script/proyecto/TUI (Ventana Flotante)",
         },
     },
 }
