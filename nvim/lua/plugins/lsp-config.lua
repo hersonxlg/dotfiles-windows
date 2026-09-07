@@ -59,6 +59,9 @@ return {
 
                     -- Rust
                     "rust_analyzer",
+
+                    -- SQL
+                    "sqls",
                 },
             })
             vim.diagnostic.config({
@@ -1457,6 +1460,86 @@ indent-sub-tables = true
             else
                 notify_missing("rust-analyzer")
             end
+
+            --------------------------------------------------------
+            -- SQL (sqls) - Inyección dinámica de SQLite pre-inicio
+            --------------------------------------------------------
+            if has_exe("sqls") then
+                vim.lsp.config.sqls = {
+                    cmd = { "sqls" },
+                    filetypes = { "sql", "mysql" },
+                    root_markers = { ".sqls.yml", ".sqls.yaml", ".git" },
+                    capabilities = capabilities,
+
+                    -- Se ejecuta ANTES de que el servidor LSP arranque
+                    on_new_config = function(new_config, new_root_dir)
+                        local search_path = new_root_dir or vim.uv.cwd()
+                        local db_files = vim.fs.find(function(name)
+                            return name:match("%.sqlite3$") or name:match("%.sqlite$") or name:match("%.db$")
+                        end, { upward = true, path = search_path, limit = 1 })
+
+                        if db_files[1] then
+                            local abs_db = vim.fs.normalize(db_files[1])
+                            new_config.settings = vim.tbl_deep_extend("force", new_config.settings or {}, {
+                                sqls = {
+                                    connections = {
+                                        {
+                                            driver = "sqlite3",
+                                            dataSourceName = abs_db,
+                                        },
+                                    },
+                                },
+                            })
+                        end
+                    end,
+
+                    on_attach = function(client, bufnr)
+                        client.server_capabilities.documentFormattingProvider = false
+                    end,
+                }
+                vim.lsp.enable("sqls")
+            end
+
+            --            if has_exe("sqls") then
+            --                -- Función para localizar automáticamente bases de datos SQLite
+            --                local function find_sqlite_db(bufnr)
+            --                    local buf_path = vim.api.nvim_buf_get_name(bufnr or 0)
+            --                    local start_dir = (buf_path ~= "" and vim.fs.dirname(buf_path)) or vim.uv.cwd()
+            --
+            --                    return vim.fs.find(function(name)
+            --                        return name:match("%.sqlite3$") or name:match("%.sqlite$") or name:match("%.db$")
+            --                    end, { upward = true, path = start_dir, limit = 1 })[1]
+            --                end
+            --
+            --                vim.lsp.config.sqls = {
+            --                    cmd = { "sqls" },
+            --                    filetypes = { "sql", "mysql" },
+            --                    root_markers = { ".sqls.yml", ".sqls.yaml", ".git" },
+            --                    capabilities = capabilities,
+            --
+            --                    -- Inyecta la conexión dinámicamente antes de iniciar el cliente
+            --                    before_init = function(params, config)
+            --                        local db_path = find_sqlite_db(0)
+            --                        if db_path then
+            --                            config.settings = vim.tbl_deep_extend("force", config.settings or {}, {
+            --                                sqls = {
+            --                                    connections = {
+            --                                        {
+            --                                            driver = "sqlite3",
+            --                                            dataSourceName = vim.fs.normalize(db_path),
+            --                                        },
+            --                                    },
+            --                                },
+            --                            })
+            --                        end
+            --                    end,
+            --
+            --                    on_attach = function(client, bufnr)
+            --                        client.server_capabilities.documentFormattingProvider = false
+            --                    end,
+            --                }
+            --                vim.lsp.enable("sqls")
+            --            end
 
             ---------------------------------
             -- Matlab LSP

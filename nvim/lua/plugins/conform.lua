@@ -16,6 +16,7 @@ return {
                 "taplo",
                 "gersemi",
                 "xmlformatter",
+                "sqlfluff",
             },
             auto_update = true,
             run_on_start = true,
@@ -34,6 +35,7 @@ return {
 
             return {
                 formatters_by_ft = {
+
                     lua = { "stylua" },
                     c = { "clang-format" },
                     cpp = { "clang-format" },
@@ -68,13 +70,37 @@ return {
 
                     -- MATLAB
                     matlab = { "matlab_formatter" },
+
+                    -- SQL
+                    sql = { "sqlfluff" },
+                    pgsql = { "sqlfluff" },
                 },
 
                 formatters = {
+                    -- SQL
+                    sqlfluff = {
+                        -- 1. Pasa siempre un dialecto por defecto para archivos sueltos
+                        args = { "format", "--dialect=postgres", "-" },
+
+                        -- 2. Asegúrate de que NO requiera estrictamente el directorio raíz
+                        require_cwd = false,
+
+                        -- 3. Define un cwd con fallback
+                        cwd = function(self, ctx)
+                            local util = require("conform.util")
+                            -- Intenta buscar la raíz del proyecto
+                            local root = util.root_file({ ".sqlfluff", ".git", "pyproject.toml" })(self, ctx)
+
+                            -- Si no hay raíz, usa la carpeta del archivo actual o el directorio de Neovim
+                            return root or vim.fs.dirname(ctx.filename) or vim.fn.getcwd()
+                        end,
+                    },
+
                     -- Stylua (4 espacios)
                     stylua = {
                         prepend_args = {
                             "--indent-type",
+
                             "Spaces",
                             "--indent-width",
                             "4",

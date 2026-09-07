@@ -29,7 +29,14 @@ return {
 
         sources = {
             default = { "lsp", "path", "snippets", "buffer" },
+            per_filetype = {
+                sql = { "lsp", "snippets", "dadbod", "buffer" }, -- <--- Agrega "lsp" al inicio
+            },
             providers = {
+                dadbod = {
+                    name = "Dadbod",
+                    module = "vim_dadbod_completion.blink",
+                },
                 lsp = {
                     transform_items = function(_, items)
                         for _, item in ipairs(items) do
