@@ -1478,6 +1478,7 @@ function Invoke-StateLibSearch {
                 if ($totalPatterns -ge 2) {
                     $perms = Get-InternalPermutations -Items $patterns
                     foreach ($p in $perms) {
+                        $combinedQueries += ($p -join '')
                         $combinedQueries += "*" + ($p -join '*') + "*"
                         $combinedQueries += ($p -join '*') + "*"
                         $combinedQueries += "*" + ($p -join '') + "*"
@@ -1486,8 +1487,9 @@ function Invoke-StateLibSearch {
                     $combinedQueries += ($patterns | ForEach-Object { "$_*" }) -join " "
                 } else {
                     foreach ($p in $patterns) {
-                        $combinedQueries += "*$p*"
+                        $combinedQueries += "$p"
                         $combinedQueries += "$p*"
+                        $combinedQueries += "*$p*"
                     }
                 }
 
@@ -1496,7 +1498,8 @@ function Invoke-StateLibSearch {
                 foreach ($q in $combinedQueries) {
                     $encoded = [System.Uri]::EscapeDataString($q)
                     foreach ($page in 1..2) {
-                        $uri = "https://api.registry.platformio.org/v3/search?query=$encoded&page=$page"
+                        #$uri = "https://api.registry.platformio.org/v3/search?query=$encoded&page=$pageo"
+                        $uri = "https://api.registry.platformio.org/v3/search?query=$encoded&page=$page&limit=50"
                         try {
                             $res = Invoke-RestMethod -Uri $uri -TimeoutSec 3
                             if ($res.items -and $res.items.Count -gt 0) {
