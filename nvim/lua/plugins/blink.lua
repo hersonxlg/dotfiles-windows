@@ -22,6 +22,27 @@ return {
             ["<Down>"] = { "select_next", "fallback" },
         },
 
+        -- Configuración específica para la línea de comandos
+        cmdline = {
+            enabled = true,
+            completion = {
+                menu = {
+                    auto_show = true,
+                },
+                list = {
+                    selection = {
+                        preselect = false,
+                        auto_insert = true,
+                    },
+                },
+            },
+            keymap = {
+                ["<Tab>"] = { "show", "select_next", "fallback" },
+                ["<S-Tab>"] = { "select_prev", "fallback" },
+                ["<CR>"] = { "accept", "fallback" },
+            },
+        },
+
         appearance = {
             use_nvim_cmp_as_default = true,
             nerd_font_variant = "mono",
@@ -30,7 +51,7 @@ return {
         sources = {
             default = { "lsp", "path", "snippets", "buffer" },
             per_filetype = {
-                sql = { "lsp", "snippets", "dadbod", "buffer" }, -- <--- Agrega "lsp" al inicio
+                sql = { "lsp", "snippets", "dadbod", "buffer" },
             },
             providers = {
                 dadbod = {
@@ -56,7 +77,14 @@ return {
             },
         },
 
+        -- Configuración del autocompletado en buffers de código
         completion = {
+            list = {
+                selection = {
+                    preselect = false, -- Inicia sin preselección al desplegar la lista flotante
+                    auto_insert = true, -- Escribe la palabra automáticamente en el buffer al navegar con Tab
+                },
+            },
             documentation = {
                 auto_show = true,
                 auto_show_delay_ms = 200,
