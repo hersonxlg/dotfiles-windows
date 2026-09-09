@@ -47,7 +47,11 @@ $ErrorActionPreference = "Stop"
 # =============================================================================
 
 # Determinar la carpeta de usuario para guardar el historial de placas temporales
-$homePath = if ($env:HOME) { $env:HOME } else { $env:USERPROFILE }
+$homePath = if ($env:HOME) {
+    $env:HOME 
+} else {
+    $env:USERPROFILE 
+}
 
 # Contexto global que funciona como la "memoria RAM" de la aplicación.
 # Almacena el estado en el que nos encontramos, las librerías cacheadas y la config actual.
@@ -101,24 +105,40 @@ function Add-LibDep {
     # Separamos el nombre de la versión usando '@'
     $parts = $Raw -split "@", 2
     $name = $parts[0].Trim()
-    $ver = if ($parts.Count -gt 1) { $parts[1].Trim() } else { "latest" }
+    $ver = if ($parts.Count -gt 1) {
+        $parts[1].Trim() 
+    } else {
+        "latest" 
+    }
     
     if ($name) {
         # Extraemos el "Dueño" y el "Nombre Base". Ejemplo de "bblanchon/ArduinoJson"
         $baseName = ($name -split "/")[-1].ToLower().Trim()
-        $ownerName = if ($name -match "/") { ($name -split "/")[0].ToLower().Trim() } else { "" }
+        $ownerName = if ($name -match "/") {
+            ($name -split "/")[0].ToLower().Trim() 
+        } else {
+            "" 
+        }
         $found = $false
         
         $newLibs = @()
         foreach ($l in $Global:Context.Config.Libraries) {
             $existingBase = ($l.Name -split "/")[-1].ToLower().Trim()
-            $existingOwner = if ($l.Name -match "/") { ($l.Name -split "/")[0].ToLower().Trim() } else { "" }
+            $existingOwner = if ($l.Name -match "/") {
+                ($l.Name -split "/")[0].ToLower().Trim() 
+            } else {
+                "" 
+            }
             
             # Condición de colapso: Mismo nombre base, y los dueños coinciden (o alguno está vacío)
             if ($existingBase -eq $baseName -and ($existingOwner -eq $ownerName -or $existingOwner -eq "" -or $ownerName -eq "")) {
                 if (-not $found) {
                     # Actualizamos a la versión más reciente solicitada y adoptamos el nombre completo
-                    $updatedName = if ($name -match "/") { $name } else { $l.Name }
+                    $updatedName = if ($name -match "/") {
+                        $name 
+                    } else {
+                        $l.Name 
+                    }
                     $newLibs += @{ Name = $updatedName; Version = $ver }
                     $found = $true
                 }
@@ -147,7 +167,9 @@ function Add-LibDep {
     baudios, placas, configuraciones de memoria de la serie ESP32, y la lista de lib_deps.
 #>
 function Load-Config {
-    if (-not (Test-Path $Global:Context.IniPath)) { return }
+    if (-not (Test-Path $Global:Context.IniPath)) {
+        return 
+    }
 
     $content = (Get-Content $Global:Context.IniPath)
     $inLibDeps = $false
@@ -157,7 +179,9 @@ function Load-Config {
     foreach ($line in $content) {
         $clean = $line.Trim()
         
-        if ($clean.StartsWith(";") -or $clean.StartsWith("#") -or $clean -eq "") { continue }
+        if ($clean.StartsWith(";") -or $clean.StartsWith("#") -or $clean -eq "") {
+            continue 
+        }
         
         if ($clean -match "^\[([^\]]+)\]") { 
             $section = $Matches[1].Trim()
@@ -186,25 +210,47 @@ function Load-Config {
 
             if ($key -eq "lib_deps") {
                 $inLibDeps = $true
-                if ($val) { foreach($item in $val -split ",") { Add-LibDep -Raw $item.Trim() } }
+                if ($val) {
+                    foreach($item in $val -split ",") {
+                        Add-LibDep -Raw $item.Trim() 
+                    } 
+                }
                 continue
             } else { 
                 $inLibDeps = $false 
             }
             
-            if ($key -eq "platform")  { $Global:Context.Config.Platform = $val }
-            if ($key -eq "board")     { $Global:Context.Config.Board = $val }
-            if ($key -eq "framework") { $Global:Context.Config.Framework = $val }
-            if ($key -eq "monitor_speed" -and $val -match "^\d+$") { $Global:Context.Config.Baud = [int]$val }
-            if ($key -eq "upload_port") { $Global:Context.Config.Port = $val }
+            if ($key -eq "platform")  {
+                $Global:Context.Config.Platform = $val 
+            }
+            if ($key -eq "board")     {
+                $Global:Context.Config.Board = $val 
+            }
+            if ($key -eq "framework") {
+                $Global:Context.Config.Framework = $val 
+            }
+            if ($key -eq "monitor_speed" -and $val -match "^\d+$") {
+                $Global:Context.Config.Baud = [int]$val 
+            }
+            if ($key -eq "upload_port") {
+                $Global:Context.Config.Port = $val 
+            }
             
-            if ($key -eq "board_upload.flash_size") { $Global:Context.Config.FlashSize = $val }
-            if ($key -eq "board_build.arduino.memory_type" -and $val -eq "qio_qspi") { $Global:Context.Config.PSRAMType = "2MB (QSPI)" }
-            if ($key -eq "board_build.arduino.memory_type" -and $val -eq "qio_opi") { $Global:Context.Config.PSRAMType = "8MB (OPI)" } 
+            if ($key -eq "board_upload.flash_size") {
+                $Global:Context.Config.FlashSize = $val 
+            }
+            if ($key -eq "board_build.arduino.memory_type" -and $val -eq "qio_qspi") {
+                $Global:Context.Config.PSRAMType = "2MB (QSPI)" 
+            }
+            if ($key -eq "board_build.arduino.memory_type" -and $val -eq "qio_opi") {
+                $Global:Context.Config.PSRAMType = "8MB (OPI)" 
+            } 
         } else {
             if ($inLibDeps) { 
                 $cleanLib = ($clean -split '\s+[;#]')[0].Trim()
-                if ($cleanLib) { Add-LibDep -Raw $cleanLib }
+                if ($cleanLib) {
+                    Add-LibDep -Raw $cleanLib 
+                }
             }
         }
     }
@@ -220,15 +266,20 @@ function Save-BoardHistory {
     if (Test-Path $Global:Context.HistoryPath) {
         try { 
             $hist = Get-Content $Global:Context.HistoryPath | ConvertFrom-Json
-            if ($hist -isnot [array]) { $hist = @($hist) } 
-        } catch {}
+            if ($hist -isnot [array]) {
+                $hist = @($hist) 
+            } 
+        } catch {
+        }
     }
     # Filtramos la placa actual para ponerla en la cima sin duplicarla
     $hist = $hist | Where-Object { $_.Id -ne $BoardItem.Id }
     $hist = @(@{ Id = $BoardItem.Id; Name = $BoardItem.Name; Platform = $BoardItem.Platform }) + $hist
     
     # Mantenemos solo un máximo de 20 placas en el historial para no saturar
-    if ($hist.Count -gt 20) { $hist = $hist[0..19] }
+    if ($hist.Count -gt 20) {
+        $hist = $hist[0..19] 
+    }
     $hist | ConvertTo-Json -Compress | Out-File $Global:Context.HistoryPath -Encoding UTF8
 }
 
@@ -237,8 +288,16 @@ function Save-BoardHistory {
     Configura la ventana de la terminal, ocultando el cursor por defecto.
 #>
 function Initialize-UI {
+    # Aplicar TLS 1.2 exclusivamente si se ejecuta en Windows PowerShell 5.1
+    if ($PSVersionTable.PSVersion.Major -lt 6) {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    }
+
     $host.UI.RawUI.WindowTitle = "PlatformIO Configurator TUI v8.0"
-    try { [Console]::CursorVisible = $false } catch {}
+    try {
+        [Console]::CursorVisible = $false 
+    } catch {
+    }
     Clear-Host 
 }
 
@@ -251,10 +310,14 @@ function Out-BufferLine {
     param([string]$Text, [string]$Fore = "White", [string]$Back = "Black", [switch]$NewLine)
     
     $width = $host.UI.RawUI.WindowSize.Width
-    if ($width -le 1) { $width = 80 } # Fallback si falla la lectura del ancho
+    if ($width -le 1) {
+        $width = 80 
+    } # Fallback si falla la lectura del ancho
     
     # Recortar si excede el ancho para que no se parta en dos líneas
-    if ($Text.Length -ge $width) { $Text = $Text.Substring(0, $width - 1) }
+    if ($Text.Length -ge $width) {
+        $Text = $Text.Substring(0, $width - 1) 
+    }
     
     # Rellenar con espacios vacíos a la derecha para pintar el fondo correctamente
     $pad = " " * ($width - $Text.Length)
@@ -263,7 +326,9 @@ function Out-BufferLine {
     [Console]::BackgroundColor = [Enum]::Parse([ConsoleColor], $Back)
     [Console]::Write("$Text$pad")
     
-    if ($NewLine) { [Console]::Write([Environment]::NewLine) }
+    if ($NewLine) {
+        [Console]::Write([Environment]::NewLine) 
+    }
 }
 
 <#
@@ -272,7 +337,9 @@ function Out-BufferLine {
 #>
 function Format-WordWrap {
     param([string]$Text, [int]$Width)
-    if ([string]::IsNullOrWhiteSpace($Text)) { return @(" (Sin descripción)") }
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return @(" (Sin descripción)") 
+    }
     
     $words = $Text -split '\s+'
     $lines = @()
@@ -280,13 +347,21 @@ function Format-WordWrap {
     
     foreach ($word in $words) {
         if (($currentLine.Length + $word.Length + 1) -le $Width) {
-            if ($currentLine) { $currentLine += " $word" } else { $currentLine = $word }
+            if ($currentLine) {
+                $currentLine += " $word" 
+            } else {
+                $currentLine = $word 
+            }
         } else {
-            if ($currentLine) { $lines += $currentLine }
+            if ($currentLine) {
+                $lines += $currentLine 
+            }
             $currentLine = $word
         }
     }
-    if ($currentLine) { $lines += $currentLine }
+    if ($currentLine) {
+        $lines += $currentLine 
+    }
     return $lines
 }
 
@@ -331,15 +406,55 @@ function Show-LibDetails {
     }
 
     # Extracción de campos gestionando posibles valores nulos
-    $name = if ($detailJson.owner -and $detailJson.owner.username) { "$($detailJson.owner.username)/$($detailJson.name)" } elseif ($detailJson.name) { $detailJson.name } else { $LibraryName }
-    $ver  = if ($detailJson.version -and $detailJson.version.name) { $detailJson.version.name } elseif ($detailJson.version -is [string]) { $detailJson.version } else { "latest" }
-    $lic  = if ($detailJson.license) { $detailJson.license } else { "N/A" }
-    $hp   = if ($detailJson.homepage) { $detailJson.homepage } else { "N/A" }
+    $name = if ($detailJson.owner -and $detailJson.owner.username) {
+        "$($detailJson.owner.username)/$($detailJson.name)" 
+    } elseif ($detailJson.name) {
+        $detailJson.name 
+    } else {
+        $LibraryName 
+    }
+    $ver  = if ($detailJson.version -and $detailJson.version.name) {
+        $detailJson.version.name 
+    } elseif ($detailJson.version -is [string]) {
+        $detailJson.version 
+    } else {
+        "latest" 
+    }
+    $lic  = if ($detailJson.license) {
+        $detailJson.license 
+    } else {
+        "N/A" 
+    }
+    $hp   = if ($detailJson.homepage) {
+        $detailJson.homepage 
+    } else {
+        "N/A" 
+    }
     
     # Resolviendo el repositorio: Algunas API lo envían como cadena, otras como objeto con clave url
-    $repo = if ($detailJson.repository_url) { $detailJson.repository_url } elseif ($detailJson.repository -is [string]) { $detailJson.repository } elseif ($detailJson.repository -and $detailJson.repository.url) { $detailJson.repository.url } else { "N/A" }
-    $kws  = if ($detailJson.keywords) { $detailJson.keywords -join ", " } elseif ($FallbackItem -and $FallbackItem.keywords) { $FallbackItem.keywords -join ", " } else { "N/A" }
-    $descText = if ($detailJson.description) { $detailJson.description } elseif ($FallbackItem -and $FallbackItem.description) { $FallbackItem.description } else { "Sin descripción disponible." }
+    $repo = if ($detailJson.repository_url) {
+        $detailJson.repository_url 
+    } elseif ($detailJson.repository -is [string]) {
+        $detailJson.repository 
+    } elseif ($detailJson.repository -and $detailJson.repository.url) {
+        $detailJson.repository.url 
+    } else {
+        "N/A" 
+    }
+    $kws  = if ($detailJson.keywords) {
+        $detailJson.keywords -join ", " 
+    } elseif ($FallbackItem -and $FallbackItem.keywords) {
+        $FallbackItem.keywords -join ", " 
+    } else {
+        "N/A" 
+    }
+    $descText = if ($detailJson.description) {
+        $detailJson.description 
+    } elseif ($FallbackItem -and $FallbackItem.description) {
+        $FallbackItem.description 
+    } else {
+        "Sin descripción disponible." 
+    }
 
     # Construir arreglo interactivo para la navegación con teclado
     $navItems = @()
@@ -378,8 +493,12 @@ function Show-LibDetails {
         Out-BufferLine "==========================================" -Fore $Theme.Highlight -NewLine
 
         $listSpace = $winH - 5
-        if ($cursor -ge $scroll + $listSpace) { $scroll = $cursor - $listSpace + 1 }
-        if ($cursor -lt $scroll) { $scroll = $cursor }
+        if ($cursor -ge $scroll + $listSpace) {
+            $scroll = $cursor - $listSpace + 1 
+        }
+        if ($cursor -lt $scroll) {
+            $scroll = $cursor 
+        }
 
         # Renderizar la lista
         for ($i=0; $i -lt $listSpace; $i++) {
@@ -387,8 +506,16 @@ function Show-LibDetails {
             if ($idx -lt $navItems.Count) {
                 $it = $navItems[$idx]
                 
-                $p = if ($idx -eq $cursor) { " > " } else { "   " }
-                $bg = if ($idx -eq $cursor) { $Theme.SelBack } else { "Black" }
+                $p = if ($idx -eq $cursor) {
+                    " > " 
+                } else {
+                    "   " 
+                }
+                $bg = if ($idx -eq $cursor) {
+                    $Theme.SelBack 
+                } else {
+                    "Black" 
+                }
                 
                 if ($idx -eq $cursor) {
                     $fg = $Theme.Selected
@@ -399,7 +526,9 @@ function Show-LibDetails {
                 }
                 
                 Out-BufferLine "$p$($it.DisplayText)" -Fore $fg -Back $bg -NewLine
-            } else { Out-BufferLine "" -NewLine }
+            } else {
+                Out-BufferLine "" -NewLine 
+            }
         }
 
         # Barra de estado temporal (desaparece después de unos fotogramas)
@@ -414,8 +543,12 @@ function Show-LibDetails {
         # Leyenda inferior dinámica: Solo muestra opciones compatibles con el elemento actual
         [Console]::SetCursorPosition(0, $winH-1)
         $p = " [h/Esc] Volver  [j/k] Navegar"
-        if ($navItems[$cursor].Value) { $p += "  [c] Copiar" }
-        if ($navItems[$cursor].IsLink) { $p += "  [Enter/o] Abrir en web" }
+        if ($navItems[$cursor].Value) {
+            $p += "  [c] Copiar" 
+        }
+        if ($navItems[$cursor].IsLink) {
+            $p += "  [Enter/o] Abrir en web" 
+        }
         $p += "  [q] Salir App"
         Out-BufferLine $p -Fore $Theme.SearchText -Back $Theme.SearchBack
 
@@ -425,20 +558,27 @@ function Show-LibDetails {
                 # Salida global del programa
                 $Global:Context.CurrentState = "ExitApp"
                 $done = $true 
-            }
-            elseif ($k.Key -eq [ConsoleKey]::Escape -or $k.KeyChar -eq 'h') { $done = $true }
-            elseif ($k.Key -eq [ConsoleKey]::UpArrow -or $k.KeyChar -eq 'k') { if ($cursor -gt 0) { $cursor-- } }
-            elseif ($k.Key -eq [ConsoleKey]::DownArrow -or $k.KeyChar -eq 'j') { if ($cursor -lt $navItems.Count-1) { $cursor++ } }
-            elseif ($k.KeyChar -eq 'c') {
+            } elseif ($k.Key -eq [ConsoleKey]::Escape -or $k.KeyChar -eq 'h') {
+                $done = $true 
+            } elseif ($k.Key -eq [ConsoleKey]::UpArrow -or $k.KeyChar -eq 'k') {
+                if ($cursor -gt 0) {
+                    $cursor-- 
+                } 
+            } elseif ($k.Key -eq [ConsoleKey]::DownArrow -or $k.KeyChar -eq 'j') {
+                if ($cursor -lt $navItems.Count-1) {
+                    $cursor++ 
+                } 
+            } elseif ($k.KeyChar -eq 'c') {
                 $val = $navItems[$cursor].Value
                 if ($val -and $val -ne "N/A") { 
                     Set-Clipboard $val
                     $msg = "[ COPIADO ] $val"
-                    if ($msg.Length -gt 60) { $msg = $msg.Substring(0, 57) + "..." }
+                    if ($msg.Length -gt 60) {
+                        $msg = $msg.Substring(0, 57) + "..." 
+                    }
                     $mTimer = 25 # Fotogramas que dura el mensaje en pantalla
                 }
-            }
-            elseif ($k.Key -eq [ConsoleKey]::Enter -or $k.KeyChar -eq 'o') {
+            } elseif ($k.Key -eq [ConsoleKey]::Enter -or $k.KeyChar -eq 'o') {
                 if ($navItems[$cursor].IsLink) {
                     # Limpiamos prefijos git+ que corrompen el URL
                     $url = $navItems[$cursor].Value -replace "^git\+", ""
@@ -482,7 +622,9 @@ function Invoke-StatePort {
     # Auto-Selecciona el puerto guardado en config si es que aún está conectado
     if ($Global:Context.Config.Port) { 
         $idx = $currentPorts.IndexOf($Global:Context.Config.Port)
-        if($idx -ge 0){ $cursor = $idx } 
+        if($idx -ge 0){
+            $cursor = $idx 
+        } 
     }
 
     while (-not $done) {
@@ -497,10 +639,14 @@ function Invoke-StatePort {
             if ($added) {
                 # Mueve automáticamente el cursor al dispositivo recién conectado
                 $detectedPortName = $added; $newIdx = $currentPorts.IndexOf($added)
-                if ($newIdx -ge 0) { $cursor = $newIdx }
+                if ($newIdx -ge 0) {
+                    $cursor = $newIdx 
+                }
             } else { 
                 # Si se desconectó algo, evitamos que el cursor se quede fuera de límites
-                if ($cursor -ge $currentPorts.Count) { $cursor = [Math]::Max(0, $currentPorts.Count - 1) } 
+                if ($cursor -ge $currentPorts.Count) {
+                    $cursor = [Math]::Max(0, $currentPorts.Count - 1) 
+                } 
             }
             $lastKnownPorts = $rawPorts
         } else {
@@ -523,30 +669,41 @@ function Invoke-StatePort {
                 if ($p -eq $autoOption) {
                     $fg = "Cyan"
                 } else {
-                    if ($p -eq $Global:Context.Config.Port) { $suffix += " (Guardado)"; $fg = $Theme.Faint }
+                    if ($p -eq $Global:Context.Config.Port) {
+                        $suffix += " (Guardado)"; $fg = $Theme.Faint 
+                    }
                     if ($p -eq $detectedPortName) { 
                         $suffix += " [ ! NUEVO ! ]"
-                        if ($i -ne $cursor) { $fg = $Theme.Detected } 
+                        if ($i -ne $cursor) {
+                            $fg = $Theme.Detected 
+                        } 
                     }
                 }
 
-                if ($i -eq $cursor) { $prefix = " > "; $fg = $Theme.Selected; $bg = $Theme.SelBack }
+                if ($i -eq $cursor) {
+                    $prefix = " > "; $fg = $Theme.Selected; $bg = $Theme.SelBack 
+                }
                 Out-BufferLine "$prefix$p$suffix" -Fore $fg -Back $bg -NewLine
-            } else { Out-BufferLine "" -NewLine }
+            } else {
+                Out-BufferLine "" -NewLine 
+            }
         }
         
         [Console]::SetCursorPosition(0, $winH - 2)
         if ($detectedPortName -and $currentPorts -contains $detectedPortName) {
-             Out-BufferLine " ALERTA: Nuevo dispositivo detectado en $detectedPortName" -Fore $Theme.Detected -Back $Theme.StatusBack
-        } else { Out-BufferLine " ESTADO: Conecta/Desconecta tu placa para auto-detectar." -Fore $Theme.StatusText -Back $Theme.StatusBack }
+            Out-BufferLine " ALERTA: Nuevo dispositivo detectado en $detectedPortName" -Fore $Theme.Detected -Back $Theme.StatusBack
+        } else {
+            Out-BufferLine " ESTADO: Conecta/Desconecta tu placa para auto-detectar." -Fore $Theme.StatusText -Back $Theme.StatusBack 
+        }
         
         [Console]::SetCursorPosition(0, $winH - 1)
         Out-BufferLine " COMANDOS: [q/Esc] Salir  [Enter/l] Sig.  [j/k] Navegar" -Fore $Theme.Faint -Back $Theme.SearchBack
 
         if ([Console]::KeyAvailable) {
             $K = [Console]::ReadKey($true)
-            if ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') { $Global:Context.CurrentState = "ExitApp"; $done = $true }
-            elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l' -or $K.Key -eq [ConsoleKey]::RightArrow) {
+            if ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') {
+                $Global:Context.CurrentState = "ExitApp"; $done = $true 
+            } elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l' -or $K.Key -eq [ConsoleKey]::RightArrow) {
                 if ($currentPorts.Count -gt 0) { 
                     # Lógica para inyectar Nulo si el usuario elige AUTO
                     if ($currentPorts[$cursor] -eq $autoOption) {
@@ -556,9 +713,15 @@ function Invoke-StatePort {
                     }
                     $Global:Context.CurrentState = "State-Board"; $done = $true
                 }
+            } elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') {
+                if ($cursor -gt 0) {
+                    $cursor-- 
+                } 
+            } elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') {
+                if ($cursor -lt $currentPorts.Count - 1) {
+                    $cursor++ 
+                } 
             }
-            elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') { if ($cursor -gt 0) { $cursor-- } }
-            elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') { if ($cursor -lt $currentPorts.Count - 1) { $cursor++ } }
         }
         Start-Sleep -Milliseconds 40
     }
@@ -582,9 +745,12 @@ function Invoke-StateBoard {
     if (Test-Path $Global:Context.HistoryPath) {
         try { 
             $hist = Get-Content $Global:Context.HistoryPath | ConvertFrom-Json
-            if ($hist -isnot [array]) { $hist = @($hist) }
+            if ($hist -isnot [array]) {
+                $hist = @($hist) 
+            }
             $allData = $hist
-        } catch {}
+        } catch {
+        }
     }
     
     $loadAllId = "___LOAD_ALL___"
@@ -594,46 +760,86 @@ function Invoke-StateBoard {
     $cursor = 0; $scroll = 0; $isSearching = $false; $done = $false
     
     if ($Global:Context.Config.Board) {
-        for ($i=0; $i -lt $filtered.Count; $i++) { if ($filtered[$i].Id -eq $Global:Context.Config.Board) { $cursor = $i; break } }
+        for ($i=0; $i -lt $filtered.Count; $i++) {
+            if ($filtered[$i].Id -eq $Global:Context.Config.Board) {
+                $cursor = $i; break 
+            } 
+        }
     }
 
     while (-not $done) {
         $winH = $Host.UI.RawUI.WindowSize.Height; $listSpace = $winH - 5
         [Console]::SetCursorPosition(0,0)
         Out-BufferLine "==========================================" -Fore $Theme.Label -NewLine
-        if ($showingFullList) { Out-BufferLine "   PIO: PLACAS (LISTA COMPLETA)           " -Fore $Theme.Title -NewLine }
-        else { Out-BufferLine "   PIO: PLACAS (RECIENTES / HISTORIAL)    " -Fore $Theme.Title -NewLine }
+        if ($showingFullList) {
+            Out-BufferLine "   PIO: PLACAS (LISTA COMPLETA)           " -Fore $Theme.Title -NewLine 
+        } else {
+            Out-BufferLine "   PIO: PLACAS (RECIENTES / HISTORIAL)    " -Fore $Theme.Title -NewLine 
+        }
         Out-BufferLine "==========================================" -Fore $Theme.Label -NewLine
         
         # Algoritmo de scrolling para mantener la selección siempre visible
-        if ($cursor -ge $scroll + $listSpace) { $scroll = $cursor - $listSpace + 1 }
-        if ($cursor -lt $scroll) { $scroll = $cursor }
+        if ($cursor -ge $scroll + $listSpace) {
+            $scroll = $cursor - $listSpace + 1 
+        }
+        if ($cursor -lt $scroll) {
+            $scroll = $cursor 
+        }
         
         for ($i = 0; $i -lt $listSpace; $i++) {
             $idx = $scroll + $i
             if ($idx -lt $filtered.Count) {
                 $item = $filtered[$idx]
                 
-                $p = if ($idx -eq $cursor) { " > " } else { "   " }
-                $bg = if ($idx -eq $cursor) { $Theme.SelBack } else { "Black" }
+                $p = if ($idx -eq $cursor) {
+                    " > " 
+                } else {
+                    "   " 
+                }
+                $bg = if ($idx -eq $cursor) {
+                    $Theme.SelBack 
+                } else {
+                    "Black" 
+                }
                 
                 if ($item.Id -eq $loadAllId) {
-                    $fg = if ($idx -eq $cursor) { $Theme.Selected } else { $Theme.Highlight }
+                    $fg = if ($idx -eq $cursor) {
+                        $Theme.Selected 
+                    } else {
+                        $Theme.Highlight 
+                    }
                     Out-BufferLine "$p$($item.Name)" -Fore $fg -Back $bg -NewLine
                 } else {
-                    $fg = if ($idx -eq $cursor) { $Theme.Selected } else { $Theme.Text }
-                    $mark = if ($item.Id -eq $Global:Context.Config.Board) { "[*] " } else { "    " }
+                    $fg = if ($idx -eq $cursor) {
+                        $Theme.Selected 
+                    } else {
+                        $Theme.Text 
+                    }
+                    $mark = if ($item.Id -eq $Global:Context.Config.Board) {
+                        "[*] " 
+                    } else {
+                        "    " 
+                    }
                     Out-BufferLine "$p$mark$($item.Name) ($($item.Id))" -Fore $fg -Back $bg -NewLine
                 }
-            } else { Out-BufferLine "" -NewLine } 
+            } else {
+                Out-BufferLine "" -NewLine 
+            } 
         }
 
         [Console]::SetCursorPosition(0, $winH - 2)
-        if ($showingFullList) { Out-BufferLine " Placas filtradas: $($filtered.Count)" -Fore $Theme.StatusText -Back $Theme.StatusBack }
-        else { Out-BufferLine " Modo Historial: Cargado de $($Global:Context.HistoryPath)" -Fore $Theme.StatusText -Back $Theme.StatusBack }
+        if ($showingFullList) {
+            Out-BufferLine " Placas filtradas: $($filtered.Count)" -Fore $Theme.StatusText -Back $Theme.StatusBack 
+        } else {
+            Out-BufferLine " Modo Historial: Cargado de $($Global:Context.HistoryPath)" -Fore $Theme.StatusText -Back $Theme.StatusBack 
+        }
 
         [Console]::SetCursorPosition(0, $winH - 1)
-        $prompt = if ($isSearching) { " BUSCAR: $searchQuery`_" } else { " [/] Buscar  [h] Atras  [Enter] Sel.  [q] Salir" }
+        $prompt = if ($isSearching) {
+            " BUSCAR: $searchQuery`_" 
+        } else {
+            " [/] Buscar  [h] Atras  [Enter] Sel.  [q] Salir" 
+        }
         Out-BufferLine $prompt -Fore $Theme.SearchText -Back $Theme.SearchBack
 
         if ([Console]::KeyAvailable) {
@@ -641,22 +847,38 @@ function Invoke-StateBoard {
             
             # Modo de tipeo en vivo para filtrar las placas
             if ($isSearching) {
-                if ($K.Key -eq [ConsoleKey]::Enter -or $K.Key -eq [ConsoleKey]::Escape) { $isSearching = $false }
-                elseif ($K.Key -eq [ConsoleKey]::Backspace) { 
-                    if ($searchQuery.Length -gt 0) { $searchQuery = $searchQuery.Substring(0, $searchQuery.Length-1) }
-                } else { $searchQuery += $K.KeyChar }
+                if ($K.Key -eq [ConsoleKey]::Enter -or $K.Key -eq [ConsoleKey]::Escape) {
+                    $isSearching = $false 
+                } elseif ($K.Key -eq [ConsoleKey]::Backspace) { 
+                    if ($searchQuery.Length -gt 0) {
+                        $searchQuery = $searchQuery.Substring(0, $searchQuery.Length-1) 
+                    }
+                } else {
+                    $searchQuery += $K.KeyChar 
+                }
                 
                 # Aplicamos el filtro al array
                 $filtered = $allData | Where-Object { $_.Name -match $searchQuery -or $_.Id -match $searchQuery }
                 $cursor = 0
             } else {
-                if ($K.KeyChar -eq '/') { $isSearching = $true }
-                elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') { if ($cursor -gt 0) { $cursor-- } }
-                elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') { if ($cursor -lt $filtered.Count - 1) { $cursor++ } }
-                elseif ($K.Key -eq [ConsoleKey]::LeftArrow -or $K.KeyChar -eq 'h') { $Global:Context.CurrentState = "State-Port"; $done = $true }
-                elseif ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') { $Global:Context.CurrentState = "ExitApp"; $done = $true }
-                elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') {
-                    if ($filtered.Count -eq 0) { continue }
+                if ($K.KeyChar -eq '/') {
+                    $isSearching = $true 
+                } elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') {
+                    if ($cursor -gt 0) {
+                        $cursor-- 
+                    } 
+                } elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') {
+                    if ($cursor -lt $filtered.Count - 1) {
+                        $cursor++ 
+                    } 
+                } elseif ($K.Key -eq [ConsoleKey]::LeftArrow -or $K.KeyChar -eq 'h') {
+                    $Global:Context.CurrentState = "State-Port"; $done = $true 
+                } elseif ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') {
+                    $Global:Context.CurrentState = "ExitApp"; $done = $true 
+                } elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') {
+                    if ($filtered.Count -eq 0) {
+                        continue 
+                    }
                     
                     if ($filtered[$cursor].Id -eq $loadAllId) {
                         Clear-Host; [Console]::SetCursorPosition(0,0)
@@ -694,7 +916,9 @@ function Invoke-StateBoard {
 function Invoke-StateFramework {
     $fws = @("arduino", "espidf", "mbed", "zephyr", "libopencm3")
     $cursor = [Array]::IndexOf($fws, $Global:Context.Config.Framework)
-    if ($cursor -lt 0) { $cursor = 0 }
+    if ($cursor -lt 0) {
+        $cursor = 0 
+    }
     $done = $false
     while (-not $done) {
         $winH = $Host.UI.RawUI.WindowSize.Height
@@ -703,21 +927,44 @@ function Invoke-StateFramework {
         Out-BufferLine "   PIO: FRAMEWORK DE DESARROLLO           " -Fore $Theme.Title -NewLine
         Out-BufferLine "==========================================" -Fore $Theme.Label -NewLine
         for ($i=0; $i -lt $fws.Count; $i++) {
-            $p = if ($i -eq $cursor) { " > " } else { "   " }
-            $bg = if ($i -eq $cursor) { $Theme.SelBack } else { "Black" }
-            Out-BufferLine "$p $($fws[$i])" -Back $bg -NewLine
+            $p = if ($i -eq $cursor) {
+                " > " 
+            } else {
+                "   " 
+            }
+            $bg = if ($i -eq $cursor) {
+                $Theme.SelBack 
+            } else {
+                "Black" 
+            }
+            $fg = if ($i -eq $cursor) {
+                $Theme.Selected
+            } else {
+                "White" 
+            }
+            Out-BufferLine "$p $($fws[$i])" -Back $bg -NewLine -Fore $fg
         }
-        for ($k=0; $k -lt ($winH - 5 - $fws.Count); $k++) { Out-BufferLine "" -NewLine }
+        for ($k=0; $k -lt ($winH - 5 - $fws.Count); $k++) {
+            Out-BufferLine "" -NewLine 
+        }
         [Console]::SetCursorPosition(0, $winH - 1)
         Out-BufferLine " [h/Izq] Atras  [j/k] Nav  [Enter/l] Seleccionar  [q] Salir" -Fore $Theme.Faint -Back $Theme.SearchBack
 
         if ([Console]::KeyAvailable) {
             $K = [Console]::ReadKey($true)
-            if ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') { $Global:Context.CurrentState = "ExitApp"; $done=$true }
-            elseif ($K.Key -eq [ConsoleKey]::LeftArrow -or $K.KeyChar -eq 'h') { $Global:Context.CurrentState = "State-Board"; $done=$true }
-            elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') { if ($cursor -gt 0) { $cursor-- } }
-            elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') { if ($cursor -lt $fws.Count-1) { $cursor++ } }
-            elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') { 
+            if ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') {
+                $Global:Context.CurrentState = "ExitApp"; $done=$true 
+            } elseif ($K.Key -eq [ConsoleKey]::LeftArrow -or $K.KeyChar -eq 'h') {
+                $Global:Context.CurrentState = "State-Board"; $done=$true 
+            } elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') {
+                if ($cursor -gt 0) {
+                    $cursor-- 
+                } 
+            } elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') {
+                if ($cursor -lt $fws.Count-1) {
+                    $cursor++ 
+                } 
+            } elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') { 
                 $Global:Context.Config.Framework = $fws[$cursor]; $Global:Context.CurrentState = "State-Baud"; $done = $true 
             }
         }
@@ -732,7 +979,9 @@ function Invoke-StateFramework {
 function Invoke-StateBaud {
     $rates = @(9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600)
     $cursor = [Array]::IndexOf($rates, $Global:Context.Config.Baud)
-    if ($cursor -lt 0) { $cursor = 4 } # Por defecto: 115200
+    if ($cursor -lt 0) {
+        $cursor = 4 
+    } # Por defecto: 115200
     
     $done = $false
     while (-not $done) {
@@ -742,26 +991,52 @@ function Invoke-StateBaud {
         Out-BufferLine "   PIO: MONITOR_SPEED                     " -Fore $Theme.Title -NewLine
         Out-BufferLine "==========================================" -Fore $Theme.Label -NewLine
         for ($i=0; $i -lt $rates.Count; $i++) {
-            $p = if ($i -eq $cursor) { " > " } else { "   " }
-            $bg = if ($i -eq $cursor) { $Theme.SelBack } else { "Black" }
-            Out-BufferLine "$p $($rates[$i])" -Back $bg -NewLine
+            $p = if ($i -eq $cursor) {
+                " > " 
+            } else {
+                "   " 
+            }
+            $bg = if ($i -eq $cursor) {
+                $Theme.SelBack 
+            } else {
+                "Black" 
+            }
+            $fg = if ($i -eq $cursor) {
+                $Theme.Selected
+            } else {
+                "White" 
+            }
+            Out-BufferLine "$p $($rates[$i])" -Back $bg -NewLine -Fore $fg
         }
-        for ($k=0; $k -lt ($winH - 5 - $rates.Count); $k++) { Out-BufferLine "" -NewLine }
+        for ($k=0; $k -lt ($winH - 5 - $rates.Count); $k++) {
+            Out-BufferLine "" -NewLine 
+        }
         [Console]::SetCursorPosition(0, $winH - 1)
         Out-BufferLine " [h] Atras  [j/k] Nav  [Enter/l] Confirmar  [q] Salir" -Fore $Theme.Faint -Back $Theme.SearchBack
 
         if ([Console]::KeyAvailable) {
             $K = [Console]::ReadKey($true)
-            if ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') { $Global:Context.CurrentState = "ExitApp"; $done=$true }
-            elseif ($K.Key -eq [ConsoleKey]::LeftArrow -or $K.KeyChar -eq 'h') { $Global:Context.CurrentState = "State-Framework"; $done=$true }
-            elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') { if ($cursor -gt 0) { $cursor-- } }
-            elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') { if ($cursor -lt $rates.Count-1) { $cursor++ } }
-            elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') { 
+            if ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') {
+                $Global:Context.CurrentState = "ExitApp"; $done=$true 
+            } elseif ($K.Key -eq [ConsoleKey]::LeftArrow -or $K.KeyChar -eq 'h') {
+                $Global:Context.CurrentState = "State-Framework"; $done=$true 
+            } elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') {
+                if ($cursor -gt 0) {
+                    $cursor-- 
+                } 
+            } elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') {
+                if ($cursor -lt $rates.Count-1) {
+                    $cursor++ 
+                } 
+            } elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') { 
                 $Global:Context.Config.Baud = $rates[$cursor]
                 
                 # ENRUTAMIENTO CONDICIONAL: Si es una placa S3, abrimos el menú avanzado de memorias
-                if ($Global:Context.Config.Board -match "s3") { $Global:Context.CurrentState = "State-Memory" } 
-                else { $Global:Context.CurrentState = "State-LibMain" }
+                if ($Global:Context.Config.Board -match "s3") {
+                    $Global:Context.CurrentState = "State-Memory" 
+                } else {
+                    $Global:Context.CurrentState = "State-LibMain" 
+                }
                 
                 $done = $true 
             }
@@ -782,7 +1057,9 @@ function Invoke-StateMemory {
     
     # Navegación 2D: X es la columna (Flash/PSRAM), Y es el elemento elegido en la lista
     $cursorX = 0; $cursorY = [Array]::IndexOf($flashOptions, $Global:Context.Config.FlashSize)
-    if ($cursorY -lt 0) { $cursorY = 0 }
+    if ($cursorY -lt 0) {
+        $cursorY = 0 
+    }
     
     $done = $false
     while (-not $done) {
@@ -796,10 +1073,26 @@ function Invoke-StateMemory {
         Out-BufferLine " [ TAMAÑO FLASH ]" -Fore $Theme.Label -NewLine
         for ($i=0; $i -lt $flashOptions.Count; $i++) {
             $sel = ($cursorX -eq 0 -and $cursorY -eq $i)
-            $mark = if ($Global:Context.Config.FlashSize -eq $flashOptions[$i]) { "[*]" } else { "[ ]" }
-            $p = if ($sel) { ">" } else { " " }
-            $bg = if ($sel) { $Theme.SelBack } else { "Black" }
-            $fg = if ($sel) { $Theme.Selected } else { $Theme.Text }
+            $mark = if ($Global:Context.Config.FlashSize -eq $flashOptions[$i]) {
+                "[*]" 
+            } else {
+                "[ ]" 
+            }
+            $p = if ($sel) {
+                ">" 
+            } else {
+                " " 
+            }
+            $bg = if ($sel) {
+                $Theme.SelBack 
+            } else {
+                "Black" 
+            }
+            $fg = if ($sel) {
+                $Theme.Selected 
+            } else {
+                $Theme.Text 
+            }
             Out-BufferLine " $p $mark $($flashOptions[$i])" -Back $bg -Fore $fg -NewLine
         }
         
@@ -807,10 +1100,26 @@ function Invoke-StateMemory {
         Out-BufferLine " [ TIPO PSRAM ]" -Fore $Theme.Label -NewLine
         for ($i=0; $i -lt $psramOptions.Count; $i++) {
             $sel = ($cursorX -eq 1 -and $cursorY -eq $i)
-            $mark = if ($Global:Context.Config.PSRAMType -eq $psramOptions[$i]) { "[*]" } else { "[ ]" }
-            $p = if ($sel) { ">" } else { " " }
-            $bg = if ($sel) { $Theme.SelBack } else { "Black" }
-            $fg = if ($sel) { $Theme.Selected } else { $Theme.Text }
+            $mark = if ($Global:Context.Config.PSRAMType -eq $psramOptions[$i]) {
+                "[*]" 
+            } else {
+                "[ ]" 
+            }
+            $p = if ($sel) {
+                ">" 
+            } else {
+                " " 
+            }
+            $bg = if ($sel) {
+                $Theme.SelBack 
+            } else {
+                "Black" 
+            }
+            $fg = if ($sel) {
+                $Theme.Selected 
+            } else {
+                $Theme.Text 
+            }
             Out-BufferLine " $p $mark $($psramOptions[$i])" -Back $bg -Fore $fg -NewLine
         }
 
@@ -827,29 +1136,44 @@ function Invoke-StateMemory {
                 } else { 
                     $Global:Context.CurrentState = "State-LibMain"; $done = $true 
                 }
-            }
-            elseif ($K.Key -eq [ConsoleKey]::Tab -or $K.Key -eq [ConsoleKey]::RightArrow) { 
-                if ($cursorX -eq 0) { $cursorX = 1; $cursorY = [Math]::Max(0, [Array]::IndexOf($psramOptions, $Global:Context.Config.PSRAMType)) }
-            }
-            elseif ($K.Key -eq [ConsoleKey]::LeftArrow -or $K.KeyChar -eq 'h') { 
-                if ($cursorX -eq 1) { $cursorX = 0; $cursorY = [Math]::Max(0, [Array]::IndexOf($flashOptions, $Global:Context.Config.FlashSize)) } 
-                else { $Global:Context.CurrentState = "State-Baud"; $done = $true }
-            }
-            elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') { 
+            } elseif ($K.Key -eq [ConsoleKey]::Tab -or $K.Key -eq [ConsoleKey]::RightArrow) { 
+                if ($cursorX -eq 0) {
+                    $cursorX = 1; $cursorY = [Math]::Max(0, [Array]::IndexOf($psramOptions, $Global:Context.Config.PSRAMType)) 
+                }
+            } elseif ($K.Key -eq [ConsoleKey]::LeftArrow -or $K.KeyChar -eq 'h') { 
+                if ($cursorX -eq 1) {
+                    $cursorX = 0; $cursorY = [Math]::Max(0, [Array]::IndexOf($flashOptions, $Global:Context.Config.FlashSize)) 
+                } else {
+                    $Global:Context.CurrentState = "State-Baud"; $done = $true 
+                }
+            } elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') { 
                 if ($cursorY -gt 0) { 
                     $cursorY--
-                    if ($cursorX -eq 0) { $Global:Context.Config.FlashSize = $flashOptions[$cursorY] } else { $Global:Context.Config.PSRAMType = $psramOptions[$cursorY] } 
+                    if ($cursorX -eq 0) {
+                        $Global:Context.Config.FlashSize = $flashOptions[$cursorY] 
+                    } else {
+                        $Global:Context.Config.PSRAMType = $psramOptions[$cursorY] 
+                    } 
                 } 
-            }
-            elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') { 
-                $limit = if ($cursorX -eq 0) { $flashOptions.Count } else { $psramOptions.Count }
+            } elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') { 
+                $limit = if ($cursorX -eq 0) {
+                    $flashOptions.Count 
+                } else {
+                    $psramOptions.Count 
+                }
                 if ($cursorY -lt $limit - 1) { 
                     $cursorY++
-                    if ($cursorX -eq 0) { $Global:Context.Config.FlashSize = $flashOptions[$cursorY] } else { $Global:Context.Config.PSRAMType = $psramOptions[$cursorY] } 
+                    if ($cursorX -eq 0) {
+                        $Global:Context.Config.FlashSize = $flashOptions[$cursorY] 
+                    } else {
+                        $Global:Context.Config.PSRAMType = $psramOptions[$cursorY] 
+                    } 
                 }
+            } elseif ($K.Key -eq [ConsoleKey]::Enter) {
+                $Global:Context.CurrentState = "State-LibMain"; $done = $true 
+            } elseif ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') {
+                $Global:Context.CurrentState = "ExitApp"; $done = $true 
             }
-            elseif ($K.Key -eq [ConsoleKey]::Enter) { $Global:Context.CurrentState = "State-LibMain"; $done = $true }
-            elseif ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') { $Global:Context.CurrentState = "ExitApp"; $done = $true }
         }
         Start-Sleep -Milliseconds 40
     }
@@ -878,37 +1202,79 @@ function Invoke-StateLibMain {
         Out-BufferLine "==========================================" -Fore $Theme.Label -NewLine
         
         $totalItems = 2 + $Global:Context.Config.Libraries.Count
-        if ($cursor -ge $totalItems) { $cursor = [Math]::Max(0, $totalItems - 1) }
+        if ($cursor -ge $totalItems) {
+            $cursor = [Math]::Max(0, $totalItems - 1) 
+        }
         $Global:Context.LibMainCursor = $cursor
 
         # Opción 1 de Navegación: Guardar y Salir
-        $p0 = if ($cursor -eq 0) { " > " } else { "   " }
-        $bg0 = if ($cursor -eq 0) { $Theme.SelBack } else { "Black" }
-        $fg0 = if ($cursor -eq 0) { $Theme.Selected } else { $Theme.Action }
+        $p0 = if ($cursor -eq 0) {
+            " > " 
+        } else {
+            "   " 
+        }
+        $bg0 = if ($cursor -eq 0) {
+            $Theme.SelBack 
+        } else {
+            "Black" 
+        }
+        $fg0 = if ($cursor -eq 0) {
+            $Theme.Selected 
+        } else {
+            $Theme.Action 
+        }
         Out-BufferLine "$p0[ Continuar y Guardar ]" -Fore $fg0 -Back $bg0 -NewLine
         
         # Opción 2 de Navegación: Buscar Libs
-        $p1 = if ($cursor -eq 1) { " > " } else { "   " }
-        $bg1 = if ($cursor -eq 1) { $Theme.SelBack } else { "Black" }
-        $fg1 = if ($cursor -eq 1) { $Theme.Selected } else { $Theme.Highlight }
+        $p1 = if ($cursor -eq 1) {
+            " > " 
+        } else {
+            "   " 
+        }
+        $bg1 = if ($cursor -eq 1) {
+            $Theme.SelBack 
+        } else {
+            "Black" 
+        }
+        $fg1 = if ($cursor -eq 1) {
+            $Theme.Selected 
+        } else {
+            $Theme.Highlight 
+        }
         Out-BufferLine "$p1[ + ] Buscar y Añadir Nueva Librería" -Fore $fg1 -Back $bg1 -NewLine
         Out-BufferLine "" -NewLine
 
         # Lista de Librerías Actuales
         if ($Global:Context.Config.Libraries.Count -eq 0) {
             Out-BufferLine "   (No hay librerías instaladas en este proyecto)" -Fore $Theme.Faint -NewLine
-            for ($k=0; $k -lt ($listSpace - 4); $k++) { Out-BufferLine "" -NewLine }
+            for ($k=0; $k -lt ($listSpace - 4); $k++) {
+                Out-BufferLine "" -NewLine 
+            }
         } else {
             for ($i=0; $i -lt $Global:Context.Config.Libraries.Count; $i++) {
                 $idx = $i + 2
-                $p = if ($idx -eq $cursor) { " > " } else { "   " }
-                $bg = if ($idx -eq $cursor) { $Theme.SelBack } else { "Black" }
-                $fg = if ($idx -eq $cursor) { $Theme.Selected } else { $Theme.Text }
+                $p = if ($idx -eq $cursor) {
+                    " > " 
+                } else {
+                    "   " 
+                }
+                $bg = if ($idx -eq $cursor) {
+                    $Theme.SelBack 
+                } else {
+                    "Black" 
+                }
+                $fg = if ($idx -eq $cursor) {
+                    $Theme.Selected 
+                } else {
+                    $Theme.Text 
+                }
                 
                 $lib = $Global:Context.Config.Libraries[$i]
                 Out-BufferLine "$p$($lib.Name) @ $($lib.Version)" -Fore $fg -Back $bg -NewLine
             }
-            for ($k=0; $k -lt ($listSpace - 3 - $Global:Context.Config.Libraries.Count); $k++) { Out-BufferLine "" -NewLine }
+            for ($k=0; $k -lt ($listSpace - 3 - $Global:Context.Config.Libraries.Count); $k++) {
+                Out-BufferLine "" -NewLine 
+            }
         }
 
         [Console]::SetCursorPosition(0, $winH - 1)
@@ -916,39 +1282,53 @@ function Invoke-StateLibMain {
 
         if ([Console]::KeyAvailable) {
             $K = [Console]::ReadKey($true)
-            if ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') { $Global:Context.CurrentState = "ExitApp"; $done=$true }
-            elseif ($K.KeyChar -eq 's') { $Global:Context.CurrentState = "State-Save"; $done=$true }
-            elseif ($K.Key -eq [ConsoleKey]::LeftArrow -or $K.KeyChar -eq 'h') { 
+            if ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'q') {
+                $Global:Context.CurrentState = "ExitApp"; $done=$true 
+            } elseif ($K.KeyChar -eq 's') {
+                $Global:Context.CurrentState = "State-Save"; $done=$true 
+            } elseif ($K.Key -eq [ConsoleKey]::LeftArrow -or $K.KeyChar -eq 'h') { 
                 # Retroceder respetando la placa que tenemos seleccionada
-                if ($Global:Context.Config.Board -match "s3") { $Global:Context.CurrentState = "State-Memory" } 
-                else { $Global:Context.CurrentState = "State-Baud" }
+                if ($Global:Context.Config.Board -match "s3") {
+                    $Global:Context.CurrentState = "State-Memory" 
+                } else {
+                    $Global:Context.CurrentState = "State-Baud" 
+                }
                 $done = $true 
-            }
-            elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') { if ($cursor -gt 0) { $cursor-- } }
-            elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') { if ($cursor -lt $totalItems - 1) { $cursor++ } }
-            elseif ($K.KeyChar -eq 'i') {
+            } elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') {
+                if ($cursor -gt 0) {
+                    $cursor-- 
+                } 
+            } elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') {
+                if ($cursor -lt $totalItems - 1) {
+                    $cursor++ 
+                } 
+            } elseif ($K.KeyChar -eq 'i') {
                 # Mostrar Info Interactivamente
                 if ($cursor -ge 2) {
                     $lib = $Global:Context.Config.Libraries[$cursor - 2]
                     Show-LibDetails -LibraryName $lib.Name -FallbackItem @{ name=$lib.Name; version=$lib.Version }
-                    if ($Global:Context.CurrentState -eq "ExitApp") { $done = $true } # Respetar señal de apagado
+                    if ($Global:Context.CurrentState -eq "ExitApp") {
+                        $done = $true 
+                    } # Respetar señal de apagado
                 }
-            }
-            elseif ($K.KeyChar -eq 'x' -or $K.Key -eq [ConsoleKey]::Delete) {
+            } elseif ($K.KeyChar -eq 'x' -or $K.Key -eq [ConsoleKey]::Delete) {
                 # Borrado lógico de un elemento en memoria usando un array temporal auxiliar
                 if ($cursor -ge 2) {
                     $libIndex = $cursor - 2
                     $tempArray = @()
                     for ($i=0; $i -lt $Global:Context.Config.Libraries.Count; $i++) { 
-                        if ($i -ne $libIndex) { $tempArray += $Global:Context.Config.Libraries[$i] } 
+                        if ($i -ne $libIndex) {
+                            $tempArray += $Global:Context.Config.Libraries[$i] 
+                        } 
                     }
                     $Global:Context.Config.Libraries = $tempArray
                 }
-            }
-            elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') { 
-                if ($cursor -eq 0) { $Global:Context.CurrentState = "State-Save"; $done = $true }
-                elseif ($cursor -eq 1) { $Global:Context.CurrentState = "State-LibSearch"; $done = $true }
-                else {
+            } elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') { 
+                if ($cursor -eq 0) {
+                    $Global:Context.CurrentState = "State-Save"; $done = $true 
+                } elseif ($cursor -eq 1) {
+                    $Global:Context.CurrentState = "State-LibSearch"; $done = $true 
+                } else {
                     # Si selecciona una librería, abrimos el selector de versiones para esa librería
                     $lib = $Global:Context.Config.Libraries[$cursor - 2]
                     $Global:Context.TempLib.Name = $lib.Name; $Global:Context.TempLib.CurrentVersion = $lib.Version
@@ -970,13 +1350,13 @@ function Invoke-StateLibMain {
     los resultados seguirán ahí sin tener que consultar la API de nuevo.
 #>
 function Invoke-StateLibSearch {
-    
     # Evaluar si la caché de resultados de una búsqueda previa debe ser restaurada
     if ($Global:Context.SearchCache.Active) {
         $results = $Global:Context.SearchCache.Results
         $cursor  = $Global:Context.SearchCache.Cursor
         $scroll  = $Global:Context.SearchCache.Scroll
         $Global:Context.SearchCache.Active = $false
+        $searchJob = $null
     } else {
         # Si no hay caché, pedimos el input del usuario para una búsqueda nueva
         [Console]::SetCursorPosition(0,0)
@@ -985,76 +1365,275 @@ function Invoke-StateLibSearch {
         Out-BufferLine "==========================================" -Fore $Theme.Label -NewLine
         Out-BufferLine "" -NewLine
         Out-BufferLine " Escribe el nombre o palabra clave (ej: json, dht11, adafruit)" -Fore $Theme.Faint -NewLine
-        Out-BufferLine " Presiona [Enter] para buscar o [Esc] para cancelar." -Fore $Theme.Faint -NewLine
+        Out-BufferLine " Presiona [Enter] para buscar o dejar vacio para cancelar." -Fore $Theme.Faint -NewLine
         Out-BufferLine "" -NewLine
         [Console]::Write(" BUSCAR: ")
         
-        try { [Console]::CursorVisible = $true } catch {}
-        $query = Read-Host
-        try { [Console]::CursorVisible = $false } catch {}
-
-        if ([string]::IsNullOrWhiteSpace($query)) { $Global:Context.CurrentState = "State-LibMain"; return }
-
-        Out-BufferLine " Buscando en PlatformIO Registry, por favor espera..." -Fore $Theme.Loading -NewLine
-        
         try {
-            # Consulta REST cifrada en formato URI para evitar inyecciones e invalidaciones HTTP
-            $safeQuery = [uri]::EscapeDataString($query)
-            $uri = "https://api.registry.platformio.org/v3/search?query=$safeQuery"
-            $json = Invoke-RestMethod -Uri $uri
-            
-            $results = @()
-            if ($json.items) { $results = $json.items } elseif ($json -is [array]) { $results = $json }
-            
-            if ($results.Count -eq 0) {
-                Out-BufferLine " No se encontraron resultados. Presiona cualquier tecla..." -Fore $Theme.Error
-                [Console]::ReadKey($true) | Out-Null
-                $Global:Context.CurrentState = "State-LibMain"
-                return
-            }
-            
-            # Guardar en la caché para no tener que buscar de nuevo
-            $Global:Context.SearchCache.Results = $results
-            $cursor = 0; $scroll = 0
+            [Console]::CursorVisible = $true 
         } catch {
-            Out-BufferLine " Error al contactar PlatformIO Registry. Presiona cualquier tecla..." -Fore $Theme.Error
-            [Console]::ReadKey($true) | Out-Null
-            $Global:Context.CurrentState = "State-LibMain"
-            return
         }
+        $query = Read-Host
+        try {
+            [Console]::CursorVisible = $false 
+        } catch {
+        }
+
+        if ([string]::IsNullOrWhiteSpace($query)) {
+            $Global:Context.CurrentState = "State-LibMain"; return 
+        }
+
+        # WORKER BLOCK PARA HILO SECUNDARIO CON STREAMING DE FASES
+        $WorkerBlock = {
+            param(
+                [string]$Query,
+                [int]$TargetThreshold
+            )
+
+            function Get-InternalPermutations {
+                param([string[]]$Items)
+                if ($Items.Count -le 1) {
+                    return @(, $Items) 
+                }
+                $perms = @()
+                for ($i = 0; $i -lt $Items.Count; $i++) {
+                    $first = $Items[$i]
+                    $rest = @()
+                    for ($j = 0; $j -lt $Items.Count; $j++) {
+                        if ($j -ne $i) {
+                            $rest += $Items[$j] 
+                        }
+                    }
+                    foreach ($sub in (Get-InternalPermutations -Items $rest)) {
+                        $perms += , (@($first) + $sub)
+                    }
+                }
+                return $perms
+            }
+
+            try {
+                $patterns = $Query -split '\s+' | Where-Object { $_.Trim().Length -gt 0 }
+                $totalPatterns = $patterns.Count
+
+                $emittedIds = [System.Collections.Generic.HashSet[string]]::new()
+                $pendingPartials = [System.Collections.Generic.List[psobject]]::new()
+                $perfectMatches = 0
+
+                function Process-Items {
+                    param(
+                        [array]$Items,
+                        [bool]$AllowPartials = $false
+                    )
+                    foreach ($item in $Items) {
+                        if (-not $item.id -or $emittedIds.Contains($item.id)) {
+                            continue 
+                        }
+
+                        $owner = if ($item.owner -and $item.owner.username) {
+                            $item.owner.username 
+                        } else {
+                            "" 
+                        }
+                        $fullName = "$owner/$($item.name)"
+                        $fullLower = $fullName.ToLower()
+
+                        # Evaluación estricta sobre Autor/Título ($owner/$name)
+                        $matches = 0
+                        $matchedTokens = @()
+                        foreach ($p in $patterns) {
+                            if ($fullLower.Contains($p.ToLower())) {
+                                $matches++
+                                $matchedTokens += $p
+                            }
+                        }
+
+                        if ($matches -gt 0) {
+                            [void]$emittedIds.Add($item.id)
+
+                            $resultObj = [PSCustomObject]@{
+                                Item          = $item
+                                Score         = $matches
+                                MatchedTokens = $matchedTokens
+                                FullName      = $fullName
+                                TotalPatterns = $totalPatterns
+                            }
+
+                            if ($matches -eq $totalPatterns) {
+                                $script:perfectMatches++
+                                # Emisión inmediata en tiempo real
+                                $resultObj
+                            } else {
+                                if ($AllowPartials) {
+                                    $resultObj
+                                } else {
+                                    $pendingPartials.Add($resultObj)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                # FASE 1: CONSULTAS COMBINADAS (SOLO COINCIDENCIAS 100%)
+                $combinedQueries = @()
+                if ($totalPatterns -ge 2) {
+                    $perms = Get-InternalPermutations -Items $patterns
+                    foreach ($p in $perms) {
+                        $combinedQueries += "*" + ($p -join '*') + "*"
+                        $combinedQueries += ($p -join '*') + "*"
+                        $combinedQueries += "*" + ($p -join '') + "*"
+                    }
+                    $combinedQueries += ($patterns | ForEach-Object { "*$_*" }) -join " "
+                    $combinedQueries += ($patterns | ForEach-Object { "$_*" }) -join " "
+                } else {
+                    foreach ($p in $patterns) {
+                        $combinedQueries += "*$p*"
+                        $combinedQueries += "$p*"
+                    }
+                }
+
+                $combinedQueries = $combinedQueries | Select-Object -Unique
+
+                foreach ($q in $combinedQueries) {
+                    $encoded = [System.Uri]::EscapeDataString($q)
+                    foreach ($page in 1..2) {
+                        $uri = "https://api.registry.platformio.org/v3/search?query=$encoded&page=$page"
+                        try {
+                            $res = Invoke-RestMethod -Uri $uri -TimeoutSec 3
+                            if ($res.items -and $res.items.Count -gt 0) {
+                                Process-Items -Items $res.items -AllowPartials $false
+                            } else {
+                                break 
+                            }
+                        } catch {
+                            break 
+                        }
+                    }
+                }
+
+                # FASE 2: COINCIDENCIAS PARCIALES
+                if ($pendingPartials.Count -gt 0) {
+                    foreach ($partial in ($pendingPartials | Sort-Object -Property Score -Descending)) {
+                        $partial
+                    }
+                    $pendingPartials.Clear()
+                }
+
+                if ($perfectMatches -lt $TargetThreshold -and $totalPatterns -gt 1) {
+                    foreach ($p in $patterns) {
+                        $encoded = [System.Uri]::EscapeDataString("$p*")
+                        $uri = "https://api.registry.platformio.org/v3/search?query=$encoded&page=1"
+                        try {
+                            $res = Invoke-RestMethod -Uri $uri -TimeoutSec 3
+                            if ($res.items) {
+                                Process-Items -Items $res.items -AllowPartials $true
+                            }
+                        } catch {
+                        }
+                    }
+                }
+            } catch {
+            }
+        }
+
+        # Inicialización del Job y buffers de ordenamiento
+        $searchJob = Start-Job -ScriptBlock $WorkerBlock -ArgumentList $query, 3
+        $resultsEntries = [System.Collections.Generic.List[psobject]]::new()
+        $results = @()
+        $cursor = 0
+        $scroll = 0
     }
 
+    $spinner = @('|', '/', '-', '\')
+    $spinIdx = 0
     $done = $false
-    # Bucle gráfico de visualización de resultados
+
+    # BUCLE UNIFICADO: BÚSQUEDA STREAMING ASÍNCRONA + INTERFAZ TUI EN TIEMPO REAL
     while (-not $done) {
+        # 1. Recibir datos del job asíncrono y reordenar instantáneamente por Score (coincidencias)
+        if ($searchJob) {
+            $streamed = Receive-Job $searchJob -ErrorAction SilentlyContinue
+            if ($streamed) {
+                foreach ($entry in $streamed) {
+                    if ($entry.Item) {
+                        $resultsEntries.Add($entry) 
+                    }
+                }
+                # Ordenamiento continuo por número de coincidencias encontradas
+                $sortedEntries = @($resultsEntries | Sort-Object -Property Score -Descending)
+                $results = @($sortedEntries | ForEach-Object { $_.Item })
+            }
+
+            if ($searchJob.State -ne 'Running' -and -not $searchJob.HasMoreData) {
+                Remove-Job $searchJob -ErrorAction SilentlyContinue
+                $searchJob = $null
+                if ($results.Count -eq 0) {
+                    Out-BufferLine " No se encontraron resultados. Presiona cualquier tecla..." -Fore $Theme.Error
+                    [Console]::ReadKey($true) | Out-Null
+                    $Global:Context.CurrentState = "State-LibMain"
+                    return
+                }
+            }
+        }
+
+        # 2. Renderizado gráfico del TUI
         $winH = $Host.UI.RawUI.WindowSize.Height; $listSpace = $winH - 5
         [Console]::SetCursorPosition(0,0)
+        
         Out-BufferLine "==========================================" -Fore $Theme.Label -NewLine
-        Out-BufferLine "   RESULTADOS DE BUSQUEDA                 " -Fore $Theme.Title -NewLine
+        if ($searchJob) {
+            $char = $spinner[$spinIdx]
+            $spinIdx = ($spinIdx + 1) % $spinner.Length
+            Out-BufferLine "   PIO: BUSCANDO... [$char] ($($results.Count) encontradas)  " -Fore $Theme.Loading -NewLine
+        } else {
+            Out-BufferLine "   RESULTADOS DE BUSQUEDA ($($results.Count))              " -Fore $Theme.Title -NewLine
+        }
         Out-BufferLine "==========================================" -Fore $Theme.Label -NewLine
 
-        if ($cursor -ge $scroll + $listSpace) { $scroll = $cursor - $listSpace + 1 }
-        if ($cursor -lt $scroll) { $scroll = $cursor }
+        if ($cursor -ge $scroll + $listSpace) {
+            $scroll = $cursor - $listSpace + 1 
+        }
+        if ($cursor -lt $scroll) {
+            $scroll = $cursor 
+        }
 
-        for ($i=0; $i -lt $listSpace; $i++) {
+        for ($i = 0; $i -lt $listSpace; $i++) {
             $idx = $scroll + $i
             if ($idx -lt $results.Count) {
                 $item = $results[$idx]
-                $p = if ($idx -eq $cursor) { " > " } else { "   " }
-                $bg = if ($idx -eq $cursor) { $Theme.SelBack } else { "Black" }
-                $fg = if ($idx -eq $cursor) { $Theme.Selected } else { $Theme.Text }
+                $p  = if ($idx -eq $cursor) {
+                    " > " 
+                } else {
+                    "   " 
+                }
+                $bg = if ($idx -eq $cursor) {
+                    $Theme.SelBack 
+                } else {
+                    "Black" 
+                }
+                $fg = if ($idx -eq $cursor) {
+                    $Theme.Selected 
+                } else {
+                    $Theme.Text 
+                }
                 
-                $ownerName = if ($item.owner -and $item.owner.username) { $item.owner.username } else { "Unknown" }
+                $ownerName = if ($item.owner -and $item.owner.username) {
+                    $item.owner.username 
+                } else {
+                    "Unknown" 
+                }
                 $libFullName = "$ownerName/$($item.name)"
                 
-                # Check Estricto: Comprueba visualmente si esta librería ya la tienes para marcarla en verde
                 $isInstalled = $false
                 $searchBase = $item.name.ToLower()
                 $searchOwner = $ownerName.ToLower()
                 
                 foreach ($l in $Global:Context.Config.Libraries) {
                     $lBase = ($l.Name -split "/")[-1].ToLower()
-                    $lOwner = if ($l.Name -match "/") { ($l.Name -split "/")[0].ToLower() } else { "" }
+                    $lOwner = if ($l.Name -match "/") {
+                        ($l.Name -split "/")[0].ToLower() 
+                    } else {
+                        "" 
+                    }
                     
                     if ($lBase -eq $searchBase -and ($lOwner -eq "" -or $lOwner -eq $searchOwner)) { 
                         $isInstalled = $true; break 
@@ -1062,61 +1641,116 @@ function Invoke-StateLibSearch {
                 }
                 
                 if ($isInstalled) {
-                    $fgInst = if ($idx -eq $cursor) { $Theme.Selected } else { $Theme.Action }
+                    $fgInst = if ($idx -eq $cursor) {
+                        $Theme.Selected 
+                    } else {
+                        $Theme.Action 
+                    }
                     Out-BufferLine "$p$libFullName [Instalada]" -Fore $fgInst -Back $bg -NewLine
                 } else {
                     Out-BufferLine "$p$libFullName" -Fore $fg -Back $bg -NewLine
                 }
-            } else { Out-BufferLine "" -NewLine }
+            } else {
+                Out-BufferLine "" -NewLine 
+            }
         }
 
         [Console]::SetCursorPosition(0, $winH - 1)
-        Out-BufferLine " [Enter] Instalar  [i] Ver Info  [h] Volver  [q] Salir App" -Fore $Theme.Faint -Back $Theme.SearchBack
+        if ($searchJob) {
+            Out-BufferLine " [Enter] Instalar  [i] Ver Info  [ESC] Cancelar Busqueda  [q] Salir" -Fore $Theme.Faint -Back $Theme.SearchBack
+        } else {
+            Out-BufferLine " [Enter] Instalar  [i] Ver Info  [h] Volver  [q] Salir App" -Fore $Theme.Faint -Back $Theme.SearchBack
+        }
 
+        # 3. Captura interactiva de teclado durante o después de la búsqueda
         if ([Console]::KeyAvailable) {
             $K = [Console]::ReadKey($true)
-            if ($K.KeyChar -eq 'q') { $Global:Context.CurrentState = "ExitApp"; $done = $true }
-            elseif ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'h') { $Global:Context.CurrentState = "State-LibMain"; $done = $true }
-            elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') { if ($cursor -gt 0) { $cursor-- } }
-            elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') { if ($cursor -lt $results.Count - 1) { $cursor++ } }
-            elseif ($K.KeyChar -eq 'i') {
-                $item = $results[$cursor]
-                $ownerName = if ($item.owner -and $item.owner.username) { $item.owner.username } else { "" }
-                $libFullName = if ($ownerName) { "$ownerName/$($item.name)" } else { $item.name }
-                
-                Show-LibDetails -LibraryName $libFullName -FallbackItem $item
-                if ($Global:Context.CurrentState -eq "ExitApp") { $done = $true }
-            }
-            elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') {
-                $item = $results[$cursor]
-                $ownerName = if ($item.owner -and $item.owner.username) { $item.owner.username } else { "Unknown" }
-                $targetName = "$ownerName/$($item.name)"
-                
-                $Global:Context.TempLib.Name = $targetName
-                $Global:Context.TempLib.CurrentVersion = "latest"
-                
-                # Pre-Carga de la Versión para el Cursor:
-                # Si vas a instalar una librería pero detectamos que YA la tienes, seteamos tu
-                # versión actual en el TempLib para que aparezca marcada en la lista que sigue.
-                $searchBase = $item.name.ToLower()
-                $searchOwner = $ownerName.ToLower()
-                foreach ($l in $Global:Context.Config.Libraries) {
-                    $lBase = ($l.Name -split "/")[-1].ToLower()
-                    $lOwner = if ($l.Name -match "/") { ($l.Name -split "/")[0].ToLower() } else { "" }
-                    if ($lBase -eq $searchBase -and ($lOwner -eq "" -or $lOwner -eq $searchOwner)) {
-                        $Global:Context.TempLib.CurrentVersion = $l.Version
-                        break
+            if ($K.KeyChar -eq 'q') {
+                if ($searchJob) {
+                    Stop-Job $searchJob -ErrorAction SilentlyContinue; Remove-Job $searchJob -ErrorAction SilentlyContinue 
+                }
+                $Global:Context.CurrentState = "ExitApp"; $done = $true 
+            } elseif ($K.Key -eq [ConsoleKey]::Escape) {
+                if ($searchJob) {
+                    # Si el job está activo, la tecla ESC detiene el streaming
+                    Stop-Job $searchJob -ErrorAction SilentlyContinue
+                    Remove-Job $searchJob -ErrorAction SilentlyContinue
+                    $searchJob = $null
+                } else {
+                    $Global:Context.CurrentState = "State-LibMain"; $done = $true 
+                }
+            } elseif ($K.KeyChar -eq 'h') {
+                if ($searchJob) {
+                    Stop-Job $searchJob -ErrorAction SilentlyContinue; Remove-Job $searchJob -ErrorAction SilentlyContinue 
+                }
+                $Global:Context.CurrentState = "State-LibMain"; $done = $true 
+            } elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') {
+                if ($cursor -gt 0) {
+                    $cursor-- 
+                } 
+            } elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') {
+                if ($cursor -lt $results.Count - 1) {
+                    $cursor++ 
+                } 
+            } elseif ($K.KeyChar -eq 'i') {
+                if ($results.Count -gt 0 -and $cursor -lt $results.Count) {
+                    $item = $results[$cursor]
+                    $ownerName = if ($item.owner -and $item.owner.username) {
+                        $item.owner.username 
+                    } else {
+                        "" 
+                    }
+                    $libFullName = if ($ownerName) {
+                        "$ownerName/$($item.name)" 
+                    } else {
+                        $item.name 
+                    }
+                    
+                    Show-LibDetails -LibraryName $libFullName -FallbackItem $item
+                    if ($Global:Context.CurrentState -eq "ExitApp") {
+                        $done = $true 
                     }
                 }
-                
-                # Preservamos los datos de nuestra lista por si el usuario presiona [h]
-                $Global:Context.SearchCache.Active = $true
-                $Global:Context.SearchCache.Cursor = $cursor
-                $Global:Context.SearchCache.Scroll = $scroll
-                
-                $Global:Context.LibVersionReturnState = "State-LibSearch"
-                $Global:Context.CurrentState = "State-LibVersion"
-                $done = $true
+            } elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') {
+                if ($results.Count -gt 0 -and $cursor -lt $results.Count) {
+                    if ($searchJob) {
+                        Stop-Job $searchJob -ErrorAction SilentlyContinue; Remove-Job $searchJob -ErrorAction SilentlyContinue 
+                    }
+                    $item = $results[$cursor]
+                    $ownerName = if ($item.owner -and $item.owner.username) {
+                        $item.owner.username 
+                    } else {
+                        "Unknown" 
+                    }
+                    $targetName = "$ownerName/$($item.name)"
+                    
+                    $Global:Context.TempLib.Name = $targetName
+                    $Global:Context.TempLib.CurrentVersion = "latest"
+                    
+                    $searchBase = $item.name.ToLower()
+                    $searchOwner = $ownerName.ToLower()
+                    foreach ($l in $Global:Context.Config.Libraries) {
+                        $lBase = ($l.Name -split "/")[-1].ToLower()
+                        $lOwner = if ($l.Name -match "/") {
+                            ($l.Name -split "/")[0].ToLower() 
+                        } else {
+                            "" 
+                        }
+                        if ($lBase -eq $searchBase -and ($lOwner -eq "" -or $lOwner -eq $searchOwner)) {
+                            $Global:Context.TempLib.CurrentVersion = $l.Version
+                            break
+                        }
+                    }
+                    
+                    $Global:Context.SearchCache.Active = $true
+                    $Global:Context.SearchCache.Results = $results
+                    $Global:Context.SearchCache.Cursor = $cursor
+                    $Global:Context.SearchCache.Scroll = $scroll
+                    
+                    $Global:Context.LibVersionReturnState = "State-LibSearch"
+                    $Global:Context.CurrentState = "State-LibVersion"
+                    $done = $true
+                }
             }
         }
         Start-Sleep -Milliseconds 40
@@ -1141,7 +1775,9 @@ function Invoke-StateLibVersion {
     Out-BufferLine " Cargando versiones, por favor espera..." -Fore $Theme.Loading -NewLine
     
     # Se pintan vacías las líneas posteriores para evitar remanentes visuales ("artefactos")
-    for ($k = 5; $k -lt $winH; $k++) { Out-BufferLine "" -NewLine }
+    for ($k = 5; $k -lt $winH; $k++) {
+        Out-BufferLine "" -NewLine 
+    }
     
     $versions = @("latest")
     try {
@@ -1159,7 +1795,11 @@ function Invoke-StateLibVersion {
         
         # Extraemos e insertamos el arreglo de versiones disponibles al selector
         if ($null -ne $json.versions -and $json.versions.Count -gt 0) { 
-            foreach($v in $json.versions) { if ($v.name) { $versions += "^$($v.name)" } } 
+            foreach($v in $json.versions) {
+                if ($v.name) {
+                    $versions += "^$($v.name)" 
+                } 
+            } 
         } elseif ($json.version -and $json.version.name) { 
             $versions += "^$($json.version.name)" 
         }
@@ -1173,24 +1813,46 @@ function Invoke-StateLibVersion {
         $winH = $Host.UI.RawUI.WindowSize.Height; $listSpace = $winH - 6
         [Console]::SetCursorPosition(0,4)
 
-        if ($cursor -ge $scroll + $listSpace) { $scroll = $cursor - $listSpace + 1 }
-        if ($cursor -lt $scroll) { $scroll = $cursor }
+        if ($cursor -ge $scroll + $listSpace) {
+            $scroll = $cursor - $listSpace + 1 
+        }
+        if ($cursor -lt $scroll) {
+            $scroll = $cursor 
+        }
 
         for ($i=0; $i -lt $listSpace; $i++) {
             $idx = $scroll + $i
             if ($idx -lt $versions.Count) {
                 $ver = $versions[$idx]
-                $p = if ($idx -eq $cursor) { " > " } else { "   " }
-                $bg = if ($idx -eq $cursor) { $Theme.SelBack } else { "Black" }
-                $fg = if ($idx -eq $cursor) { $Theme.Selected } else { $Theme.Text }
+                $p = if ($idx -eq $cursor) {
+                    " > " 
+                } else {
+                    "   " 
+                }
+                $bg = if ($idx -eq $cursor) {
+                    $Theme.SelBack 
+                } else {
+                    "Black" 
+                }
+                $fg = if ($idx -eq $cursor) {
+                    $Theme.Selected 
+                } else {
+                    $Theme.Text 
+                }
                 
                 # Para mostrar el asterisco (*), limpiamos los caracteres de rango especiales de SemVer
                 $cleanTempVer = $Global:Context.TempLib.CurrentVersion -replace "[\^\~]",""
                 $cleanListVer = $ver -replace "[\^\~]",""
-                $mark = if ($cleanTempVer -eq $cleanListVer) { "[*] " } else { "    " }
+                $mark = if ($cleanTempVer -eq $cleanListVer) {
+                    "[*] " 
+                } else {
+                    "    " 
+                }
                 
                 Out-BufferLine "$p$mark$ver" -Fore $fg -Back $bg -NewLine
-            } else { Out-BufferLine "" -NewLine }
+            } else {
+                Out-BufferLine "" -NewLine 
+            }
         }
 
         [Console]::SetCursorPosition(0, $winH - 1)
@@ -1199,17 +1861,23 @@ function Invoke-StateLibVersion {
         if ([Console]::KeyAvailable) {
             $K = [Console]::ReadKey($true)
             
-            if ($K.KeyChar -eq 'q') { $Global:Context.CurrentState = "ExitApp"; $done = $true }
-            elseif ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'h') { 
+            if ($K.KeyChar -eq 'q') {
+                $Global:Context.CurrentState = "ExitApp"; $done = $true 
+            } elseif ($K.Key -eq [ConsoleKey]::Escape -or $K.KeyChar -eq 'h') { 
                 # Si el usuario vino desde el buscador, reactivamos la caché al retroceder
                 if ($Global:Context.LibVersionReturnState -eq "State-LibSearch") {
                     $Global:Context.SearchCache.Active = $true
                 }
                 $Global:Context.CurrentState = $Global:Context.LibVersionReturnState; $done = $true 
-            }
-            elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') { if ($cursor -gt 0) { $cursor-- } }
-            elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') { if ($cursor -lt $versions.Count - 1) { $cursor++ } }
-            elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') {
+            } elseif ($K.Key -eq [ConsoleKey]::UpArrow -or $K.KeyChar -eq 'k') {
+                if ($cursor -gt 0) {
+                    $cursor-- 
+                } 
+            } elseif ($K.Key -eq [ConsoleKey]::DownArrow -or $K.KeyChar -eq 'j') {
+                if ($cursor -lt $versions.Count - 1) {
+                    $cursor++ 
+                } 
+            } elseif ($K.Key -eq [ConsoleKey]::Enter -or $K.KeyChar -eq 'l') {
                 # Confirmación: Añadimos y sobreescribimos cualquier versión antigua automáticamente
                 $selectedVer = $versions[$cursor]
                 Add-LibDep -Raw "$($Global:Context.TempLib.Name) @ $selectedVer"
@@ -1241,7 +1909,11 @@ function Invoke-StateSave {
     Write-Host "`n [1/3] Operando platformio.ini (Modo Quirúrgico Aditivo V1.3 - PS 5.1)..." -ForegroundColor Yellow
     
     # 1. Cargamos el archivo en la memoria.
-    $lines = if (Test-Path $Global:Context.IniPath) { (Get-Content $Global:Context.IniPath) } else { @() }
+    $lines = if (Test-Path $Global:Context.IniPath) {
+        (Get-Content $Global:Context.IniPath) 
+    } else {
+        @() 
+    }
     $newLines = @(); $envFound = $false
     $flashMap = @{ "4MB" = "4194304"; "8MB" = "8388608"; "16MB" = "16777216"; "32MB" = "33554432" }
     
@@ -1262,7 +1934,11 @@ function Invoke-StateSave {
         
         # Detectar el inicio y fin de las secciones durante el escaneo
         if ($trimmed -match "^\[env:([^\]]+)\]") {
-            if ($Matches[1].Trim() -eq $targetEnvName) { $inTargetEnvScan = $true } else { $inTargetEnvScan = $false }
+            if ($Matches[1].Trim() -eq $targetEnvName) {
+                $inTargetEnvScan = $true 
+            } else {
+                $inTargetEnvScan = $false 
+            }
             $collectingFlags = $false
             continue
         } elseif ($trimmed -match "^\[([^\]]+)\]") {
@@ -1276,7 +1952,9 @@ function Invoke-StateSave {
             if ($trimmed -match "^build_flags\s*=\s*(.*)") {
                 $collectingFlags = $true
                 $initialVal = ($Matches[1].Trim() -split '\s+[;#]')[0].Trim()
-                if ($initialVal) { $existingFlags += $initialVal }
+                if ($initialVal) {
+                    $existingFlags += $initialVal 
+                }
                 continue
             }
             
@@ -1286,7 +1964,9 @@ function Invoke-StateSave {
                     $collectingFlags = $false # Otra clave detiene la recolección
                 } elseif ($trimmed -ne "") {
                     $flagClean = ($trimmed -split '\s+[;#]')[0].Trim()
-                    if ($flagClean) { $existingFlags += $flagClean }
+                    if ($flagClean) {
+                        $existingFlags += $flagClean 
+                    }
                 }
             }
         }
@@ -1296,9 +1976,13 @@ function Invoke-StateSave {
     if ($Global:Context.Config.Board -match "s3" -and $Global:Context.Config.PSRAMType -ne "None") {
         $hasPsramFlag = $false
         foreach ($flag in $existingFlags) {
-            if ($flag -match "-DBOARD_HAS_PSRAM") { $hasPsramFlag = $true; break }
+            if ($flag -match "-DBOARD_HAS_PSRAM") {
+                $hasPsramFlag = $true; break 
+            }
         }
-        if (-not $hasPsramFlag) { $existingFlags += "-DBOARD_HAS_PSRAM" }
+        if (-not $hasPsramFlag) {
+            $existingFlags += "-DBOARD_HAS_PSRAM" 
+        }
     } else {
         # Si el usuario configuró "None" (Sin PSRAM) en la TUI, limpiamos la flag del array si existía
         if ($existingFlags.Count -gt 0) {
@@ -1324,12 +2008,18 @@ function Invoke-StateSave {
         $configBlock += "board_upload.flash_size = $($Global:Context.Config.FlashSize)"
         $configBlock += "board_upload.maximum_size = $($flashMap[$Global:Context.Config.FlashSize])"
         
-        if ($Global:Context.Config.FlashSize -eq "16MB") { $configBlock += "board_build.partitions = default_16MB.csv" }
-        elseif ($Global:Context.Config.FlashSize -eq "8MB") { $configBlock += "board_build.partitions = default_8MB.csv" }
+        if ($Global:Context.Config.FlashSize -eq "16MB") {
+            $configBlock += "board_build.partitions = default_16MB.csv" 
+        } elseif ($Global:Context.Config.FlashSize -eq "8MB") {
+            $configBlock += "board_build.partitions = default_8MB.csv" 
+        }
 
         if ($Global:Context.Config.PSRAMType -ne "None") {
-            if ($Global:Context.Config.PSRAMType -match "OPI") { $configBlock += "board_build.arduino.memory_type = qio_opi" } 
-            else { $configBlock += "board_build.arduino.memory_type = qio_qspi" }
+            if ($Global:Context.Config.PSRAMType -match "OPI") {
+                $configBlock += "board_build.arduino.memory_type = qio_opi" 
+            } else {
+                $configBlock += "board_build.arduino.memory_type = qio_qspi" 
+            }
         }
     }
 
@@ -1344,8 +2034,11 @@ function Invoke-StateSave {
     if ($Global:Context.Config.Libraries.Count -gt 0) {
         $configBlock += "lib_deps ="
         foreach ($lib in $Global:Context.Config.Libraries) {
-            if ($lib.Version -eq "latest") { $configBlock += "    $($lib.Name)" }
-            else { $configBlock += "    $($lib.Name) @ $($lib.Version)" }
+            if ($lib.Version -eq "latest") {
+                $configBlock += "    $($lib.Name)" 
+            } else {
+                $configBlock += "    $($lib.Name) @ $($lib.Version)" 
+            }
         }
     }
 
@@ -1369,8 +2062,7 @@ function Invoke-StateSave {
                 $inTargetEnv = $false
                 $inMultilineOld = $false 
             }
-        }
-        elseif ($trimmed -match "^\[([^\]]+)\]") {
+        } elseif ($trimmed -match "^\[([^\]]+)\]") {
             $inTargetEnv = $false
             $inMultilineOld = $false
         }
@@ -1380,17 +2072,27 @@ function Invoke-StateSave {
             foreach($k in $keysToFilter){ 
                 if($trimmed -match "^$k([\.a-zA-Z0-9_-]*)\s*=") { 
                     $match = $true
-                    if ($k -eq "lib_deps" -or $k -eq "build_flags") { $inMultilineOld = $true } else { $inMultilineOld = $false }
+                    if ($k -eq "lib_deps" -or $k -eq "build_flags") {
+                        $inMultilineOld = $true 
+                    } else {
+                        $inMultilineOld = $false 
+                    }
                     break 
                 } 
             }
-            if($match){ continue } 
+            if($match){
+                continue 
+            } 
             
             # Absorbedor/Limpiador de líneas hijas antiguas (Multilínea de compilación antiguos)
             if ($inMultilineOld) {
-                if ($trimmed -match "^[a-zA-Z0-9_\-\.]+\s*=") { $inMultilineOld = $false } 
-                elseif ($trimmed.StartsWith("[")) { $inMultilineOld = $false } 
-                else { continue }
+                if ($trimmed -match "^[a-zA-Z0-9_\-\.]+\s*=") {
+                    $inMultilineOld = $false 
+                } elseif ($trimmed.StartsWith("[")) {
+                    $inMultilineOld = $false 
+                } else {
+                    continue 
+                }
             }
         }
         
@@ -1399,8 +2101,12 @@ function Invoke-StateSave {
 
     # 4. Fallback si el entorno no existía originalmente
     if (-not $envFound) {
-        if ($newLines.Count -eq 0) { $newLines += "; Generado por TUI CLI V8.0" }
-        if ($newLines.Count -gt 1) { $newLines += "" }
+        if ($newLines.Count -eq 0) {
+            $newLines += "; Generado por TUI CLI V8.0" 
+        }
+        if ($newLines.Count -gt 1) {
+            $newLines += "" 
+        }
         $newLines += "[env:$targetEnvName]"
         $newLines += $configBlock
     }
@@ -1409,7 +2115,11 @@ function Invoke-StateSave {
 
     # 5. Generación Boilerplate C++ (Arduino / ESP-IDF)
     Write-Host " [2/3] Verificando carpetas y generando plantilla Hola Mundo..." -ForegroundColor Yellow
-    foreach ($f in @("src", "lib", "include", "test")) { if (-not (Test-Path $f)) { New-Item -ItemType Directory $f -Force | Out-Null } }
+    foreach ($f in @("src", "lib", "include", "test")) {
+        if (-not (Test-Path $f)) {
+            New-Item -ItemType Directory $f -Force | Out-Null 
+        } 
+    }
 
     $mainCpp = Join-Path "src" "main.cpp"; $mainC = Join-Path "src" "main.c"
 
@@ -1431,8 +2141,7 @@ void loop() {
 }
 "@
             $code | Out-File $mainCpp -Encoding UTF8
-        } 
-        elseif ($Global:Context.Config.Framework -eq "espidf") {
+        } elseif ($Global:Context.Config.Framework -eq "espidf") {
             $code = @"
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -1448,14 +2157,18 @@ void app_main() {
 "@
             $code | Out-File $mainC -Encoding UTF8
         }
-    } else { Write-Host "        -> Se detecto código existente en src/. No se realizaran cambios en tu código." -ForegroundColor Cyan }
+    } else {
+        Write-Host "        -> Se detecto código existente en src/. No se realizaran cambios en tu código." -ForegroundColor Cyan 
+    }
 
     # 6. Sincronización oficial y salida
     Write-Host " [3/3] Sincronizando VS Code con PlatformIO..." -ForegroundColor Yellow
     try {
         $null = pio project init --ide vscode 2>&1
         Write-Host "`n [OK] Configuración y dependencias aplicadas exitosamente." -ForegroundColor Green
-    } catch { Write-Host "`n [ADVERTENCIA] El archivo se guardo, pero pio init falló." -ForegroundColor Red }
+    } catch {
+        Write-Host "`n [ADVERTENCIA] El archivo se guardo, pero pio init falló." -ForegroundColor Red 
+    }
 
     [Console]::ResetColor(); Start-Sleep 2
     $Global:Context.CurrentState = "ExitApp"
@@ -1472,19 +2185,40 @@ try {
     # Enrutador estricto (State Machine). Salta entre pantallas hasta que se envíe ExitApp.
     while ($Global:Context.CurrentState -ne "ExitApp") {
         switch ($Global:Context.CurrentState) {
-            "State-Port"       { Invoke-StatePort }
-            "State-Board"      { Invoke-StateBoard }
-            "State-Framework"  { Invoke-StateFramework }
-            "State-Baud"       { Invoke-StateBaud }
-            "State-Memory"     { Invoke-StateMemory }
-            "State-LibMain"    { Invoke-StateLibMain }
-            "State-LibSearch"  { Invoke-StateLibSearch }
-            "State-LibVersion" { Invoke-StateLibVersion }
-            "State-Save"       { Invoke-StateSave }
+            "State-Port"       {
+                Invoke-StatePort 
+            }
+            "State-Board"      {
+                Invoke-StateBoard 
+            }
+            "State-Framework"  {
+                Invoke-StateFramework 
+            }
+            "State-Baud"       {
+                Invoke-StateBaud 
+            }
+            "State-Memory"     {
+                Invoke-StateMemory 
+            }
+            "State-LibMain"    {
+                Invoke-StateLibMain 
+            }
+            "State-LibSearch"  {
+                Invoke-StateLibSearch 
+            }
+            "State-LibVersion" {
+                Invoke-StateLibVersion 
+            }
+            "State-Save"       {
+                Invoke-StateSave 
+            }
         }
     }
 } finally { 
     # Garbage Collection: Restauramos siempre la terminal al color y visualización original
-    try { [Console]::CursorVisible = $true } catch {}
+    try {
+        [Console]::CursorVisible = $true 
+    } catch {
+    }
     [Console]::ResetColor(); Clear-Host 
 }
