@@ -81,8 +81,8 @@ return {
         completion = {
             list = {
                 selection = {
-                    preselect = false, -- Inicia sin preselección al desplegar la lista flotante
-                    auto_insert = true, -- Escribe la palabra automáticamente en el buffer al navegar con Tab
+                    preselect = true, -- Inicia sin preselección al desplegar la lista flotante
+                    auto_insert = false, -- Escribe la palabra automáticamente en el buffer al navegar con Tab
                 },
             },
             documentation = {
