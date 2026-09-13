@@ -11,6 +11,8 @@ $AutoCargarFZF     = $false  # Si es $false, abre rapidísimo y lo cargas manual
 # ********************************************************
 $Global:OS_Family = "Unknown"
 $Global:IsWinLegacy = $false
+$Env:SHELL  = "pwsh.exe"
+$SHELL  = "pwsh.exe"
 
 if ($PSVersionTable.PSVersion.Major -lt 6) {
     # Lógica obligatoria para PowerShell 5.1 (Siempre se asume Windows)
@@ -315,9 +317,23 @@ function nvimt {
     Remove-Item Env:\NVIM_APPNAME
 }
 
-
 function nvimp {
     $env:NVIM_APPNAME = "nvim-prueba"
     nvim @args
     Remove-Item Env:\NVIM_APPNAME
+}
+
+
+function nvim-custom {
+    $old_appname = $env:NVIM_APPNAME
+    try {
+        $env:NVIM_APPNAME = "nvim-custom"
+        & nvim @args
+    } finally {
+        if ($null -eq $old_appname) {
+            Remove-Item Env:\NVIM_APPNAME -ErrorAction SilentlyContinue
+        } else {
+            $env:NVIM_APPNAME = $old_appname
+        }
+    }
 }
