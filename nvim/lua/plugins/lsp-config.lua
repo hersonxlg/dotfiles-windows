@@ -348,13 +348,13 @@ indent-sub-tables = true
 
                 if is_windows then
                     -- ==========================================
-                    -- CONFIGURACIÓN PARA WINDOWS (Scoop / MinGW)
+                    -- CONFIGURACIÓN PARA WINDOWS (Scoop / MinGW / PlatformIO)
                     -- ==========================================
                     local home = (vim.env.USERPROFILE or vim.uv.os_homedir()):gsub("\\", "/")
                     local mingw_include = home .. "/scoop/apps/mingw/current/x86_64-w64-mingw32/include"
 
-                    -- Patrón con barras invertidas dobles para rutas de Windows
-                    table.insert(cmd, "--query-driver=**\\bin\\*g++*,**\\bin\\*gcc*")
+                    -- IMPORTANTE: Aunque sea Windows, clangd requiere barras normales (/) para el globbing
+                    table.insert(cmd, "--query-driver=**/*-gcc,**/*-g++,**/*gcc*,**/*g++*")
 
                     fallbackFlags = {
                         "--target=x86_64-w64-mingw32",
@@ -364,10 +364,7 @@ indent-sub-tables = true
                     -- ==========================================
                     -- CONFIGURACIÓN PARA LINUX / MACOS
                     -- ==========================================
-
-                    -- Patrón universal con barras normales. Esto permite que clangd
-                    -- ejecute de forma segura los compiladores ocultos en ~/.platformio/...
-                    table.insert(cmd, "--query-driver=**/*g++*,**/*gcc*,**/*clang*")
+                    table.insert(cmd, "--query-driver=**/*-gcc,**/*-g++,**/*gcc*,**/*g++*,**/*clang*")
                 end
 
                 -- 2. Aplicamos la configuración en la API moderna de Neovim 0.12
@@ -928,9 +925,28 @@ indent-sub-tables = true
                 vim.fn.writefile(new_lines, clangd_file)
             end
 
-            local function safe_lsp_restart(client_name)
-                -- Comando nativo core de Neovim 0.12
-                vim.cmd("lsp restart " .. (client_name or ""))
+            local function safe_lsp_restart()
+                -- 1. Buscamos clientes activos
+                local clangd_clients = vim.lsp.get_clients({ name = "clangd" })
+
+                if #clangd_clients > 0 then
+                    -- 2. Si ya está activo, intentamos LspRestart o lo detenemos manualmente
+                    local has_command = pcall(vim.cmd, "LspRestart clangd")
+
+                    if not has_command then
+                        for _, client in ipairs(clangd_clients) do
+                            vim.lsp.stop_client(client.id)
+                        end
+                        -- Le damos un momento para cerrarse y relanzamos el evento
+                        vim.defer_fn(function()
+                            vim.cmd("silent! doautocmd FileType " .. vim.bo.filetype)
+                        end, 300)
+                    end
+                else
+                    -- 3. Si no estaba iniciado, forzamos el evento nativo en lugar de LspStart
+                    -- Esto activa vim.lsp.enable("clangd") de forma natural y segura
+                    vim.cmd("silent! doautocmd FileType " .. vim.bo.filetype)
+                end
             end
 
             local function ensure_platformio_setup(bufnr, force)
