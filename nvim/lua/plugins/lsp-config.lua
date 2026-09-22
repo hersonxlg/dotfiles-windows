@@ -925,26 +925,51 @@ indent-sub-tables = true
                 vim.fn.writefile(new_lines, clangd_file)
             end
 
+            --- Reinicia o inicializa de forma segura el servidor de lenguaje (LSP) 'clangd'.
+            --- Esta función gestiona el ciclo de vida del cliente LSP nativo en Neovim 0.12+,
+            --- previniendo errores cuando los comandos del editor cargados de forma diferida (lazy loading)
+            --- aún no están registrados. Si el cliente está activo, intenta un reinicio estándar
+            --- mediante el comando unificado `:lsp restart` o una terminación usando la API del objeto
+            --- cliente (`client:stop()`), seguida de una reevaluación del tipo de archivo (FileType)
+            --- para desencadenar el arranque automático del motor LSP.
             local function safe_lsp_restart()
-                -- 1. Buscamos clientes activos
+                -- Paso 1: Le preguntamos a Neovim si actualmente hay algún programa llamado "clangd" ejecutándose
+                -- y analizando nuestro código en segundo plano. Guardamos la respuesta en una lista.
                 local clangd_clients = vim.lsp.get_clients({ name = "clangd" })
 
+                -- Verificamos si la lista tiene al menos 1 elemento (es decir, el servidor ya estaba funcionando).
                 if #clangd_clients > 0 then
-                    -- 2. Si ya está activo, intentamos LspRestart o lo detenemos manualmente
-                    local has_command = pcall(vim.cmd, "LspRestart clangd")
+                    -- Paso 2: Intentamos ejecutar el comando unificado de Neovim 0.12 (`:lsp restart`).
+                    -- Usamos 'pcall' (protected call o llamada protegida). Es como una red de seguridad:
+                    -- si los comandos LSP aún no están cargados por la ejecución diferida (lazy loading),
+                    -- la ejecución falla en silencio sin mostrar pantallas rojas de error que asusten al usuario.
+                    local has_command = pcall(function()
+                        vim.cmd("lsp restart clangd")
+                    end)
 
+                    -- Paso 3: Si la red de seguridad atrapó un error (has_command es falso), significa
+                    -- que debemos apagar el servidor manualmente.
                     if not has_command then
+                        -- Recorremos todos los servidores "clangd" que encontramos (normalmente solo es uno).
                         for _, client in ipairs(clangd_clients) do
-                            vim.lsp.stop_client(client.id)
+                            -- CORRECCIÓN NEOVIM 0.12: Usamos el método nativo del objeto `client:stop()`.
+                            -- Neovim 0.12 unifica la interacción con clientes LSP mediante la API orientada a objetos.
+                            client:stop()
                         end
-                        -- Le damos un momento para cerrarse y relanzamos el evento
+
+                        -- Paso 4: Como el servidor tarda un parpadeo en cerrarse por completo,
+                        -- programamos una alarma temporal (defer_fn) para esperar 300 milisegundos.
                         vim.defer_fn(function()
+                            -- Después de la pausa, simulamos que acabamos de abrir el archivo otra vez.
+                            -- Esto despierta los mecanismos automáticos de Neovim y hace que vuelva a
+                            -- encender el servidor desde cero, como si fuera la primera vez.
                             vim.cmd("silent! doautocmd FileType " .. vim.bo.filetype)
                         end, 300)
                     end
                 else
-                    -- 3. Si no estaba iniciado, forzamos el evento nativo en lugar de LspStart
-                    -- Esto activa vim.lsp.enable("clangd") de forma natural y segura
+                    -- Paso 5: Si el servidor "clangd" nunca estuvo encendido (por ejemplo, porque faltaba
+                    -- el archivo compile_commands.json al abrir el proyecto), simplemente simulamos
+                    -- que acabamos de abrir el archivo. Neovim detectará el código y encenderá el servidor de forma natural.
                     vim.cmd("silent! doautocmd FileType " .. vim.bo.filetype)
                 end
             end
